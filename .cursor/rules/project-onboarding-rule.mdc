@@ -1,0 +1,1188 @@
+---
+description: Automatically onboards existing projects into the AI-driven development workflow
+globs: 
+alwaysApply: true
+---
+
+# Project Onboarding System
+
+Rule for automatically analyzing existing projects and integrating them into the AI-driven development workflow.
+
+<rule>
+name: project_onboarding
+filters:
+  - type: event
+    pattern: "project_onboard"
+  - type: event
+    pattern: "rules_setup"
+  - type: command
+    pattern: "onboard"
+  - type: command
+    pattern: "analyze"
+  - type: event
+    pattern: "cursor_start"
+
+actions:
+  - type: execute
+    conditions:
+      - pattern: "onboard project|project onboard"
+    command: |
+      # Comprehensive onboarding of an existing project
+      # This will analyze the project and create necessary structures
+      
+      echo "Starting comprehensive project onboarding..."
+      
+      # Step 1: Create directory structure if missing
+      mkdir -p .cursor/rules .cursor/specs .cursor/tasks .cursor/learnings .cursor/docs .cursor/output
+      
+      # Step 2: Check if this is a fresh onboarding or already in progress
+      if [ -f ".cursor/onboarding_status.md" ]; then
+        echo "Resuming existing onboarding process..."
+      else
+        # Create onboarding status file
+        cat > ".cursor/onboarding_status.md" << EOF
+# Project Onboarding Status
+
+Started on $(date)
+
+## Onboarding Steps
+- [x] Create directory structure
+- [ ] Analyze project structure
+- [ ] Discover existing documentation
+- [ ] Extract core components
+- [ ] Create initial specifications
+- [ ] Generate knowledge base
+- [ ] Setup task tracking
+
+## Progress
+0% complete
+EOF
+      fi
+      
+      # Step 3: Analyze project structure
+      echo "Analyzing project structure..."
+      
+      # Create project structure analysis
+      PROJECT_STRUCTURE=".cursor/project_structure.md"
+      
+      cat > "$PROJECT_STRUCTURE" << EOF
+# Project Structure Analysis
+
+Generated on $(date)
+
+## Directory Structure
+\`\`\`
+$(find . -type d -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/venv/*" -not -path "*/dist/*" -not -path "*/build/*" | sort)
+\`\`\`
+
+## File Types
+EOF
+      
+      # Analyze file types
+      echo "| Extension | Count | Description |" >> "$PROJECT_STRUCTURE"
+      echo "|-----------|-------|-------------|" >> "$PROJECT_STRUCTURE"
+      
+      # Get list of file extensions and counts
+      find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/venv/*" -not -path "*/dist/*" -not -path "*/build/*" | grep -v "^.$" | sed 's/.*\.//' | sort | uniq -c | sort -nr | while read -r COUNT EXT; do
+        # Determine file type description
+        DESC=""
+        case "$EXT" in
+          js|jsx|ts|tsx) DESC="JavaScript/TypeScript source files" ;;
+          py) DESC="Python source files" ;;
+          java) DESC="Java source files" ;;
+          c|cpp|h|hpp) DESC="C/C++ source files" ;;
+          go) DESC="Go source files" ;;
+          rs) DESC="Rust source files" ;;
+          rb) DESC="Ruby source files" ;;
+          php) DESC="PHP source files" ;;
+          html|htm) DESC="HTML files" ;;
+          css|scss|sass|less) DESC="Stylesheets" ;;
+          json) DESC="JSON configuration/data files" ;;
+          xml) DESC="XML files" ;;
+          yaml|yml) DESC="YAML configuration files" ;;
+          md|markdown) DESC="Markdown documentation" ;;
+          txt) DESC="Text files" ;;
+          svg|png|jpg|jpeg|gif) DESC="Image files" ;;
+          *) DESC="Other files" ;;
+        esac
+        
+        echo "| $EXT | $COUNT | $DESC |" >> "$PROJECT_STRUCTURE"
+      done
+      
+      # Update onboarding status
+      sed -i 's/- \[ \] Analyze project structure/- \[x\] Analyze project structure/g' ".cursor/onboarding_status.md"
+      
+      # Step 4: Discover existing documentation
+      echo "Discovering existing documentation..."
+      
+      # Find and catalog existing documentation
+      mkdir -p .cursor/docs/existing
+      
+      # Look for common documentation files
+      find . -name "*.md" -o -name "README*" -o -name "CONTRIBUTING*" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "*.txt" -o -name "docs/*" -not -path "*/node_modules/*" -not -path "*/venv/*" -not -path "*/dist/*" -not -path "*/build/*" | while read -r DOC_FILE; do
+        # Create a symlink to the original file
+        if [ -f "$DOC_FILE" ]; then
+          DEST_NAME=$(echo "$DOC_FILE" | sed 's/^\.\///' | tr '/' '_')
+          
+          # Copy the file instead of linking to preserve the original
+          cp "$DOC_FILE" ".cursor/docs/existing/$DEST_NAME"
+          echo "Cataloged documentation: $DOC_FILE"
+        fi
+      done
+      
+      # Create documentation index
+      DOC_INDEX=".cursor/docs/EXISTING_DOCS.md"
+      
+      cat > "$DOC_INDEX" << EOF
+# Existing Project Documentation
+
+Generated on $(date)
+
+| Document | Path | Description |
+|----------|------|-------------|
+EOF
+      
+      # Add documentation to index
+      find .cursor/docs/existing -type f | while read -r DOC_FILE; do
+        DOC_NAME=$(basename "$DOC_FILE")
+        ORIG_PATH=$(echo "$DOC_NAME" | tr '_' '/')
+        
+        # Extract first line as description
+        DOC_DESC=$(head -n 3 "$DOC_FILE" | tr '\n' ' ' | head -c 100)
+        
+        echo "| $DOC_NAME | $ORIG_PATH | $DOC_DESC... |" >> "$DOC_INDEX"
+      done
+      
+      # Update onboarding status
+      sed -i 's/- \[ \] Discover existing documentation/- \[x\] Discover existing documentation/g' ".cursor/onboarding_status.md"
+      
+      # Step 5: Extract core components
+      echo "Extracting core components..."
+      
+      # Create components analysis
+      COMPONENTS_FILE=".cursor/core_components.md"
+      
+      cat > "$COMPONENTS_FILE" << EOF
+# Core Components Analysis
+
+Generated on $(date)
+
+## Detected Components
+EOF
+      
+      # Try to detect components based on project structure
+      # Look for common patterns in different languages
+      
+      # JavaScript/TypeScript projects
+      if [ -f "package.json" ]; then
+        echo "### JavaScript/TypeScript Components" >> "$COMPONENTS_FILE"
+        echo "" >> "$COMPONENTS_FILE"
+        
+        # Check for common component directories
+        JS_COMPONENTS=""
+        for DIR in "src" "lib" "components" "app"; do
+          if [ -d "$DIR" ]; then
+            # List subdirectories as potential components
+            find "$DIR" -maxdepth 2 -type d -not -path "*/node_modules/*" | sort | while read -r COMP_DIR; do
+              # Check if directory contains code files
+              if find "$COMP_DIR" -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | grep -q .; then
+                echo "- **$(basename "$COMP_DIR")**: \`$COMP_DIR\`" >> "$COMPONENTS_FILE"
+                echo "  - $(find "$COMP_DIR" -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | wc -l) files" >> "$COMPONENTS_FILE"
+                
+                # Extract first comment block if available
+                FIRST_FILE=$(find "$COMP_DIR" -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | head -1)
+                if [ -n "$FIRST_FILE" ]; then
+                  COMMENT=$(grep -A 5 "^\s*/\*\*" "$FIRST_FILE" 2>/dev/null | head -6 | sed 's/\/\*\*//g' | sed 's/\*\///g' | sed 's/\*//g')
+                  if [ -n "$COMMENT" ]; then
+                    echo "  - Description: $COMMENT" >> "$COMPONENTS_FILE"
+                  fi
+                fi
+                
+                echo "" >> "$COMPONENTS_FILE"
+              fi
+            done
+          fi
+        done
+      fi
+      
+      # Python projects
+      if [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
+        echo "### Python Components" >> "$COMPONENTS_FILE"
+        echo "" >> "$COMPONENTS_FILE"
+        
+        # Find Python packages (directories with __init__.py)
+        find . -name "__init__.py" | sed 's/\/__init__.py$//' | sort | while read -r PACKAGE_DIR; do
+          if [ "$PACKAGE_DIR" != "." ]; then
+            echo "- **$(basename "$PACKAGE_DIR")**: \`$PACKAGE_DIR\`" >> "$COMPONENTS_FILE"
+            echo "  - $(find "$PACKAGE_DIR" -name "*.py" | wc -l) Python files" >> "$COMPONENTS_FILE"
+            
+            # Try to extract docstring from __init__.py
+            if [ -f "$PACKAGE_DIR/__init__.py" ]; then
+              DOCSTRING=$(grep -A 5 '"""' "$PACKAGE_DIR/__init__.py" | head -6 | sed 's/"""//g')
+              if [ -n "$DOCSTRING" ]; then
+                echo "  - Description: $DOCSTRING" >> "$COMPONENTS_FILE"
+              fi
+            fi
+            
+            echo "" >> "$COMPONENTS_FILE"
+          fi
+        done
+      fi
+      
+      # Java projects
+      if [ -f "pom.xml" ] || [ -f "build.gradle" ]; then
+        echo "### Java Components" >> "$COMPONENTS_FILE"
+        echo "" >> "$COMPONENTS_FILE"
+        
+        # Look for Java packages
+        find . -name "*.java" | sed 's/\/[^\/]*\.java$//' | sort | uniq | while read -r PACKAGE_DIR; do
+          if [ "$PACKAGE_DIR" != "." ]; then
+            echo "- **$(basename "$PACKAGE_DIR")**: \`$PACKAGE_DIR\`" >> "$COMPONENTS_FILE"
+            echo "  - $(find "$PACKAGE_DIR" -name "*.java" | wc -l) Java files" >> "$COMPONENTS_FILE"
+            
+            # Try to extract package info from a Java file
+            FIRST_FILE=$(find "$PACKAGE_DIR" -name "*.java" | head -1)
+            if [ -n "$FIRST_FILE" ]; then
+              PACKAGE=$(grep "package" "$FIRST_FILE" | head -1)
+              if [ -n "$PACKAGE" ]; then
+                echo "  - Package: $PACKAGE" >> "$COMPONENTS_FILE"
+              fi
+              
+              # Extract first comment block
+              COMMENT=$(grep -A 5 "^\s*/\*\*" "$FIRST_FILE" 2>/dev/null | head -6 | sed 's/\/\*\*//g' | sed 's/\*\///g' | sed 's/\*//g')
+              if [ -n "$COMMENT" ]; then
+                echo "  - Description: $COMMENT" >> "$COMPONENTS_FILE"
+              fi
+            fi
+            
+            echo "" >> "$COMPONENTS_FILE"
+          fi
+        done
+      fi
+      
+      # For other languages, try generic approach
+      echo "### Other Components" >> "$COMPONENTS_FILE"
+      echo "" >> "$COMPONENTS_FILE"
+      
+      # Look for directories with significant code
+      find . -mindepth 2 -maxdepth 3 -type d -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/venv/*" -not -path "*/dist/*" -not -path "*/build/*" | while read -r DIR; do
+        # Count code files
+        CODE_FILES=$(find "$DIR" -type f -name "*.c" -o -name "*.cpp" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" -o -name "*.php" | wc -l)
+        
+        if [ $CODE_FILES -gt 5 ]; then
+          echo "- **$(basename "$DIR")**: \`$DIR\`" >> "$COMPONENTS_FILE"
+          echo "  - $CODE_FILES code files" >> "$COMPONENTS_FILE"
+          echo "" >> "$COMPONENTS_FILE"
+        fi
+      done
+      
+      # Update onboarding status
+      sed -i 's/- \[ \] Extract core components/- \[x\] Extract core components/g' ".cursor/onboarding_status.md"
+      
+      # Step 6: Create initial specifications
+      echo "Creating initial specifications..."
+      
+      # Create base directories for specs
+      mkdir -p .cursor/specs/components
+      mkdir -p .cursor/specs/architecture
+      mkdir -p .cursor/specs/features
+      
+      # Create master specification index
+      SPECS_INDEX=".cursor/SPECS.md"
+      
+      cat > "$SPECS_INDEX" << EOF
+# Specifications Index
+
+Generated on $(date)
+
+| Specification | Path | Requirements | Completion |
+|---------------|------|-------------|------------|
+EOF
+      
+      # Create architecture overview spec
+      ARCH_SPEC=".cursor/specs/architecture/overview.md"
+      
+      cat > "$ARCH_SPEC" << EOF
+# Project Architecture Overview
+
+## Description
+This specification outlines the high-level architecture of the project, identifying key components and their interactions.
+
+## Requirements
+- [ ] Document high-level system architecture
+- [ ] Identify component relationships
+- [ ] Document data flow between components
+- [ ] Identify external dependencies
+- [ ] Document deployment architecture
+
+## Acceptance Criteria
+- [ ] Architecture diagram is complete
+- [ ] All major components are identified
+- [ ] Component interactions are documented
+- [ ] Architecture is validated against existing codebase
+
+## Notes
+This specification is automatically generated during project onboarding and should be refined with additional details.
+EOF
+      
+      # Add to index
+      echo "| Project Architecture Overview | specs/architecture/overview.md | 5 | 0% |" >> "$SPECS_INDEX"
+      
+      # Create component specs for top components
+      COMPONENT_COUNT=0
+      
+      # Extract component names from the components analysis
+      grep -r "^- \*\*" "$COMPONENTS_FILE" | head -10 | while read -r COMP_LINE; do
+        # Extract component name and path
+        COMP_NAME=$(echo "$COMP_LINE" | sed 's/^- \*\*\(.*\)\*\*:.*/\1/')
+        COMP_PATH=$(echo "$COMP_LINE" | sed 's/^.*`\(.*\)`$/\1/')
+        
+        if [ -n "$COMP_NAME" ] && [ -n "$COMP_PATH" ]; then
+          # Create component spec
+          COMP_SPEC=".cursor/specs/components/${COMP_NAME// /_}.md"
+          
+          cat > "$COMP_SPEC" << EOF
+# ${COMP_NAME} Component
+
+## Description
+Specification for the ${COMP_NAME} component located at \`${COMP_PATH}\`.
+
+## Requirements
+- [ ] Document component purpose and responsibilities
+- [ ] Identify component interfaces
+- [ ] Document component dependencies
+- [ ] Specify component behavior
+- [ ] Define error handling and edge cases
+
+## Acceptance Criteria
+- [ ] Component functionality is fully documented
+- [ ] Component interfaces are clearly defined
+- [ ] Test cases cover component behavior
+
+## Notes
+This component specification was automatically generated during project onboarding. 
+It should be expanded with detailed requirements based on code analysis.
+EOF
+          
+          # Add to index
+          echo "| ${COMP_NAME} Component | specs/components/${COMP_NAME// /_}.md | 5 | 0% |" >> "$SPECS_INDEX"
+          
+          COMPONENT_COUNT=$((COMPONENT_COUNT + 1))
+        fi
+      done
+      
+      # Create features spec based on documentation
+      README_FILES=$(find .cursor/docs/existing -name "README*" | head -1)
+      if [ -n "$README_FILES" ]; then
+        FEATURES_SPEC=".cursor/specs/features/overview.md"
+        
+        cat > "$FEATURES_SPEC" << EOF
+# Project Features Overview
+
+## Description
+This specification outlines the key features of the project based on existing documentation.
+
+## Requirements
+EOF
+        
+        # Try to extract features from README
+        FEATURES=$(grep -n "^#" "$README_FILES" | grep -i -E "features|functionality|capabilities" || echo "")
+        
+        if [ -n "$FEATURES" ]; then
+          LINE_NUM=$(echo "$FEATURES" | cut -d: -f1)
+          NEXT_HEADER=$(grep -n "^#" "$README_FILES" | awk -F: '$1 > '"$LINE_NUM"' {print $1; exit}')
+          
+          if [ -n "$NEXT_HEADER" ]; then
+            CONTENT=$(sed -n "$((LINE_NUM+1)),$((NEXT_HEADER-1))p" "$README_FILES")
+          else
+            CONTENT=$(sed -n "$((LINE_NUM+1)),\$p" "$README_FILES")
+          fi
+          
+          # Extract bullet points as potential features
+          BULLETS=$(echo "$CONTENT" | grep "^[ \t]*[-*]" || echo "")
+          
+          if [ -n "$BULLETS" ]; then
+            echo "$BULLETS" | while read -r BULLET; do
+              # Clean up bullet point
+              FEATURE=$(echo "$BULLET" | sed 's/^[ \t]*[-*][ \t]*//')
+              echo "- [ ] $FEATURE" >> "$FEATURES_SPEC"
+            done
+          else
+            # Default requirements if no bullets found
+            cat >> "$FEATURES_SPEC" << EOF
+- [ ] Document main feature 1
+- [ ] Document main feature 2
+- [ ] Document main feature 3
+EOF
+          fi
+        else
+          # Default requirements if no features section found
+          cat >> "$FEATURES_SPEC" << EOF
+- [ ] Document main feature 1
+- [ ] Document main feature 2
+- [ ] Document main feature 3
+EOF
+        fi
+        
+        # Complete the spec
+        cat >> "$FEATURES_SPEC" << EOF
+
+## Acceptance Criteria
+- [ ] All major features are documented
+- [ ] Feature specifications match implemented functionality
+- [ ] Feature documentation is comprehensive
+
+## Notes
+This feature specification was automatically generated during project onboarding.
+It should be expanded with detailed requirements for each feature.
+EOF
+        
+        # Add to index
+        FEATURE_COUNT=$(grep -c "^- \[ \]" "$FEATURES_SPEC")
+        echo "| Project Features Overview | specs/features/overview.md | $FEATURE_COUNT | 0% |" >> "$SPECS_INDEX"
+      fi
+      
+      # Update onboarding status
+      sed -i 's/- \[ \] Create initial specifications/- \[x\] Create initial specifications/g' ".cursor/onboarding_status.md"
+      
+      # Step 7: Generate knowledge base
+      echo "Generating initial knowledge base..."
+      
+      # Create learnings directory if it doesn't exist
+      mkdir -p .cursor/learnings
+      
+      # Create learnings index
+      LEARNINGS_INDEX=".cursor/LEARNINGS.md"
+      
+      cat > "$LEARNINGS_INDEX" << EOF
+# Learnings Index
+
+| Learning ID | Date | Description |
+|-------------|------|-------------|
+EOF
+      
+      # Generate project structure learning
+      LEARNING_DATE=$(date +%Y-%m-%d)
+      LEARNING_NUM="01"
+      LEARNING_ID="LEARN-${LEARNING_DATE}-${LEARNING_NUM}"
+      LEARNING_TITLE="Project Structure Overview"
+      
+      LEARNING_FILE=".cursor/learnings/${LEARNING_ID}_Project_Structure_Overview.md"
+      
+      cat > "$LEARNING_FILE" << EOF
+# Project Structure Overview
+
+## Learning ID
+${LEARNING_ID}
+
+## Short Description
+Analysis of the project's directory structure and organization
+
+## Detailed Description
+This learning captures the initial analysis of the project structure during onboarding. Understanding the project organization is crucial for effective development and navigation.
+
+Key structural elements:
+$(find . -type d -maxdepth 3 -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/venv/*" -not -path "*/dist/*" -not -path "*/build/*" | sort | head -15 | sed 's/^/- /')
+
+... and more directories (see full structure in project_structure.md)
+
+## Keywords
+project, structure, directories, organization, codebase, architecture
+
+## Relevant Code Files
+- Project root
+
+## Relevant Documents
+- .cursor/project_structure.md
+
+## Date
+${LEARNING_DATE}
+EOF
+      
+      # Add to learnings index
+      echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Project_Structure_Overview.md) | ${LEARNING_DATE} | Analysis of the project's directory structure and organization |" >> "$LEARNINGS_INDEX"
+      
+      # Generate components learning
+      LEARNING_NUM="02"
+      LEARNING_ID="LEARN-${LEARNING_DATE}-${LEARNING_NUM}"
+      LEARNING_TITLE="Core Components Identification"
+      
+      LEARNING_FILE=".cursor/learnings/${LEARNING_ID}_Core_Components_Identification.md"
+      
+      cat > "$LEARNING_FILE" << EOF
+# Core Components Identification
+
+## Learning ID
+${LEARNING_ID}
+
+## Short Description
+Identification of key components and modules in the project
+
+## Detailed Description
+This learning documents the core components identified during project onboarding. Understanding these components is essential for maintenance, feature development, and architecture decisions.
+
+Key components identified:
+$(grep -A 2 "^- \*\*" "$COMPONENTS_FILE" | head -15)
+
+... and more components (see full list in core_components.md)
+
+## Keywords
+components, modules, architecture, structure, dependencies
+
+## Relevant Code Files
+$(grep "^- \*\*" "$COMPONENTS_FILE" | sed "s/^- \*\*\(.*\)\*\*: \`\(.*\)\`$/- \2/" | head -5)
+
+## Relevant Documents
+- .cursor/core_components.md
+- .cursor/specs/architecture/overview.md
+
+## Date
+${LEARNING_DATE}
+EOF
+      
+      # Add to learnings index
+      echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Core_Components_Identification.md) | ${LEARNING_DATE} | Identification of key components and modules in the project |" >> "$LEARNINGS_INDEX"
+      
+      # Generate documentation learning
+      LEARNING_NUM="03"
+      LEARNING_ID="LEARN-${LEARNING_DATE}-${LEARNING_NUM}"
+      LEARNING_TITLE="Existing Documentation Assessment"
+      
+      LEARNING_FILE=".cursor/learnings/${LEARNING_ID}_Existing_Documentation_Assessment.md"
+      
+      cat > "$LEARNING_FILE" << EOF
+# Existing Documentation Assessment
+
+## Learning ID
+${LEARNING_ID}
+
+## Short Description
+Assessment of existing project documentation and knowledge gaps
+
+## Detailed Description
+This learning reviews the existing documentation discovered during project onboarding. It identifies areas where documentation is sufficient and where knowledge gaps exist.
+
+Discovered documentation:
+$(find .cursor/docs/existing -type f | head -10 | sed 's/^/- /')
+
+## Keywords
+documentation, readme, knowledge, gaps, onboarding
+
+## Relevant Documents
+- .cursor/docs/EXISTING_DOCS.md
+$(find .cursor/docs/existing -type f | head -5 | sed 's/^/- /')
+
+## Date
+${LEARNING_DATE}
+EOF
+      
+      # Add to learnings index
+      echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Existing_Documentation_Assessment.md) | ${LEARNING_DATE} | Assessment of existing project documentation and knowledge gaps |" >> "$LEARNINGS_INDEX"
+      
+      # Update onboarding status
+      sed -i 's/- \[ \] Generate knowledge base/- \[x\] Generate knowledge base/g' ".cursor/onboarding_status.md"
+      
+      # Step 8: Setup task tracking
+      echo "Setting up task tracking..."
+      
+      # Create tasks directory if it doesn't exist
+      mkdir -p .cursor/tasks
+      
+      # Create tasks index
+      TASKS_INDEX=".cursor/TASKS.md"
+      
+      cat > "$TASKS_INDEX" << EOF
+# Task Index
+
+| Task ID | Date | State | Description |
+|---------|------|-------|-------------|
+EOF
+      
+      # Create initial onboarding task
+      TASK_DATE=$(date +%Y-%m-%d)
+      TASK_NUM="01"
+      TASK_ID="TASK-${TASK_DATE}-${TASK_NUM}"
+      TASK_TITLE="Complete Project Onboarding"
+      
+      TASK_FILE=".cursor/tasks/${TASK_ID}_Complete_Project_Onboarding.md"
+      
+      cat > "$TASK_FILE" << EOF
+# Complete Project Onboarding
+
+## Description
+Finish the onboarding process by reviewing generated specifications, expanding component documentation, and planning initial tasks.
+
+## Relevant Specifications
+- [ ] specs/architecture/overview.md
+- [ ] specs/features/overview.md
+
+## Acceptance Criteria
+- [ ] Architecture specification is reviewed and expanded
+- [ ] Feature specifications are reviewed and expanded
+- [ ] Component specifications are reviewed for accuracy
+- [ ] Initial development tasks are identified and created
+- [ ] Knowledge base contains essential project information
+
+## Metadata
+- **Task ID**: ${TASK_ID}
+- **Start Date**: ${TASK_DATE}
+- **End Date**: TBD
+- **State**: 🔄 (Active)
+
+## Learnings
+*Information learned during implementation that may be valuable for future reference*
+EOF
+      
+      # Add to tasks index
+      echo "| [${TASK_ID}](.cursor/tasks/${TASK_ID}_Complete_Project_Onboarding.md) | ${TASK_DATE} | 🔄 | Complete Project Onboarding |" >> "$TASKS_INDEX"
+      
+      # Update onboarding status
+      sed -i 's/- \[ \] Setup task tracking/- \[x\] Setup task tracking/g' ".cursor/onboarding_status.md"
+      sed -i 's/0% complete/100% complete/g' ".cursor/onboarding_status.md"
+      
+      echo "Project onboarding complete!"
+      echo "The system has created:"
+      echo "- Initial specifications in .cursor/specs/"
+      echo "- Project analysis files in .cursor/"
+      echo "- Knowledge base entries in .cursor/learnings/"
+      echo "- Task tracking in .cursor/tasks/"
+      echo ""
+      echo "Next steps are defined in task ${TASK_ID}"
+
+  - type: execute
+    conditions:
+      - pattern: "analyze existing|existing analyze"
+    command: |
+      # Analyze an existing codebase without full onboarding
+      echo "Analyzing existing codebase..."
+      
+      mkdir -p .cursor/output
+      ANALYSIS_FILE=".cursor/output/codebase_analysis_$(date +%Y%m%d_%H%M%S).md"
+      
+      # Start analysis report
+      cat > "$ANALYSIS_FILE"
+        TOTAL_FILES=$((TOTAL_FILES + JS_FILES))
+        TOTAL_LINES=$((TOTAL_LINES + JS_LINES))
+      fi
+      
+      # Python
+      PY_FILES=$(find . -name "*.py" | grep -v "venv" | wc -l)
+      if [ $PY_FILES -gt 0 ]; then
+        PY_LINES=$(find . -name "*.py" | grep -v "venv" | xargs cat | wc -l)
+        echo "| Python | $PY_FILES | $PY_LINES |" >> "$ANALYSIS_FILE"
+        TOTAL_FILES=$((TOTAL_FILES + PY_FILES))
+        TOTAL_LINES=$((TOTAL_LINES + PY_LINES))
+      fi
+      
+      # Java
+      JAVA_FILES=$(find . -name "*.java" | wc -l)
+      if [ $JAVA_FILES -gt 0 ]; then
+        JAVA_LINES=$(find . -name "*.java" | xargs cat | wc -l)
+        echo "| Java | $JAVA_FILES | $JAVA_LINES |" >> "$ANALYSIS_FILE"
+        TOTAL_FILES=$((TOTAL_FILES + JAVA_FILES))
+        TOTAL_LINES=$((TOTAL_LINES + JAVA_LINES))
+      fi
+      
+      # C/C++
+      C_FILES=$(find . -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" | wc -l)
+      if [ $C_FILES -gt 0 ]; then
+        C_LINES=$(find . -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" | xargs cat | wc -l)
+        echo "| C/C++ | $C_FILES | $C_LINES |" >> "$ANALYSIS_FILE"
+        TOTAL_FILES=$((TOTAL_FILES + C_FILES))
+        TOTAL_LINES=$((TOTAL_LINES + C_LINES))
+      fi
+      
+      # Other code files
+      OTHER_FILES=$(find . -name "*.go" -o -name "*.rs" -o -name "*.rb" -o -name "*.php" | wc -l)
+      if [ $OTHER_FILES -gt 0 ]; then
+        OTHER_LINES=$(find . -name "*.go" -o -name "*.rs" -o -name "*.rb" -o -name "*.php" | xargs cat | wc -l)
+        echo "| Other Code | $OTHER_FILES | $OTHER_LINES |" >> "$ANALYSIS_FILE"
+        TOTAL_FILES=$((TOTAL_FILES + OTHER_FILES))
+        TOTAL_LINES=$((TOTAL_LINES + OTHER_LINES))
+      fi
+      
+      # Add total
+      echo "| **Total** | **$TOTAL_FILES** | **$TOTAL_LINES** |" >> "$ANALYSIS_FILE"
+      
+      # Module structure
+      echo "" >> "$ANALYSIS_FILE"
+      echo "## Module Structure" >> "$ANALYSIS_FILE"
+      echo "" >> "$ANALYSIS_FILE"
+      
+      # Print directory structure
+      echo '```' >> "$ANALYSIS_FILE"
+      find . -type d -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/venv/*" -not -path "*/dist/*" -not -path "*/build/*" | sort | head -20 | sed -e "s/[^-][^\/]*\//  │   /g" -e "s/│\([^ ]\)/│─\1/" >> "$ANALYSIS_FILE"
+      
+      if [ $(find . -type d -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/venv/*" -not -path "*/dist/*" -not -path "*/build/*" | wc -l) -gt 20 ]; then
+        echo "  ..." >> "$ANALYSIS_FILE"
+      fi
+      
+      echo '```' >> "$ANALYSIS_FILE"
+      
+      # Key components
+      echo "" >> "$ANALYSIS_FILE"
+      echo "## Key Components" >> "$ANALYSIS_FILE"
+      echo "" >> "$ANALYSIS_FILE"
+      
+      # Try to identify key components based on project type
+      if [ -f "package.json" ]; then
+        # JavaScript/TypeScript project
+        if [ -d "src" ]; then
+          echo "### Source Code Modules" >> "$ANALYSIS_FILE"
+          echo "" >> "$ANALYSIS_FILE"
+          
+          find src -maxdepth 2 -type d | sort | while read -r DIR; do
+            # Count files in this directory
+            FILE_COUNT=$(find "$DIR" -type f -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | wc -l)
+            
+            if [ $FILE_COUNT -gt 0 ]; then
+              echo "- **$(basename "$DIR")** ($FILE_COUNT files): \`$DIR\`" >> "$ANALYSIS_FILE"
+              
+              # Look for index or main file
+              MAIN_FILE=""
+              for POTENTIAL in "$DIR/index.js" "$DIR/index.ts" "$DIR/main.js" "$DIR/main.ts" "$DIR/$(basename "$DIR").js" "$DIR/$(basename "$DIR").ts"; do
+                if [ -f "$POTENTIAL" ]; then
+                  MAIN_FILE=$POTENTIAL
+                  break
+                fi
+              done
+              
+              if [ -n "$MAIN_FILE" ]; then
+                # Try to extract purpose from comments
+                COMMENT=$(grep -A 3 "^\s*/[*/]" "$MAIN_FILE" 2>/dev/null | head -3)
+                if [ -n "$COMMENT" ]; then
+                  echo "  - Purpose: $COMMENT" >> "$ANALYSIS_FILE"
+                fi
+              fi
+            fi
+          done
+        fi
+      elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
+        # Python project
+        echo "### Python Packages" >> "$ANALYSIS_FILE"
+        echo "" >> "$ANALYSIS_FILE"
+        
+        # Find Python packages (directories with __init__.py)
+        find . -name "__init__.py" | sed 's/\/__init__.py$//' | sort | while read -r PACKAGE_DIR; do
+          if [ "$PACKAGE_DIR" != "." ]; then
+            FILE_COUNT=$(find "$PACKAGE_DIR" -name "*.py" | wc -l)
+            
+            echo "- **$(basename "$PACKAGE_DIR")** ($FILE_COUNT files): \`$PACKAGE_DIR\`" >> "$ANALYSIS_FILE"
+            
+            # Try to extract purpose from __init__.py
+            if [ -f "$PACKAGE_DIR/__init__.py" ]; then
+              DOCSTRING=$(grep -A 3 '"""' "$PACKAGE_DIR/__init__.py" | head -3)
+              if [ -n "$DOCSTRING" ]; then
+                echo "  - Purpose: $DOCSTRING" >> "$ANALYSIS_FILE"
+              fi
+            fi
+          fi
+        done
+      fi
+      
+      # Test structure
+      echo "" >> "$ANALYSIS_FILE"
+      echo "## Test Structure" >> "$ANALYSIS_FILE"
+      echo "" >> "$ANALYSIS_FILE"
+      
+      # Look for test directories
+      TEST_DIRS=""
+      for DIR in "test" "tests" "spec" "specs" "__tests__" "src/test" "src/tests"; do
+        if [ -d "$DIR" ]; then
+          TEST_DIRS+="$DIR "
+        fi
+      done
+      
+      if [ -n "$TEST_DIRS" ]; then
+        echo "Found test directories:" >> "$ANALYSIS_FILE"
+        
+        for TEST_DIR in $TEST_DIRS; do
+          TEST_COUNT=$(find "$TEST_DIR" -type f | wc -l)
+          echo "- **$TEST_DIR**: $TEST_COUNT test files" >> "$ANALYSIS_FILE"
+        done
+      else
+        echo "No obvious test directories found." >> "$ANALYSIS_FILE"
+        
+        # Look for files with test in the name
+        TEST_FILES=$(find . -name "*test*" -o -name "*spec*" | grep -v "node_modules" | grep -v "venv" | wc -l)
+        
+        if [ $TEST_FILES -gt 0 ]; then
+          echo "Found $TEST_FILES individual test files scattered throughout the project." >> "$ANALYSIS_FILE"
+        else
+          echo "No test files detected. This project may lack automated tests." >> "$ANALYSIS_FILE"
+        fi
+      fi
+      
+      # Documentation
+      echo "" >> "$ANALYSIS_FILE"
+      echo "## Documentation" >> "$ANALYSIS_FILE"
+      echo "" >> "$ANALYSIS_FILE"
+      
+      # Look for documentation files
+      DOC_FILES=$(find . -name "*.md" -o -name "README*" -o -name "CONTRIBUTING*" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "docs/*" -not -path "*/node_modules/*" -not -path "*/venv/*" -not -path "*/dist/*" -not -path "*/build/*")
+      
+      if [ -n "$DOC_FILES" ]; then
+        echo "Found documentation files:" >> "$ANALYSIS_FILE"
+        echo "$DOC_FILES" | while read -r DOC; do
+          echo "- $DOC" >> "$ANALYSIS_FILE"
+        done
+      else
+        echo "No obvious documentation files found." >> "$ANALYSIS_FILE"
+      fi
+      
+      # Recommendations
+      echo "" >> "$ANALYSIS_FILE"
+      echo "## Integration Recommendations" >> "$ANALYSIS_FILE"
+      echo "" >> "$ANALYSIS_FILE"
+      
+      echo "Based on codebase analysis, here are recommendations for integrating with the AI-driven development workflow:" >> "$ANALYSIS_FILE"
+      echo "" >> "$ANALYSIS_FILE"
+      
+      # Check for specifications
+      if [ ! -d ".cursor/specs" ]; then
+        echo "1. **Create Specifications**: Run \`onboard project\` to auto-generate initial specifications based on the existing codebase." >> "$ANALYSIS_FILE"
+      else
+        echo "1. **Review Specifications**: Review and refine the auto-generated specifications in \`.cursor/specs/\`." >> "$ANALYSIS_FILE"
+      fi
+      
+      # Check for test structure
+      if [ -z "$TEST_DIRS" ] && [ $TEST_FILES -lt 10 ]; then
+        echo "2. **Improve Testing**: The project has limited tests. Create a testing strategy and specifications." >> "$ANALYSIS_FILE"
+      else
+        echo "2. **Test Integration**: Link the existing tests with specifications to ensure requirements are verified." >> "$ANALYSIS_FILE"
+      fi
+      
+      # Check for documentation
+      if [ -z "$DOC_FILES" ]; then
+        echo "3. **Documentation**: Create basic documentation for the project, starting with architecture and component descriptions." >> "$ANALYSIS_FILE"
+      else
+        echo "3. **Documentation Integration**: Catalog existing documentation in the knowledge base for future reference." >> "$ANALYSIS_FILE"
+      fi
+      
+      echo "4. **Task Planning**: Create initial tasks for areas that need improvement based on this analysis." >> "$ANALYSIS_FILE"
+      echo "5. **Knowledge Capture**: Begin capturing learnings about the codebase as you explore it in depth." >> "$ANALYSIS_FILE"
+      
+      echo "Analysis complete! Report generated at $ANALYSIS_FILE"
+      echo "This report provides an overview of the existing codebase to help with integration planning."
+
+  - type: execute
+    conditions:
+      - pattern: "setup rules|rules setup"
+    command: |
+      # Set up default rules for a project
+      echo "Setting up AI-driven development workflow rules..."
+      
+      # Create rules directory
+      mkdir -p .cursor/rules
+      
+      # Set up development workflow rule
+      cat > ".cursor/rules/development-rule.mdc" << EOF
+---
+description: Controls development workflow with task tracking and management
+globs: 
+alwaysApply: true
+---
+# Development Workflow Management
+
+Rule for tracking, documenting, and managing development tasks throughout their lifecycle.
+
+<rule>
+name: development_workflow
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Set up git commit rule
+      cat > ".cursor/rules/git-commit-rule.mdc" << EOF
+---
+description: Automatically commit changes made by CursorAI using conventional commits format
+globs: 
+alwaysApply: true
+---
+# Git Conventional Commits
+
+Rule for automatically committing changes made by CursorAI using conventional commits format.
+
+<rule>
+name: conventional_commits
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Set up information tracking rule
+      cat > ".cursor/rules/information-tracking-rule.mdc" << EOF
+---
+description: Manages knowledge tracking and documentation organization
+globs: 
+alwaysApply: true
+---
+# Information and Knowledge Tracking
+
+Rule for managing knowledge assets, tracking learnings, and organizing documentation.
+
+<rule>
+name: information_tracking
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Set up location rule
+      cat > ".cursor/rules/location-rule.mdc" << EOF
+---
+description: Rules for placing and organizing Cursor rule files in the repository.
+globs: *.mdc
+alwaysApply: false
+---
+# Cursor Rules Location
+
+Rules for placing and organizing Cursor rule files in the repository.
+
+<rule>
+name: cursor_rules_location
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Set up request specs rule
+      cat > ".cursor/rules/request-specs-rule.mdc" << EOF
+---
+description: requirements engineering - automatic spec file creation
+globs: 
+alwaysApply: true
+---
+# User Request Specifications Recorder
+
+<rule>
+name: request_specs_recorder
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Set up specification validation rule
+      cat > ".cursor/rules/spec-validation-rule.mdc" << EOF
+---
+description: Validates specifications against implementations and ensures quality standards
+globs: 
+alwaysApply: true
+---
+# Specification Validation
+
+Rule for automatically validating specifications against implementations and ensuring specification quality.
+
+<rule>
+name: specification_validation
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Set up learning refinement rule
+      cat > ".cursor/rules/learning-refinement-rule.mdc" << EOF
+---
+description: System for organizing, categorizing, and refining captured learnings
+globs: 
+alwaysApply: true
+---
+# Learning Refinement System
+
+Rule for organizing, categorizing, and refining captured learnings to maximize their long-term value.
+
+<rule>
+name: learning_refinement
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Set up command rules
+      cat > ".cursor/rules/command-rules.mdc" << EOF
+---
+description: Defines custom commands for AI-driven development workflows
+globs: 
+alwaysApply: true
+---
+# AI Command System
+
+Rule for defining and handling custom commands for AI-assisted development workflows.
+
+<rule>
+name: ai_command_system
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Set up project onboarding rule (self)
+      cat > ".cursor/rules/project-onboarding-rule.mdc" << EOF
+---
+description: Automatically onboards existing projects into the AI-driven development workflow
+globs: 
+alwaysApply: true
+---
+# Project Onboarding System
+
+Rule for automatically analyzing existing projects and integrating them into the AI-driven development workflow.
+
+<rule>
+name: project_onboarding
+# Rule content here - this would contain the actual rule implementation
+</rule>
+EOF
+      
+      # Create structure for other directories
+      mkdir -p .cursor/specs .cursor/tasks .cursor/learnings .cursor/docs .cursor/output
+      
+      echo "Rules setup complete! The following rules have been created:"
+      echo "- Development Workflow Management (.cursor/rules/development-rule.mdc)"
+      echo "- Git Conventional Commits (.cursor/rules/git-commit-rule.mdc)"
+      echo "- Information and Knowledge Tracking (.cursor/rules/information-tracking-rule.mdc)"
+      echo "- Cursor Rules Location (.cursor/rules/location-rule.mdc)"
+      echo "- User Request Specifications Recorder (.cursor/rules/request-specs-rule.mdc)"
+      echo "- Specification Validation (.cursor/rules/spec-validation-rule.mdc)"
+      echo "- Learning Refinement System (.cursor/rules/learning-refinement-rule.mdc)"
+      echo "- AI Command System (.cursor/rules/command-rules.mdc)"
+      echo "- Project Onboarding System (.cursor/rules/project-onboarding-rule.mdc)"
+      echo ""
+      echo "The rule files contain placeholder implementations. To activate with actual implementations, update the rule files with complete rule code."
+      echo ""
+      echo "To fully onboard this project, run: onboard project"
+
+  - type: react
+    event: "cursor_start"
+    action: |
+      # When Cursor starts with the project, check if the project is already onboarded
+      if [ ! -d ".cursor" ]; then
+        echo "Project not yet onboarded for AI-driven development."
+        echo "To set up the necessary directory structure and rules, run: setup rules"
+        echo "To analyze and onboard the existing codebase, run: onboard project"
+      else
+        echo "Project already has .cursor directory structure."
+        echo "To analyze the existing codebase, run: analyze existing"
+        echo "To update project onboarding, run: onboard project"
+      fi
+
+  - type: suggest
+    message: |
+      ### AI-Driven Project Onboarding
+
+      To adapt an existing project to the AI-driven development workflow:
+
+      **Option 1: Full Automatic Onboarding**
+      ```
+      onboard project
+      ```
+      This command will:
+      - Analyze the existing codebase structure
+      - Extract key components and architecture
+      - Create initial specifications based on existing code
+      - Set up knowledge base with project insights
+      - Create initial tasks for completing the onboarding
+
+      **Option 2: Rules-Only Setup**
+      ```
+      setup rules
+      ```
+      This sets up just the rule files and directory structure without analyzing the codebase.
+
+      **Option 3: Analysis Without Onboarding**
+      ```
+      analyze existing
+      ```
+      This generates an analysis report of the existing codebase without creating specifications.
+
+      The onboarding process is designed to be non-invasive and requires no changes to your existing code. It simply adds the necessary `.cursor` directory structure and initial artifacts to enable AI-driven development.
+
+examples:
+  - input: |
+      # Onboard an existing project
+      onboard project
+    output: "Project onboarding complete! The system has created initial specifications, project analysis files, and task tracking."
+
+  - input: |
+      # Set up rules without full onboarding
+      setup rules
+    output: "Rules setup complete! The following rules have been created in the .cursor/rules directory."
+
+  - input: |
+      # Analyze an existing codebase
+      analyze existing
+    output: "Analysis complete! Report generated at .cursor/output/codebase_analysis_20250305_123456.md"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> << EOF
+# Existing Codebase Analysis
+
+Generated on $(date)
+
+## Project Overview
+
+EOF
+      
+      # Detect project type
+      if [ -f "package.json" ]; then
+        echo "**Project Type**: JavaScript/TypeScript" >> "$ANALYSIS_FILE"
+        
+        # Extract project name and version
+        NAME=$(grep -m 1 "\"name\":" package.json | sed 's/.*"name": "\(.*\)".*/\1/')
+        VERSION=$(grep -m 1 "\"version\":" package.json | sed 's/.*"version": "\(.*\)".*/\1/')
+        echo "**Name**: $NAME" >> "$ANALYSIS_FILE"
+        echo "**Version**: $VERSION" >> "$ANALYSIS_FILE"
+        
+        # Extract main dependencies
+        echo "" >> "$ANALYSIS_FILE"
+        echo "### Main Dependencies" >> "$ANALYSIS_FILE"
+        echo "" >> "$ANALYSIS_FILE"
+        
+        grep -A 20 "\"dependencies\":" package.json | grep -v "\"dependencies\":" | grep ":" | head -10 >> "$ANALYSIS_FILE"
+        
+      elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
+        echo "**Project Type**: Python" >> "$ANALYSIS_FILE"
+        
+        if [ -f "setup.py" ]; then
+          # Try to extract project name and version
+          NAME=$(grep -m 1 "name=" setup.py | sed "s/.*name=['\"]\([^'\"]*\)['\"]\(.*\)/\1/")
+          VERSION=$(grep -m 1 "version=" setup.py | sed "s/.*version=['\"]\([^'\"]*\)['\"]\(.*\)/\1/")
+          echo "**Name**: $NAME" >> "$ANALYSIS_FILE"
+          echo "**Version**: $VERSION" >> "$ANALYSIS_FILE"
+        fi
+        
+        # List dependencies
+        echo "" >> "$ANALYSIS_FILE"
+        echo "### Main Dependencies" >> "$ANALYSIS_FILE"
+        echo "" >> "$ANALYSIS_FILE"
+        
+        if [ -f "requirements.txt" ]; then
+          head -10 requirements.txt >> "$ANALYSIS_FILE"
+        fi
+        
+      elif [ -f "pom.xml" ] || [ -f "build.gradle" ]; then
+        echo "**Project Type**: Java" >> "$ANALYSIS_FILE"
+        
+        if [ -f "pom.xml" ]; then
+          # Try to extract project info from pom.xml
+          NAME=$(grep -m 1 "<artifactId>" pom.xml | sed 's/.*<artifactId>\(.*\)<\/artifactId>.*/\1/')
+          VERSION=$(grep -m 1 "<version>" pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          echo "**Name**: $NAME" >> "$ANALYSIS_FILE"
+          echo "**Version**: $VERSION" >> "$ANALYSIS_FILE"
+        fi
+        
+      else
+        echo "**Project Type**: Unknown/Custom" >> "$ANALYSIS_FILE"
+      fi
+      
+      # Code statistics
+      echo "" >> "$ANALYSIS_FILE"
+      echo "## Code Statistics" >> "$ANALYSIS_FILE"
+      echo "" >> "$ANALYSIS_FILE"
+      
+      # Count files by type
+      echo "| File Type | Count | Lines |" >> "$ANALYSIS_FILE"
+      echo "|-----------|-------|-------|" >> "$ANALYSIS_FILE"
+      
+      TOTAL_FILES=0
+      TOTAL_LINES=0
+      
+      # JavaScript/TypeScript
+      JS_FILES=$(find . -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | grep -v "node_modules" | grep -v "dist" | wc -l)
+      if [ $JS_FILES -gt 0 ]; then
+        JS_LINES=$(find . -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | grep -v "node_modules" | grep -v "dist" | xargs cat | wc -l)
+        echo "| JavaScript/TypeScript | $JS_FILES | $JS_LINES |" >> "$

@@ -1,0 +1,826 @@
+---
+description: System for organizing, categorizing, and refining captured learnings
+globs: 
+alwaysApply: true
+---
+
+# Learning Refinement System
+
+Rule for organizing, categorizing, and refining captured learnings to maximize their long-term value.
+
+<rule>
+name: learning_refinement
+filters:
+  - type: event
+    pattern: "learning_create"
+  - type: event
+    pattern: "learning_update"
+  - type: file_change
+    pattern: ".cursor/learnings/*.md"
+  - type: command
+    pattern: "learn"
+  - type: command
+    pattern: "knowledge"
+
+actions:
+  - type: execute
+    conditions:
+      - pattern: "learn categorize|learning categorize"
+    command: |
+      # Categorize and organize learnings
+      
+      # Create categories directory if it doesn't exist
+      mkdir -p .cursor/learning_categories
+      
+      # Create categorized index
+      CATEGORIES_INDEX=".cursor/learning_categories/CATEGORIES.md"
+      
+      # Start with a fresh categories index
+      cat > "$CATEGORIES_INDEX" << EOF
+# Learning Categories
+
+This document organizes learnings by category for easier reference.
+
+EOF
+      
+      # Define common categories with tags for identification
+      CATEGORIES=(
+        "Architecture:architecture,system,design,structure,pattern,component"
+        "Performance:performance,optimization,speed,latency,throughput,bottleneck,slow"
+        "Security:security,vulnerability,exploit,attack,encryption,auth,password"
+        "DevOps:deploy,pipeline,ci,cd,container,docker,kubernetes,infra"
+        "UX:user experience,ux,ui,interface,accessibility,a11y,usability"
+        "API:api,endpoint,rest,graphql,http,request,response"
+        "Database:database,db,sql,query,orm,schema,migration,model"
+        "Testing:test,unit test,integration test,mock,stub,fixture,assertion"
+        "Bugs:bug,issue,error,exception,crash,fix,failure"
+        "Frontend:frontend,react,vue,angular,dom,html,css,js"
+        "Backend:backend,server,middleware,request,route,controller"
+        "Mobile:mobile,ios,android,responsive,app"
+        "Tooling:tool,utility,helper,library,framework,package"
+        "Process:process,workflow,methodology,practice,scrum,agile"
+      )
+      
+      # Loop through each category and find matching learnings
+      for CATEGORY_DEF in "${CATEGORIES[@]}"; do
+        # Split category name and tags
+        CATEGORY_NAME=$(echo "$CATEGORY_DEF" | cut -d: -f1)
+        CATEGORY_TAGS=$(echo "$CATEGORY_DEF" | cut -d: -f2)
+        
+        # Add category to index
+        echo -e "\n## ${CATEGORY_NAME}\n" >> "$CATEGORIES_INDEX"
+        
+        # Find learnings that match this category
+        FOUND_LEARNINGS=0
+        
+        # Create a category file for detailed listings
+        CATEGORY_FILE=".cursor/learning_categories/${CATEGORY_NAME// /_}.md"
+        
+        cat > "$CATEGORY_FILE" << EOF
+# ${CATEGORY_NAME} Learnings
+
+A collection of learnings related to ${CATEGORY_NAME}.
+
+| Learning ID | Date | Title | Keywords |
+|-------------|------|-------|----------|
+EOF
+        
+        # Search for learnings that match any of the tags
+        for TAG in $(echo "$CATEGORY_TAGS" | tr ',' ' '); do
+          # Find learning files containing this tag
+          LEARNING_FILES=$(grep -l "$TAG" .cursor/learnings/*.md || echo "")
+          
+          if [ -n "$LEARNING_FILES" ]; then
+            for LEARNING_FILE in $LEARNING_FILES; do
+              # Extract learning ID and information
+              LEARNING_ID=$(grep -m 1 "## Learning ID" -A 1 "$LEARNING_FILE" | tail -n 1)
+              LEARNING_DATE=$(grep -m 1 "## Date" -A 1 "$LEARNING_FILE" | tail -n 1)
+              LEARNING_TITLE=$(grep -m 1 "^# " "$LEARNING_FILE" | sed 's/^# //')
+              
+              # Only add if not already in the category file (avoid duplicates)
+              if ! grep -q "$LEARNING_ID" "$CATEGORY_FILE"; then
+                echo "| $LEARNING_ID | $LEARNING_DATE | $LEARNING_TITLE | $TAG |" >> "$CATEGORY_FILE"
+                FOUND_LEARNINGS=$((FOUND_LEARNINGS + 1))
+              fi
+            done
+          fi
+        done
+        
+        # Add summary to the main categories index
+        if [ $FOUND_LEARNINGS -gt 0 ]; then
+          echo "Found $FOUND_LEARNINGS learnings related to $CATEGORY_NAME." >> "$CATEGORIES_INDEX"
+          echo "[View $CATEGORY_NAME learnings](mdc:${CATEGORY_NAME/ /_}.md)" >> "$CATEGORIES_INDEX"
+        else
+          echo "No learnings found for this category yet." >> "$CATEGORIES_INDEX"
+        fi
+      end
+      
+      # Look for learnings that weren't categorized
+      UNCATEGORIZED_FILE=".cursor/learning_categories/Uncategorized.md"
+      
+      cat > "$UNCATEGORIZED_FILE" << EOF
+# Uncategorized Learnings
+
+Learnings that don't fit into the predefined categories.
+
+| Learning ID | Date | Title |
+|-------------|------|-------|
+EOF
+      
+      # Get all learning files
+      ALL_LEARNINGS=$(find .cursor/learnings -name "*.md" -type f)
+      UNCATEGORIZED_COUNT=0
+      
+      for LEARNING_FILE in $ALL_LEARNINGS; do
+        # Extract learning ID
+        LEARNING_ID=$(grep -m 1 "## Learning ID" -A 1 "$LEARNING_FILE" | tail -n 1)
+        
+        # Check if this learning is in any category file
+        CATEGORIZED=0
+        for CATEGORY_DEF in "${CATEGORIES[@]}"; do
+          CATEGORY_NAME=$(echo "$CATEGORY_DEF" | cut -d: -f1)
+          CATEGORY_FILE=".cursor/learning_categories/${CATEGORY_NAME// /_}.md"
+          
+          if grep -q "$LEARNING_ID" "$CATEGORY_FILE"; then
+            CATEGORIZED=1
+            break
+          fi
+        done
+        
+        # If not categorized, add to uncategorized
+        if [ $CATEGORIZED -eq 0 ]; then
+          LEARNING_DATE=$(grep -m 1 "## Date" -A 1 "$LEARNING_FILE" | tail -n 1)
+          LEARNING_TITLE=$(grep -m 1 "^# " "$LEARNING_FILE" | sed 's/^# //')
+          
+          echo "| $LEARNING_ID | $LEARNING_DATE | $LEARNING_TITLE |" >> "$UNCATEGORIZED_FILE"
+          UNCATEGORIZED_COUNT=$((UNCATEGORIZED_COUNT + 1))
+        fi
+      done
+      
+      # Add uncategorized section to main index
+      echo -e "\n## Uncategorized\n" >> "$CATEGORIES_INDEX"
+      if [ $UNCATEGORIZED_COUNT -gt 0 ]; then
+        echo "Found $UNCATEGORIZED_COUNT uncategorized learnings." >> "$CATEGORIES_INDEX"
+        echo "[View uncategorized learnings](mdc:Uncategorized.md)" >> "$CATEGORIES_INDEX"
+      else
+        echo "No uncategorized learnings found." >> "$CATEGORIES_INDEX"
+      fi
+      
+      echo "Learning categorization complete. Categories index created at $CATEGORIES_INDEX"
+      echo "Found $UNCATEGORIZED_COUNT uncategorized learnings."
+
+  - type: execute
+    conditions:
+      - pattern: "learn refine:(.*)"
+    command: |
+      # Extract the learning ID from the command
+      LEARNING_ID=$(echo "$COMMAND" | sed 's/learn refine://')
+      
+      if [ -z "$LEARNING_ID" ]; then
+        echo "Error: No learning ID provided"
+        echo "Usage: learn refine:LEARN-YYYY-MM-DD-NN"
+        exit 1
+      fi
+      
+      # Find the learning file
+      LEARNING_FILE=$(find .cursor/learnings -name "${LEARNING_ID}*" -type f | head -1)
+      
+      if [ -z "$LEARNING_FILE" ]; then
+        echo "Error: Learning with ID $LEARNING_ID not found"
+        exit 1
+      fi
+      
+      # Create a refined version of the learning
+      REFINED_FILE="${LEARNING_FILE%.md}_refined.md"
+      
+      # Extract basic information
+      LEARNING_TITLE=$(grep -m 1 "^# " "$LEARNING_FILE" | sed 's/^# //')
+      LEARNING_SHORT_DESC=$(grep -A 1 "## Short Description" "$LEARNING_FILE" | tail -n 1)
+      LEARNING_DETAILED_DESC=$(sed -n '/## Detailed Description/,/##/p' "$LEARNING_FILE" | sed '1d;$d')
+      LEARNING_DATE=$(grep -A 1 "## Date" "$LEARNING_FILE" | tail -n 1)
+      
+      # Extract other related information
+      RELATED_CODE=$(sed -n '/## Relevant Code Files/,/##/p' "$LEARNING_FILE" | sed '1d;$d')
+      RELATED_TASKS=$(sed -n '/## Relevant Tasks/,/##/p' "$LEARNING_FILE" | sed '1d;$d')
+      RELATED_SPECS=$(sed -n '/## Relevant Specifications/,/##/p' "$LEARNING_FILE" | sed '1d;$d')
+      RELATED_DOCS=$(sed -n '/## Relevant Documents/,/##/p' "$LEARNING_FILE" | sed '1d;$d')
+      
+      # Generate semantic keywords from the content
+      KEYWORDS=$(echo "$LEARNING_TITLE $LEARNING_SHORT_DESC $LEARNING_DETAILED_DESC" | \
+                tr '[:upper:]' '[:lower:]' | \
+                tr -cs '[:alnum:]' '\n' | \
+                grep -v "^$" | \
+                sort | uniq -c | sort -nr | \
+                head -10 | awk '{print $2}' | \
+                tr '\n' ',' | sed 's/,$//')
+      
+      # Create the refined learning file
+      cat > "$REFINED_FILE" << EOF
+# $LEARNING_TITLE
+
+## Learning ID
+$LEARNING_ID
+
+## Short Description
+$LEARNING_SHORT_DESC
+
+## Detailed Description
+$LEARNING_DETAILED_DESC
+
+## Keywords
+$KEYWORDS
+
+## Key Takeaways
+- [AI to analyze and extract key takeaways]
+
+## Applications
+- [AI to suggest potential applications of this learning]
+
+## Related Information
+EOF
+      
+      # Add related information sections if they exist
+      if [ -n "$RELATED_CODE" ] && [ "$RELATED_CODE" != "- None" ]; then
+        cat >> "$REFINED_FILE" << EOF
+
+### Related Code Files
+$RELATED_CODE
+EOF
+      fi
+      
+      if [ -n "$RELATED_TASKS" ] && [ "$RELATED_TASKS" != "- None" ]; then
+        cat >> "$REFINED_FILE" << EOF
+
+### Related Tasks
+$RELATED_TASKS
+EOF
+      fi
+      
+      if [ -n "$RELATED_SPECS" ] && [ "$RELATED_SPECS" != "- None" ]; then
+        cat >> "$REFINED_FILE" << EOF
+
+### Related Specifications
+$RELATED_SPECS
+EOF
+      fi
+      
+      if [ -n "$RELATED_DOCS" ] && [ "$RELATED_DOCS" != "- None" ]; then
+        cat >> "$REFINED_FILE" << EOF
+
+### Related Documents
+$RELATED_DOCS
+EOF
+      fi
+      
+      # Add similar learnings section
+      cat >> "$REFINED_FILE" << EOF
+
+## Similar Learnings
+[AI to find and suggest similar learnings]
+
+## Date
+$LEARNING_DATE
+
+## Last Refined
+$(date +"%Y-%m-%d")
+EOF
+      
+      echo "Learning refined template created at $REFINED_FILE"
+      echo "The refined learning contains sections for AI analysis and enhancement"
+
+  - type: execute
+    conditions:
+      - pattern: "learn extract|knowledge extract"
+    command: |
+      # Extract patterns and valuable information from all learnings
+      EXTRACT_FILE=".cursor/output/knowledge_extraction_$(date +%Y%m%d_%H%M%S).md"
+      
+      # Start extraction report
+      cat > "$EXTRACT_FILE" << EOF
+# Knowledge Extraction Report
+
+Generated on $(date)
+
+This report analyzes all captured learnings to identify patterns, best practices, and reusable solutions.
+
+## Learning Statistics
+
+EOF
+      
+      # Count learnings by type/pattern
+      TOTAL_LEARNINGS=$(find .cursor/learnings -name "*.md" -type f | wc -l)
+      
+      # Basic categorization by filename patterns
+      AUTO_CAPTURED=$(find .cursor/learnings -name "*Auto_Captured*" -type f | wc -l)
+      DOCUMENT_LEARNINGS=$(find .cursor/learnings -name "*Document_added*" -type f | wc -l)
+      TEST_FAILURES=$(find .cursor/learnings -name "*Test_Failure*" -type f | wc -l)
+      
+      # Calculate percentages
+      AUTO_PCT=$((AUTO_CAPTURED * 100 / TOTAL_LEARNINGS))
+      DOC_PCT=$((DOCUMENT_LEARNINGS * 100 / TOTAL_LEARNINGS))
+      TEST_PCT=$((TEST_FAILURES * 100 / TOTAL_LEARNINGS))
+      OTHER_PCT=$((100 - AUTO_PCT - DOC_PCT - TEST_PCT))
+      
+      # Add statistics to report
+      cat >> "$EXTRACT_FILE" << EOF
+- **Total Learnings**: ${TOTAL_LEARNINGS}
+- **Auto-captured Insights**: ${AUTO_CAPTURED} (${AUTO_PCT}%)
+- **Document-related**: ${DOCUMENT_LEARNINGS} (${DOC_PCT}%)
+- **Test Failures**: ${TEST_FAILURES} (${TEST_PCT}%)
+- **Other Learnings**: $((TOTAL_LEARNINGS - AUTO_CAPTURED - DOCUMENT_LEARNINGS - TEST_FAILURES)) (${OTHER_PCT}%)
+
+## Frequently Mentioned Topics
+
+EOF
+      
+      # Extract most common terms across all learnings
+      ALL_CONTENT=$(cat .cursor/learnings/*.md | tr '[:upper:]' '[:lower:]')
+      
+      # Define stop words to ignore
+      STOP_WORDS="the and that for this with from have they will what when how been about which their them then there these some would make like time just know see one into more here such take only find also back after use two how all first way even new want because any these give day most use"
+      
+      # Extract terms and count frequency
+      COMMON_TERMS=$(echo "$ALL_CONTENT" | \
+                    tr -cs '[:alnum:]' '\n' | \
+                    grep -v "^$" | \
+                    grep -v -w "$STOP_WORDS" | \
+                    grep -E '^.{4,}$' | \
+                    sort | uniq -c | sort -nr | \
+                    head -20)
+      
+      # Format and add to report
+      echo "| Term | Frequency |" >> "$EXTRACT_FILE"
+      echo "|------|-----------|" >> "$EXTRACT_FILE"
+      
+      echo "$COMMON_TERMS" | while read -r COUNT TERM; do
+        echo "| $TERM | $COUNT |" >> "$EXTRACT_FILE"
+      done
+      
+      echo "" >> "$EXTRACT_FILE"
+      echo "## Potential Best Practices" >> "$EXTRACT_FILE"
+      echo "" >> "$EXTRACT_FILE"
+      
+      # Look for patterns that might indicate best practices
+      BEST_PRACTICE_PATTERNS=("best practice" "recommended" "should always" "never" "important to" "ensure that" "key point" "takeaway")
+      
+      for PATTERN in "${BEST_PRACTICE_PATTERNS[@]}"; do
+        MATCHES=$(grep -i -r "$PATTERN" .cursor/learnings --include="*.md")
+        
+        if [ -n "$MATCHES" ]; then
+          echo "### Practices related to \"$PATTERN\"" >> "$EXTRACT_FILE"
+          echo "" >> "$EXTRACT_FILE"
+          
+          echo "$MATCHES" | while read -r LINE; do
+            FILE=$(echo "$LINE" | cut -d: -f1)
+            TEXT=$(echo "$LINE" | cut -d: -f2-)
+            
+            LEARNING_ID=$(grep -m 1 "## Learning ID" -A 1 "$FILE" | tail -n 1)
+            
+            echo "- $TEXT [$LEARNING_ID]" >> "$EXTRACT_FILE"
+          done
+          
+          echo "" >> "$EXTRACT_FILE"
+        fi
+      done
+      
+      echo "## Recurring Challenges" >> "$EXTRACT_FILE"
+      echo "" >> "$EXTRACT_FILE"
+      
+      # Look for patterns indicating challenges or issues
+      CHALLENGE_PATTERNS=("challenge" "issue" "problem" "difficult" "complex" "struggle" "error" "bug" "failure")
+      
+      for PATTERN in "${CHALLENGE_PATTERNS[@]}"; do
+        MATCHES=$(grep -i -r "$PATTERN" .cursor/learnings --include="*.md")
+        
+        if [ -n "$MATCHES" ]; then
+          echo "### Challenges related to \"$PATTERN\"" >> "$EXTRACT_FILE"
+          echo "" >> "$EXTRACT_FILE"
+          
+          echo "$MATCHES" | while read -r LINE; do
+            FILE=$(echo "$LINE" | cut -d: -f1)
+            TEXT=$(echo "$LINE" | cut -d: -f2-)
+            
+            LEARNING_ID=$(grep -m 1 "## Learning ID" -A 1 "$FILE" | tail -n 1)
+            
+            echo "- $TEXT [$LEARNING_ID]" >> "$EXTRACT_FILE"
+          done
+          
+          echo "" >> "$EXTRACT_FILE"
+        fi
+      done
+      
+      echo "## Solution Patterns" >> "$EXTRACT_FILE"
+      echo "" >> "$EXTRACT_FILE"
+      
+      # Look for patterns indicating solutions
+      SOLUTION_PATTERNS=("solution" "solved" "resolved" "fixed" "implemented" "approach" "strategy" "method")
+      
+      for PATTERN in "${SOLUTION_PATTERNS[@]}"; do
+        MATCHES=$(grep -i -r "$PATTERN" .cursor/learnings --include="*.md")
+        
+        if [ -n "$MATCHES" ]; then
+          echo "### Solutions related to \"$PATTERN\"" >> "$EXTRACT_FILE"
+          echo "" >> "$EXTRACT_FILE"
+          
+          echo "$MATCHES" | while read -r LINE; do
+            FILE=$(echo "$LINE" | cut -d: -f1)
+            TEXT=$(echo "$LINE" | cut -d: -f2-)
+            
+            LEARNING_ID=$(grep -m 1 "## Learning ID" -A 1 "$FILE" | tail -n 1)
+            
+            echo "- $TEXT [$LEARNING_ID]" >> "$EXTRACT_FILE"
+          done
+          
+          echo "" >> "$EXTRACT_FILE"
+        fi
+      done
+      
+      echo "Knowledge extraction report generated at $EXTRACT_FILE"
+
+  - type: execute
+    conditions:
+      - pattern: "learn metrics|knowledge metrics"
+    command: |
+      # Generate metrics and insights about captured knowledge
+      METRICS_FILE=".cursor/output/knowledge_metrics_$(date +%Y%m%d_%H%M%S).md"
+      
+      # Start metrics report
+      cat > "$METRICS_FILE" << EOF
+# Knowledge Metrics Report
+
+Generated on $(date)
+
+This report analyzes the knowledge capture efficiency and trends.
+
+## Overall Knowledge Metrics
+
+EOF
+      
+      # Count learnings
+      TOTAL_LEARNINGS=$(find .cursor/learnings -name "*.md" -type f | wc -l)
+      
+      # Calculate learnings per day
+      FIRST_LEARNING=$(find .cursor/learnings -name "*.md" -type f | xargs ls -t | tail -1)
+      if [ -n "$FIRST_LEARNING" ]; then
+        FIRST_DATE=$(grep -m 1 "## Date" -A 1 "$FIRST_LEARNING" | tail -n 1)
+        
+        # Calculate days since first learning
+        FIRST_SECONDS=$(date -d "$FIRST_DATE" +%s)
+        CURRENT_SECONDS=$(date +%s)
+        DAYS_SPAN=$(( (CURRENT_SECONDS - FIRST_SECONDS) / 86400 ))
+        
+        if [ $DAYS_SPAN -eq 0 ]; then
+          DAYS_SPAN=1
+        fi
+        
+        LEARNINGS_PER_DAY=$(echo "scale=2; $TOTAL_LEARNINGS / $DAYS_SPAN" | bc)
+      else
+        FIRST_DATE="N/A"
+        DAYS_SPAN="N/A"
+        LEARNINGS_PER_DAY="N/A"
+      fi
+      
+      # Get total word count as a knowledge volume metric
+      TOTAL_WORDS=$(cat .cursor/learnings/*.md 2>/dev/null | wc -w)
+      
+      # Add basic metrics to report
+      cat >> "$METRICS_FILE" << EOF
+- **Total Learnings**: ${TOTAL_LEARNINGS}
+- **First Learning Date**: ${FIRST_DATE}
+- **Days Capturing Knowledge**: ${DAYS_SPAN}
+- **Learnings Per Day (avg)**: ${LEARNINGS_PER_DAY}
+- **Total Words Captured**: ${TOTAL_WORDS}
+
+## Knowledge Capture Trend
+
+EOF
+      
+      # Analyze knowledge capture by month
+      echo "| Month | Learnings Captured |" >> "$METRICS_FILE"
+      echo "|-------|-------------------|" >> "$METRICS_FILE"
+      
+      # Get all unique months from learning dates
+      MONTHS=$(grep -r "## Date" .cursor/learnings --include="*.md" | cut -d: -f2- | sort | uniq)
+      
+      for MONTH in $MONTHS; do
+        # Count learnings in this month
+        MONTH_COUNT=$(grep -r "## Date" -A 1 .cursor/learnings --include="*.md" | grep -B 1 "$MONTH" | grep -c "## Date")
+        
+        echo "| $MONTH | $MONTH_COUNT |" >> "$METRICS_FILE"
+      done
+      
+      echo "" >> "$METRICS_FILE"
+      echo "## Knowledge Type Distribution" >> "$METRICS_FILE"
+      echo "" >> "$METRICS_FILE"
+      
+      # Analyze knowledge by categorization from filenames
+      echo "| Knowledge Type | Count | Percentage |" >> "$METRICS_FILE"
+      echo "|---------------|-------|------------|" >> "$METRICS_FILE"
+      
+      # Define knowledge types and patterns
+      KNOWLEDGE_TYPES=(
+        "Auto-captured Insights:Auto_Captured"
+        "Test Failures:Test_Failure"
+        "Document Related:Document_added"
+        "Task Learnings:TASK-"
+      )
+      
+      # Calculate each type
+      for TYPE_DEF in "${KNOWLEDGE_TYPES[@]}"; do
+        TYPE_NAME=$(echo "$TYPE_DEF" | cut -d: -f1)
+        TYPE_PATTERN=$(echo "$TYPE_DEF" | cut -d: -f2)
+        
+        TYPE_COUNT=$(find .cursor/learnings -name "*${TYPE_PATTERN}*" -type f | wc -l)
+        
+        if [ $TOTAL_LEARNINGS -eq 0 ]; then
+          TYPE_PCT="0"
+        else
+          TYPE_PCT=$((TYPE_COUNT * 100 / TOTAL_LEARNINGS))
+        fi
+        
+        echo "| $TYPE_NAME | $TYPE_COUNT | ${TYPE_PCT}% |" >> "$METRICS_FILE"
+      done
+      
+      # Calculate "Other" category
+      OTHER_COUNT=0
+      for TYPE_DEF in "${KNOWLEDGE_TYPES[@]}"; do
+        TYPE_PATTERN=$(echo "$TYPE_DEF" | cut -d: -f2)
+        TYPE_COUNT=$(find .cursor/learnings -name "*${TYPE_PATTERN}*" -type f | wc -l)
+        OTHER_COUNT=$((OTHER_COUNT + TYPE_COUNT))
+      done
+      
+      OTHER_COUNT=$((TOTAL_LEARNINGS - OTHER_COUNT))
+      
+      if [ $TOTAL_LEARNINGS -eq 0 ]; then
+        OTHER_PCT="0"
+      else
+        OTHER_PCT=$((OTHER_COUNT * 100 / TOTAL_LEARNINGS))
+      fi
+      
+      echo "| Other Knowledge | $OTHER_COUNT | ${OTHER_PCT}% |" >> "$METRICS_FILE"
+      
+      echo "" >> "$METRICS_FILE"
+      echo "## Knowledge Quality Assessment" >> "$METRICS_FILE"
+      echo "" >> "$METRICS_FILE"
+      
+      # Assess learning quality based on content metrics
+      echo "| Metric | Average | Min | Max |" >> "$METRICS_FILE"
+      echo "|--------|---------|-----|-----|" >> "$METRICS_FILE"
+      
+      # Calculate words per learning
+      if [ $TOTAL_LEARNINGS -eq 0 ]; then
+        AVG_WORDS="0"
+      else
+        AVG_WORDS=$((TOTAL_WORDS / TOTAL_LEARNINGS))
+      fi
+      
+      # Find min and max word counts
+      MIN_WORDS=9999999
+      MAX_WORDS=0
+      
+      for LEARNING_FILE in $(find .cursor/learnings -name "*.md" -type f); do
+        WORD_COUNT=$(cat "$LEARNING_FILE" | wc -w)
+        
+        if [ $WORD_COUNT -lt $MIN_WORDS ]; then
+          MIN_WORDS=$WORD_COUNT
+        fi
+        
+        if [ $WORD_COUNT -gt $MAX_WORDS ]; then
+          MAX_WORDS=$WORD_COUNT
+        fi
+      done
+      
+      echo "| Words per Learning | $AVG_WORDS | $MIN_WORDS | $MAX_WORDS |" >> "$METRICS_FILE"
+      
+      # Calculate sections per learning
+      TOTAL_SECTIONS=$(grep -r "^## " .cursor/learnings --include="*.md" | wc -l)
+      
+      if [ $TOTAL_LEARNINGS -eq 0 ]; then
+        AVG_SECTIONS="0"
+      else
+        AVG_SECTIONS=$((TOTAL_SECTIONS / TOTAL_LEARNINGS))
+      fi
+      
+      # Find min and max section counts
+      MIN_SECTIONS=9999
+      MAX_SECTIONS=0
+      
+      for LEARNING_FILE in $(find .cursor/learnings -name "*.md" -type f); do
+        SECTION_COUNT=$(grep -c "^## " "$LEARNING_FILE")
+        
+        if [ $SECTION_COUNT -lt $MIN_SECTIONS ]; then
+          MIN_SECTIONS=$SECTION_COUNT
+        fi
+        
+        if [ $SECTION_COUNT -gt $MAX_SECTIONS ]; then
+          MAX_SECTIONS=$SECTION_COUNT
+        fi
+      done
+      
+      echo "| Sections per Learning | $AVG_SECTIONS | $MIN_SECTIONS | $MAX_SECTIONS |" >> "$METRICS_FILE"
+      
+      # Calculate relationships per learning (links to tasks, code, etc.)
+      TOTAL_RELATIONSHIPS=$(grep -r "- " .cursor/learnings --include="*.md" | grep -c "Relevant")
+      
+      if [ $TOTAL_LEARNINGS -eq 0 ]; then
+        AVG_RELATIONSHIPS="0"
+      else
+        AVG_RELATIONSHIPS=$((TOTAL_RELATIONSHIPS / TOTAL_LEARNINGS))
+      fi
+      
+      echo "| Relationships per Learning | $AVG_RELATIONSHIPS | - | - |" >> "$METRICS_FILE"
+      
+      echo "" >> "$METRICS_FILE"
+      echo "## Recommendations for Knowledge Management" >> "$METRICS_FILE"
+      echo "" >> "$METRICS_FILE"
+      
+      # Generate recommendations based on metrics
+      if [ $AVG_WORDS -lt 100 ]; then
+        echo "- **Improve Detail**: Learnings are relatively short (avg $AVG_WORDS words). Consider capturing more detailed context and explanations." >> "$METRICS_FILE"
+      fi
+      
+      if [ $AVG_RELATIONSHIPS -lt 2 ]; then
+        echo "- **Increase Relationships**: Learnings have few relationships to other artifacts (avg $AVG_RELATIONSHIPS). Better connect learnings to code, tasks, and documents." >> "$METRICS_FILE"
+      fi
+      
+      if [ $LEARNINGS_PER_DAY != "N/A" ] && [ $(echo "$LEARNINGS_PER_DAY < 0.5" | bc) -eq 1 ]; then
+        echo "- **Capture More Frequently**: Knowledge capture rate is low (${LEARNINGS_PER_DAY} per day). Consider setting reminders to document learnings more often." >> "$METRICS_FILE"
+      fi
+      
+      if [ $OTHER_PCT -gt 50 ]; then
+        echo "- **Improve Categorization**: Many learnings (${OTHER_PCT}%) don't fall into standard categories. Consider refining categorization system." >> "$METRICS_FILE"
+      fi
+      
+      echo "Knowledge metrics report generated at $METRICS_FILE"
+
+  - type: react
+    event: "file_change"
+    conditions:
+      - pattern: ".cursor/learnings/.*\\.md$"
+    action: |
+      # Automatically enhance learning when created or updated
+      LEARNING_FILE="$FILE"
+      
+      # Skip if this is a refined learning
+      if [[ "$LEARNING_FILE" == *"_refined.md" ]]; then
+        exit 0
+      fi
+      
+      # Extract the learning ID
+      LEARNING_ID=$(grep -m 1 "## Learning ID" -A 1 "$LEARNING_FILE" | tail -n 1)
+      
+      if [ -z "$LEARNING_ID" ]; then
+        echo "Warning: Learning ID not found in $LEARNING_FILE"
+        exit 1
+      fi
+      
+      # Check if this learning has short description
+      if ! grep -q "## Short Description" "$LEARNING_FILE"; then
+        # Extract first paragraph of detailed description to use as short description
+        FIRST_PARA=$(sed -n '/## Detailed Description/,/^$/p' "$LEARNING_FILE" | sed '1d;/^$/q')
+        
+        if [ -n "$FIRST_PARA" ]; then
+          # Create a temporary file
+          TMP_FILE=$(mktemp)
+          
+          # Insert short description after learning ID
+          awk '/## Learning ID/{print; getline; print; print "## Short Description\n'"$FIRST_PARA"'\n"; next}1' "$LEARNING_FILE" > "$TMP_FILE"
+          
+          # Replace the original file
+          mv "$TMP_FILE" "$LEARNING_FILE"
+          
+          echo "Added missing short description to learning $LEARNING_ID"
+        fi
+      fi
+      
+      # Check if this learning has keywords
+      if ! grep -q "## Keywords" "$LEARNING_FILE"; then
+        # Generate keywords from content
+        LEARNING_TITLE=$(grep -m 1 "^# " "$LEARNING_FILE" | sed 's/^# //')
+        LEARNING_DESC=$(sed -n '/## Detailed Description/,/##/p' "$LEARNING_FILE" | sed '1d;$d')
+        
+        KEYWORDS=$(echo "$LEARNING_TITLE $LEARNING_DESC" | \
+                  tr '[:upper:]' '[:lower:]' | \
+                  tr -cs '[:alnum:]' '\n' | \
+                  grep -v "^$" | \
+                  sort | uniq -c | sort -nr | \
+                  head -10 | awk '{print $2}' | \
+                  tr '\n' ',' | sed 's/,$//')
+        
+        if [ -n "$KEYWORDS" ]; then
+          # Create a temporary file
+          TMP_FILE=$(mktemp)
+          
+          # Add keywords before the date section
+          awk '/## Date/{print "## Keywords\n'"$KEYWORDS"'\n"; print; next}1' "$LEARNING_FILE" > "$TMP_FILE"
+          
+          # Replace the original file
+          mv "$TMP_FILE" "$LEARNING_FILE"
+          
+          echo "Added keywords to learning $LEARNING_ID"
+        fi
+      fi
+      
+      # Check for potentially related learnings based on content similarity
+      LEARNING_TITLE=$(grep -m 1 "^# " "$LEARNING_FILE" | sed 's/^# //')
+      LEARNING_SHORT=$(grep -A 1 "## Short Description" "$LEARNING_FILE" | tail -n 1)
+      
+      # Extract key terms for matching
+      KEY_TERMS=$(echo "$LEARNING_TITLE $LEARNING_SHORT" | \
+                 tr '[:upper:]' '[:lower:]' | \
+                 tr -cs '[:alnum:]' '\n' | \
+                 grep -v "^$" | \
+                 grep -v -w "and" | grep -v -w "the" | grep -v -w "for" | \
+                 sort | uniq | tr '\n' '|' | sed 's/|$//')
+      
+      if [ -n "$KEY_TERMS" ]; then
+        # Look for similar learnings
+        SIMILAR_LEARNINGS=""
+        SIMILAR_COUNT=0
+        
+        for OTHER_FILE in $(find .cursor/learnings -name "*.md" -type f | grep -v "$LEARNING_FILE"); do
+          # Skip refined learnings
+          if [[ "$OTHER_FILE" == *"_refined.md" ]]; then
+            continue
+          fi
+          
+          # Check if this learning contains similar terms
+          if grep -q -E "$KEY_TERMS" "$OTHER_FILE"; then
+            OTHER_ID=$(grep -m 1 "## Learning ID" -A 1 "$OTHER_FILE" | tail -n 1)
+            OTHER_TITLE=$(grep -m 1 "^# " "$OTHER_FILE" | sed 's/^# //')
+            
+            SIMILAR_LEARNINGS+="- $OTHER_ID: $OTHER_TITLE\n"
+            SIMILAR_COUNT=$((SIMILAR_COUNT + 1))
+            
+            # Limit to 5 similar learnings
+            if [ $SIMILAR_COUNT -ge 5 ]; then
+              break
+            fi
+          fi
+        done
+        
+        if [ $SIMILAR_COUNT -gt 0 ] && ! grep -q "## Related Learnings" "$LEARNING_FILE"; then
+          # Create a temporary file
+          TMP_FILE=$(mktemp)
+          
+          # Add related learnings section before the date
+          awk '/## Date/{print "## Related Learnings\n'"$SIMILAR_LEARNINGS"'"; print; next}1' "$LEARNING_FILE" > "$TMP_FILE"
+          
+          # Replace the original file
+          mv "$TMP_FILE" "$LEARNING_FILE"
+          
+          echo "Added $SIMILAR_COUNT related learnings to $LEARNING_ID"
+        fi
+      fi
+
+  - type: suggest
+    message: |
+      ### Learning Refinement System
+
+      Your captured knowledge is now automatically organized, categorized, and enhanced:
+
+      **Key Commands:**
+      - `learn categorize` - Organize learnings into meaningful categories
+      - `learn refine:LEARN-ID` - Generate an enhanced, AI-ready version of a learning
+      - `learn extract` - Extract patterns, best practices, and solutions across all learnings
+      - `learn metrics` - Generate knowledge capture metrics and trends
+
+      **Automatic Enhancements:**
+      - Learnings are automatically improved with missing sections
+      - Keywords are generated from content
+      - Related learnings are identified and linked
+      - Content categorization is automatically maintained
+
+      **Knowledge Organization:**
+      - Topics are grouped into domains like Architecture, Security, Performance
+      - Knowledge is analyzed to find recurring challenges and solutions
+      - Capture patterns and trends are measured over time
+      - Guidance is provided to improve knowledge quality
+
+      This system transforms isolated learning notes into a rich, interconnected knowledge base.
+
+examples:
+  - input: |
+      # Categorize all learnings
+      learn categorize
+    output: "Learning categorization complete. Categories index created at .cursor/learning_categories/CATEGORIES.md"
+
+  - input: |
+      # Refine a specific learning
+      learn refine:LEARN-2025-03-05-01
+    output: "Learning refined template created at .cursor/learnings/LEARN-2025-03-05-01_refined.md"
+
+  - input: |
+      # Extract knowledge patterns
+      learn extract
+    output: "Knowledge extraction report generated at .cursor/output/knowledge_extraction_20250305_123456.md"
+
+  - input: |
+      # Generate knowledge metrics
+      learn metrics
+    output: "Knowledge metrics report generated at .cursor/output/knowledge_metrics_20250305_123456.md"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

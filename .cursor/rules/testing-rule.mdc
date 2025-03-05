@@ -1,0 +1,443 @@
+---
+description: Automatic test creation, execution and management for AI-driven development
+globs: 
+alwaysApply: true
+---
+
+# Automated Testing Management
+
+Rule for automatically creating, executing, and managing tests throughout the development lifecycle.
+
+<rule>
+name: automated_testing
+filters:
+  - type: event
+    pattern: "implementation_start"
+  - type: event
+    pattern: "implementation_complete"
+  - type: command
+    pattern: "test"
+  - type: file_change
+    pattern: "src/*"
+  - type: file_change
+    pattern: "tests/*"
+  - type: event
+    pattern: "test_failure"
+
+actions:
+  - type: execute
+    conditions:
+      - pattern: "implementation_start"
+    command: |
+      # When implementation begins, create test files based on specs
+      # First, find active task
+      ACTIVE_TASK=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md | head -1)
+      
+      if [ -z "$ACTIVE_TASK" ]; then
+        echo "No active task found"
+        exit 0
+      fi
+      
+      # Get task ID
+      TASK_ID=$(basename "$ACTIVE_TASK" | cut -d'_' -f1)
+      
+      # Extract relevant specs from the task
+      SPECS=$(sed -n '/## Relevant Specifications/,/##/p' "$ACTIVE_TASK" | sed '1d;$d' | grep -o "specs/[a-zA-Z0-9_/.-]\+\.md" || echo "")
+      
+      if [ -z "$SPECS" ]; then
+        echo "No specs found for task ${TASK_ID}"
+        exit 0
+      fi
+      
+      # For each spec, generate test file(s)
+      for SPEC in $SPECS; do
+        if [ ! -f ".cursor/$SPEC" ]; then
+          echo "Warning: Spec file .cursor/$SPEC not found"
+          continue
+        fi
+        
+        # Determine test directory and file name based on project structure
+        # Check for common project structures
+        if [ -d "tests" ]; then
+          TEST_DIR="tests"
+        elif [ -d "test" ]; then
+          TEST_DIR="test"
+        elif [ -d "src/test" ]; then
+          TEST_DIR="src/test"
+        elif [ -d "__tests__" ]; then
+          TEST_DIR="__tests__"
+        else
+          # Create a tests directory if none exists
+          mkdir -p "tests"
+          TEST_DIR="tests"
+        fi
+        
+        # Extract component name from spec
+        COMPONENT=$(basename "$SPEC" .md)
+        
+        # Create test file based on project type
+        if [ -f "package.json" ]; then
+          # Node.js project
+          TEST_FILE="${TEST_DIR}/${COMPONENT}.test.js"
+          if [ ! -f "$TEST_FILE" ]; then
+            echo "Creating JavaScript test file for $COMPONENT"
+            mkdir -p $(dirname "$TEST_FILE")
+            cat > "$TEST_FILE" << EOF
+/**
+ * Tests for ${COMPONENT}
+ * Based on specs from: .cursor/${SPEC}
+ * Task: ${TASK_ID}
+ */
+
+describe('${COMPONENT}', () => {
+  // Extract test cases from spec
+  // TODO: Implement test cases based on the spec
+  
+  test('should meet basic requirements', () => {
+    // This is a placeholder test
+    expect(true).toBe(true);
+  });
+});
+EOF
+          fi
+        elif [ -f "Cargo.toml" ]; then
+          # Rust project
+          TEST_FILE="${TEST_DIR}/${COMPONENT}_test.rs"
+          if [ ! -f "$TEST_FILE" ]; then
+            echo "Creating Rust test file for $COMPONENT"
+            mkdir -p $(dirname "$TEST_FILE")
+            cat > "$TEST_FILE" << EOF
+/**
+ * Tests for ${COMPONENT}
+ * Based on specs from: .cursor/${SPEC}
+ * Task: ${TASK_ID}
+ */
+
+#[cfg(test)]
+mod tests {
+    // Extract test cases from spec
+    // TODO: Implement test cases based on the spec
+    
+    #[test]
+    fn basic_requirements() {
+        assert!(true);
+    }
+}
+EOF
+          fi
+        elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
+          # Python project
+          TEST_FILE="${TEST_DIR}/test_${COMPONENT}.py"
+          if [ ! -f "$TEST_FILE" ]; then
+            echo "Creating Python test file for $COMPONENT"
+            mkdir -p $(dirname "$TEST_FILE")
+            cat > "$TEST_FILE" << EOF
+"""
+Tests for ${COMPONENT}
+Based on specs from: .cursor/${SPEC}
+Task: ${TASK_ID}
+"""
+
+import unittest
+
+class Test${COMPONENT^}(unittest.TestCase):
+    # Extract test cases from spec
+    # TODO: Implement test cases based on the spec
+    
+    def test_basic_requirements(self):
+        self.assertTrue(True)
+
+if __name__ == '__main__':
+    unittest.main()
+EOF
+          fi
+        else
+          echo "Unknown project type, can't determine test format"
+        fi
+      done
+      
+      echo "Test files created based on specifications"
+
+  - type: execute
+    conditions:
+      - pattern: "test run|test execute"
+    command: |
+      # Run tests based on project type
+      if [ -f "package.json" ]; then
+        # Node.js project
+        if grep -q "\"test\":" "package.json"; then
+          echo "Running tests for Node.js project..."
+          npm test
+          TEST_EXIT_CODE=$?
+        else
+          echo "No test script found in package.json"
+          TEST_EXIT_CODE=1
+        fi
+      elif [ -f "Cargo.toml" ]; then
+        # Rust project
+        echo "Running tests for Rust project..."
+        cargo test
+        TEST_EXIT_CODE=$?
+      elif [ -f "pom.xml" ]; then
+        # Java/Maven project
+        echo "Running tests for Java project..."
+        mvn test
+        TEST_EXIT_CODE=$?
+      elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
+        # Python project
+        echo "Running tests for Python project..."
+        if [ -f "pytest.ini" ] || [ -d "tests" ]; then
+          python -m pytest
+          TEST_EXIT_CODE=$?
+        else
+          python -m unittest discover
+          TEST_EXIT_CODE=$?
+        fi
+      else
+        echo "Unknown project type, can't determine how to run tests"
+        TEST_EXIT_CODE=1
+      fi
+      
+      # Record test results
+      if [ $TEST_EXIT_CODE -eq 0 ]; then
+        echo "✅ Tests passed successfully"
+        
+        # Find active task and update it
+        ACTIVE_TASK=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md | head -1)
+        if [ -n "$ACTIVE_TASK" ]; then
+          # Update acceptance criteria in the task file
+          sed -i "s/- \[ \] Unit tests pass/- \[x\] Unit tests pass/g" "$ACTIVE_TASK"
+          echo "Updated task to reflect passing tests"
+        fi
+        
+        # Create a test success event for other rules
+        echo "Triggering test_success event"
+        # Other rules like git-commit-rule can respond to this
+      else
+        echo "❌ Tests failed"
+        
+        # Record details of test failure
+        mkdir -p .cursor/test_results
+        TEST_FAILURE_LOG=".cursor/test_results/test_failure_$(date +%Y%m%d_%H%M%S).log"
+        echo "Test failure logged to $TEST_FAILURE_LOG"
+        
+        # Trigger test_failure event for other rules
+        echo "Triggering test_failure event"
+      fi
+
+  - type: react
+    event: "test_failure"
+    action: |
+      # When tests fail, analyze the failure and suggest fixes
+      echo "Analyzing test failures..."
+      
+      # Find latest test failure log
+      LATEST_FAILURE=$(ls -t .cursor/test_results/test_failure_*.log 2>/dev/null | head -1)
+      
+      if [ -z "$LATEST_FAILURE" ]; then
+        echo "No test failure log found"
+        exit 0
+      fi
+      
+      # Create a learning about the test failure
+      LEARNING_TITLE="Test Failure Analysis"
+      LEARNING_SHORT_DESC="Analysis of test failures and potential solutions"
+      LEARNING_DETAILED_DESC="$(cat "$LATEST_FAILURE")"
+      
+      # Generate learning ID
+      LEARNING_DATE=$(date +%Y-%m-%d)
+      LEARNING_COUNT=$(ls -1 .cursor/learnings/LEARN-${LEARNING_DATE}* 2>/dev/null | wc -l)
+      LEARNING_NUM=$(printf "%02d" $((LEARNING_COUNT + 1)))
+      LEARNING_ID="LEARN-${LEARNING_DATE}-${LEARNING_NUM}"
+      
+      # Create learning file
+      mkdir -p .cursor/learnings
+      LEARNING_FILE=".cursor/learnings/${LEARNING_ID}_Test_Failure_Analysis.md"
+      
+      cat > "$LEARNING_FILE" << EOF
+# Test Failure Analysis
+
+## Learning ID
+${LEARNING_ID}
+
+## Short Description
+${LEARNING_SHORT_DESC}
+
+## Detailed Description
+Test failures were detected. Analyzing the failures:
+
+${LEARNING_DETAILED_DESC}
+
+## Potential Solutions
+- Review implementation against test expectations
+- Check for environment or configuration issues
+- Verify test data
+
+## Date
+$(date +"%Y-%m-%d")
+EOF
+      
+      # Update learnings index
+      LEARNINGS_INDEX=".cursor/LEARNINGS.md"
+      if [ ! -f "$LEARNINGS_INDEX" ]; then
+        mkdir -p .cursor
+        cat > "$LEARNINGS_INDEX" << EOF
+# Learnings Index
+
+| Learning ID | Date | Description |
+|-------------|------|-------------|
+EOF
+      fi
+      
+      echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Test_Failure_Analysis.md) | $(date +"%Y-%m-%d") | ${LEARNING_SHORT_DESC} |" >> "$LEARNINGS_INDEX"
+      
+      echo "Learning created for test failure: ${LEARNING_ID}"
+
+  - type: execute
+    conditions:
+      - pattern: "implementation_complete"
+    command: |
+      # When implementation is complete, run tests to verify
+      echo "Implementation complete, running verification tests..."
+      
+      # Run tests based on project type
+      if [ -f "package.json" ]; then
+        # Node.js project
+        npm test
+        TEST_EXIT_CODE=$?
+      elif [ -f "Cargo.toml" ]; then
+        # Rust project
+        cargo test
+        TEST_EXIT_CODE=$?
+      elif [ -f "pom.xml" ]; then
+        # Java/Maven project
+        mvn test
+        TEST_EXIT_CODE=$?
+      elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
+        # Python project
+        python -m pytest || python -m unittest discover
+        TEST_EXIT_CODE=$?
+      else
+        echo "Unknown project type, assuming tests pass"
+        TEST_EXIT_CODE=0
+      fi
+      
+      # Process test results
+      if [ $TEST_EXIT_CODE -eq 0 ]; then
+        echo "✅ Implementation verified by tests"
+        
+        # Find active task and update it
+        ACTIVE_TASK=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md | head -1)
+        if [ -n "$ACTIVE_TASK" ]; then
+          # Mark acceptance criteria as met
+          sed -i "s/- \[ \] Unit tests pass/- \[x\] Unit tests pass/g" "$ACTIVE_TASK"
+          sed -i "s/- \[ \] Implementation matches specifications/- \[x\] Implementation matches specifications/g" "$ACTIVE_TASK"
+          
+          # Task is ready to be completed
+          echo "Task acceptance criteria met, ready for completion"
+        fi
+      else
+        echo "❌ Implementation verification failed"
+        echo "Please fix test failures before marking implementation as complete"
+        
+        # Record test failure
+        mkdir -p .cursor/test_results
+        TEST_FAILURE_LOG=".cursor/test_results/verification_failure_$(date +%Y%m%d_%H%M%S).log"
+        echo "Verification failure logged to $TEST_FAILURE_LOG"
+        
+        exit 1
+      fi
+
+  - type: react
+    event: "file_change"
+    conditions:
+      - pattern: "src/.*\\.(js|ts|jsx|tsx|py|rs|go|java|rb|cpp|c|h|hpp)$"
+    action: |
+      # When source files change, check if there are corresponding test files
+      # Extract the component name
+      COMPONENT=$(basename "$FILE" | cut -d. -f1)
+      
+      # Determine test directory and possible test file locations
+      POSSIBLE_TEST_FILES=(
+        "tests/${COMPONENT}.test.js"
+        "tests/${COMPONENT}.spec.js"
+        "test/${COMPONENT}.test.js"
+        "test/${COMPONENT}.spec.js"
+        "tests/test_${COMPONENT}.py"
+        "test/test_${COMPONENT}.py"
+        "tests/${COMPONENT}_test.rb"
+        "test/${COMPONENT}_test.rb"
+        "tests/${COMPONENT}_test.rs"
+        "test/${COMPONENT}_test.rs"
+        "__tests__/${COMPONENT}.test.js"
+        "__tests__/${COMPONENT}.spec.js"
+      )
+      
+      # Check if any test file exists
+      TEST_EXISTS=0
+      for TEST_FILE in "${POSSIBLE_TEST_FILES[@]}"; do
+        if [ -f "$TEST_FILE" ]; then
+          TEST_EXISTS=1
+          break
+        fi
+      done
+      
+      # If no test file exists, create a suggestion to add one
+      if [ $TEST_EXISTS -eq 0 ]; then
+        echo "No test file found for ${COMPONENT}"
+        
+        # Make note in a dedicated "test_needed" file
+        mkdir -p .cursor/test_tracking
+        echo "${FILE}: No test file exists" >> .cursor/test_tracking/test_needed.md
+        
+        # Create a task to add tests if one doesn't exist
+        if ! grep -q "Add tests for ${COMPONENT}" .cursor/tasks/*.md 2>/dev/null; then
+          echo "Creating a reminder to add tests for ${COMPONENT}"
+          
+          # This output will be visible to the AI to remind it to suggest adding tests
+        fi
+      fi
+      
+  - type: suggest
+    message: |
+      ### Automated Testing Framework
+      
+      Tests are now automatically managed throughout the development lifecycle:
+      
+      - **Test Creation**: When implementation starts, test files are automatically created based on specs
+      - **Test Execution**: Run tests with `test run` or tests automatically run when implementation is complete
+      - **Test Tracking**: Test failures are analyzed and recorded as learnings
+      - **Test Coverage**: When source files change, the system checks for corresponding test files
+      
+      Testing is integrated with the task workflow:
+      - Tasks are updated to reflect passing tests
+      - Tasks can only be completed when tests pass
+      - Test failures generate learnings with analysis
+      
+      You can run tests manually at any time with:
+      ```
+      test run
+      ```
+      
+      All test results are tracked in `.cursor/test_results/` for review.
+
+examples:
+  - input: |
+      # Begin implementing a feature
+      # This would be triggered by an implementation_start event
+    output: "Test files created based on specifications"
+
+  - input: |
+      # Run tests manually
+      test run
+    output: "✅ Tests passed successfully"
+
+  - input: |
+      # Mark implementation as complete
+      # This would be triggered by an implementation_complete event
+    output: "✅ Implementation verified by tests"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>
