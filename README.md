@@ -110,26 +110,46 @@ Follow this concrete workflow to get the most out of these rules:
    - The AI will automatically create specification files in `.cursor/specs/` based on your discussion
    - A central `SPECS.md` file will be generated or updated with links to all domain-specific specs
 
-2. **Review & Refine Specifications**
+2. **Task Planning and Management**
+   - Create tasks based on specifications: `task create "Implement feature X" --specs="specs/feature-x.md"`
+   - Plan multiple tasks in advance to map out development work
+   - Each task receives a unique ID and is tracked in `.cursor/TASKS.md`
+   - Tasks maintain references to their relevant specifications and acceptance criteria
+
+3. **Review & Refine Specifications**
    - Review the generated specs files to ensure they accurately capture requirements
    - Continue the conversation with AI to refine specs as needed
    - Each refinement will update the relevant specification files
 
-3. **Development Based on Specifications**
+4. **Development Based on Specifications**
+   - Mark tasks as active before implementation: `task start TASK-ID`
    - Ask the AI to implement features based on the specifications: "Please implement the feature described in specs/auth/login.md"
    - The AI will reference the specs during implementation
    - If a feature request doesn't have corresponding specs, the AI will first create them before implementation
 
-4. **Automatic Commits**
+5. **Knowledge Capture During Development**
+   - Important insights discovered during development are automatically captured as learnings
+   - Create explicit learnings for significant discoveries: `learn add "Performance optimization technique" --short="Improved database query speed by 40%"`
+   - Share reference documents with the AI by adding them to `.cursor/docs/`
+   - All knowledge is indexed in `.cursor/LEARNINGS.md` and `.cursor/DOCUMENTS.md` for future reference
+
+6. **Automatic Commits**
    - As the AI makes changes to files, the git-commit-rule automatically stages and commits them
    - Commits follow conventional commit format (feat, fix, docs, etc.) based on the nature of the change
    - Commit messages are automatically generated with appropriate type, scope, and description
+   - Code is only committed after all tests pass
 
-5. **Continuous Development Loop**
-   - For new features: start new conversation → generate specs → implement → automatic commits
-   - For refinements: discuss changes → update specs → implement changes → automatic commits
+7. **Task Completion and Knowledge Preservation**
+   - When implementation is complete and tests pass, mark the task as done: `task done TASK-ID`
+   - The system will update task status, mark specs as completed, and extract learnings
+   - Learnings are preserved in `.cursor/learnings/` with references to relevant files and tasks
+   - The task's status is updated in `.cursor/TASKS.md`
 
-This workflow ensures all development is specification-driven and automatically documented through well-structured Git commits.
+8. **Continuous Development Loop**
+   - For new features: start new conversation → generate specs → create tasks → implement → capture knowledge → automatic commits
+   - For refinements: discuss changes → update specs → update tasks → implement changes → update knowledge → automatic commits
+
+This workflow ensures all development is specification-driven, task-organized, properly documented, and automatically committed with appropriate metadata. The integrated approach means nothing gets lost - requirements, implementation details, insights, and documentation are all preserved and linked together.
 
 ## Something Missing?
 
