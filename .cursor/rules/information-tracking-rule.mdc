@@ -1,4 +1,9 @@
 ---
+description: 
+globs: 
+alwaysApply: false
+---
+---
 description: Manages knowledge tracking and documentation organization
 globs: 
 alwaysApply: true
@@ -87,7 +92,7 @@ EOF
       fi
       
       # Add the new learning to the index
-      echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_${LEARNING_TITLE// /_}.md) | $(date +"%Y-%m-%d") | ${LEARNING_SHORT_DESC} |" >> "$LEARNINGS_INDEX"
+      echo "| [${LEARNING_ID}](mdc:.cursor/learnings/${LEARNING_ID}_${LEARNING_TITLE/ /_}.md) | $(date +"%Y-%m-%d") | ${LEARNING_SHORT_DESC} |" >> "$LEARNINGS_INDEX"
       
       echo "Learning created: ${LEARNING_ID} - ${LEARNING_TITLE}"
       echo "Learning file: ${LEARNING_FILE}"
@@ -182,7 +187,7 @@ $(date +"%Y-%m-%d")
 EOF
         
         # Add document to index with reference to the learning
-        echo "| $DOCUMENT_PATH | $DOCUMENT_DESC | [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Document_added_$(basename "$DOCUMENT_PATH" | tr -d ' ' | tr '.' '_').md) |" >> "$DOCUMENTS_INDEX"
+        echo "| $DOCUMENT_PATH | $DOCUMENT_DESC | [${LEARNING_ID}](mdc:.cursor/learnings/${LEARNING_ID}_Document_added_$(basename "$DOCUMENT_PATH" | tr -d ' ' | tr '.' '_').md) |" >> "$DOCUMENTS_INDEX"
         
         # Add learning to learnings index
         LEARNINGS_INDEX=".cursor/LEARNINGS.md"
@@ -194,7 +199,7 @@ EOF
 |-------------|------|-------------|
 EOF
         fi
-        echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Document_added_$(basename "$DOCUMENT_PATH" | tr -d ' ' | tr '.' '_').md) | $(date +"%Y-%m-%d") | New document added: $DOCUMENT_PATH |" >> "$LEARNINGS_INDEX"
+        echo "| [${LEARNING_ID}](mdc:.cursor/learnings/${LEARNING_ID}_Document_added_$(basename "$DOCUMENT_PATH" | tr -d ' ' | tr '.' '_').md) | $(date +"%Y-%m-%d") | New document added: $DOCUMENT_PATH |" >> "$LEARNINGS_INDEX"
         
         echo "Document registered: $DOCUMENT_PATH"
         echo "Learning created: ${LEARNING_ID} for document"

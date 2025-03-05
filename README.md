@@ -110,28 +110,29 @@ Follow this concrete workflow to get the most out of these rules:
    - The AI will automatically create specification files in `.cursor/specs/` based on your discussion
    - A central `SPECS.md` file will be generated or updated with links to all domain-specific specs
 
-2. **Task Planning and Management**
-   - Create tasks based on specifications: `task create "Implement feature X" --specs="specs/feature-x.md"`
-   - Plan multiple tasks in advance to map out development work
-   - Each task receives a unique ID and is tracked in `.cursor/TASKS.md`
-   - Tasks maintain references to their relevant specifications and acceptance criteria
+2. **Automatic Task Planning and Management**
+   - Cursor AI automatically creates tasks based on your implementation requests
+   - Each task receives a unique ID (e.g., TASK-2023-10-15-01) and is tracked in `.cursor/TASKS.md`
+   - Tasks are automatically linked to their relevant specifications and include default acceptance criteria
+   - The AI manages multiple tasks concurrently, allowing for efficient development planning
 
 3. **Review & Refine Specifications**
    - Review the generated specs files to ensure they accurately capture requirements
    - Continue the conversation with AI to refine specs as needed
    - Each refinement will update the relevant specification files
+   - Cursor AI automatically updates task details when specifications change
 
-4. **Development Based on Specifications**
-   - Mark tasks as active before implementation: `task start TASK-ID`
-   - Ask the AI to implement features based on the specifications: "Please implement the feature described in specs/auth/login.md"
-   - The AI will reference the specs during implementation
-   - If a feature request doesn't have corresponding specs, the AI will first create them before implementation
+4. **AI-Driven Development Based on Specifications**
+   - Cursor AI activates tasks when implementation begins
+   - Simply ask: "Please implement the feature described in specs/auth/login.md"
+   - The AI references the specs during implementation and tracks progress against the task
+   - If you request a feature without specifications, the AI creates them first before implementation
 
-5. **Knowledge Capture During Development**
-   - Important insights discovered during development are automatically captured as learnings
-   - Create explicit learnings for significant discoveries: `learn add "Performance optimization technique" --short="Improved database query speed by 40%"`
-   - Share reference documents with the AI by adding them to `.cursor/docs/`
-   - All knowledge is indexed in `.cursor/LEARNINGS.md` and `.cursor/DOCUMENTS.md` for future reference
+5. **Automatic Knowledge Capture During Development**
+   - Cursor AI identifies and records important insights during development as learnings
+   - The AI documents significant discoveries, patterns, and solutions in `.cursor/learnings/`
+   - Share reference documents with the AI by placing them in `.cursor/docs/`
+   - All knowledge is automatically indexed in `.cursor/LEARNINGS.md` and `.cursor/DOCUMENTS.md` for future reference
 
 6. **Automatic Commits**
    - As the AI makes changes to files, the git-commit-rule automatically stages and commits them
@@ -139,17 +140,17 @@ Follow this concrete workflow to get the most out of these rules:
    - Commit messages are automatically generated with appropriate type, scope, and description
    - Code is only committed after all tests pass
 
-7. **Task Completion and Knowledge Preservation**
-   - When implementation is complete and tests pass, mark the task as done: `task done TASK-ID`
-   - The system will update task status, mark specs as completed, and extract learnings
+7. **AI-Managed Task Completion and Knowledge Preservation**
+   - When implementation is complete and tests pass, Cursor AI marks the task as done
+   - The system updates task status, marks specs as completed, and extracts learnings
    - Learnings are preserved in `.cursor/learnings/` with references to relevant files and tasks
    - The task's status is updated in `.cursor/TASKS.md`
 
 8. **Continuous Development Loop**
-   - For new features: start new conversation → generate specs → create tasks → implement → capture knowledge → automatic commits
-   - For refinements: discuss changes → update specs → update tasks → implement changes → update knowledge → automatic commits
+   - For new features: discuss requirements → AI generates specs → AI creates & manages tasks → AI implements → AI captures knowledge → automatic commits
+   - For refinements: discuss changes → AI updates specs → AI updates tasks → AI implements changes → AI updates knowledge → automatic commits
 
-This workflow ensures all development is specification-driven, task-organized, properly documented, and automatically committed with appropriate metadata. The integrated approach means nothing gets lost - requirements, implementation details, insights, and documentation are all preserved and linked together.
+This workflow ensures all development is specification-driven, task-organized, properly documented, and automatically committed with appropriate metadata. The integrated approach means nothing gets lost - requirements, implementation details, insights, and documentation are all preserved and linked together. You simply guide the process through conversation while Cursor AI handles the entire workflow.
 
 ## Something Missing?
 
