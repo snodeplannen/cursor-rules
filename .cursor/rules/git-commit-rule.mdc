@@ -21,139 +21,108 @@ filters:
     pattern: "*"
 
 actions:
-  - type: execute
-    command: |
-      # Check if this is a specs file
-      if [[ "$FILE" == *".cursor/specs/"* || "$FILE" == *"SPECS.md"* ]]; then
-        # Special handling for spec files
-        CHANGE_TYPE="docs"
-        SCOPE="specs"
-        
-        # Create a more detailed description for specs
-        if [[ "$CHANGE_DESCRIPTION" == "" ]]; then
-          # If no description provided, create one based on the filename
-          SPEC_NAME=$(basename "$FILE" .md)
-          CHANGE_DESCRIPTION="update specifications for $SPEC_NAME"
-        fi
-        
-        # Commit the spec file
-        git add "$FILE"
-        git commit -m "$CHANGE_TYPE($SCOPE): $CHANGE_DESCRIPTION"
-        echo "Committed spec file: $FILE"
-        exit 0
-      fi
-
-      # Detect project type and run appropriate test command
-      # First, check if tests need to be run (skip for certain file types)
-      if [[ "$FILE" == *".md"* || "$FILE" == *".txt"* || "$FILE" == *".json"* || "$FILE" == *"README"* ]]; then
-        # Documentation or configuration files don't need tests
-        echo "Documentation or configuration file detected, skipping tests"
-      else
-        # Run tests based on project type
-        if [ -f "package.json" ]; then
-          # Node.js project
-          echo "Detected Node.js project, running tests..."
-          npm test
-          TEST_RESULT=$?
-        elif [ -f "Cargo.toml" ]; then
-          # Rust project
-          echo "Detected Rust project, running tests..."
-          cargo test
-          TEST_RESULT=$?
-        elif [ -f "pom.xml" ]; then
-          # Java/Maven project
-          echo "Detected Java project, running tests..."
-          mvn test
-          TEST_RESULT=$?
-        elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
-          # Python project
-          echo "Detected Python project, running tests..."
-          python -m pytest
-          TEST_RESULT=$?
-        else
-          # Unknown project type, assume success
-          echo "Unknown project type, assuming tests pass"
-          TEST_RESULT=0
-        fi
-        
-        # If tests failed, don't commit and notify
-        if [ $TEST_RESULT -ne 0 ]; then
-          echo "Tests failed! Please fix tests before committing."
-          echo "Asking Cursor to fix the failing tests..."
-          # Here we would integrate with Cursor to fix the tests
-          # For now, we'll just exit with error
-          exit 1
-        fi
-      fi
+  - type: react
+    conditions:
+      - pattern: "file_change|file_save"
+    action: |
+      # Automatically commit changes using conventional commits format
       
-      # Regular processing for non-spec files
-      # Extract the change type and scope from the changes
-      CHANGE_TYPE=""
-      case "$CHANGE_DESCRIPTION" in
-        *"add"*|*"create"*|*"implement"*) CHANGE_TYPE="feat";;
-        *"fix"*|*"correct"*|*"resolve"*) CHANGE_TYPE="fix";;
-        *"refactor"*|*"restructure"*) CHANGE_TYPE="refactor";;
-        *"test"*) CHANGE_TYPE="test";;
-        *"doc"*|*"comment"*) CHANGE_TYPE="docs";;
-        *"style"*|*"format"*) CHANGE_TYPE="style";;
-        *"perf"*|*"optimize"*) CHANGE_TYPE="perf";;
-        *) CHANGE_TYPE="chore";;
-      esac
+      When a file is changed or saved, I'll:
+      1. Determine the appropriate commit type based on the change:
+         - `feat`: For new features or functionality
+         - `fix`: For bug fixes
+         - `docs`: For documentation changes (including specs)
+         - `style`: For formatting changes that don't affect code
+         - `refactor`: For code restructuring without feature changes
+         - `perf`: For performance improvements
+         - `test`: For adding or correcting tests
+         - `chore`: For maintenance tasks and build changes
 
-      # Extract scope from file path
-      SCOPE=$(dirname "$FILE" | tr '/' '-')
+      2. Extract scope from the file path (directory structure)
+      
+      3. Create a commit message in the format: `type(scope): description`
+      
+      4. For spec files, I'll use the format: `docs(specs): update specifications for <component>`
 
-      # Commit the changes
-      git add "$FILE"
-      git commit -m "$CHANGE_TYPE($SCOPE): $CHANGE_DESCRIPTION"
+  - type: react
+    event: "build_success"
+    action: |
+      # When a build succeeds, commit the changes
+      
+      After a successful build, I'll:
+      1. Add all changed files to git staging
+      2. Create an appropriate conventional commit message
+      3. Commit the changes
+      
+      This ensures all successful builds are properly committed
 
-  - type: suggest
-    message: |
-      Changes should be committed using conventional commits format:
-
-      Format: <type>(<scope>): <description>
-
-      Types:
-      - feat: A new feature
-      - fix: A bug fix
-      - docs: Documentation only changes
-      - style: Changes that do not affect the meaning of the code
-      - refactor: A code change that neither fixes a bug nor adds a feature
-      - perf: A code change that improves performance
-      - test: Adding missing tests or correcting existing tests
-      - chore: Changes to the build process or auxiliary tools
-
-      The scope should be derived from the file path or affected component.
-      The description should be clear and concise, written in imperative mood.
+  - type: react
+    event: "test_success"
+    action: |
+      # When tests pass, commit the changes
+      
+      After successful tests, I'll:
+      1. Add all changed files to git staging
+      2. Create a conventional commit message, usually with `test` or `fix` type
+      3. Commit the changes
+      
+      This ensures test-verified changes are committed
 
   - type: react
     event: "test_failure"
     action: |
-      # When tests fail, notify and attempt to fix
-      echo "Tests failed. Attempting to fix the failing tests..."
-      # The AI would analyze the test failures and fix them
-      # For this rule, we'll just notify that this functionality exists
+      # When tests fail, don't commit and notify about test failures
+      
+      If tests fail, I'll:
+      1. Not commit the changes
+      2. Notify you about the failing tests
+      3. Offer to help fix the failing tests
+      
+      This prevents committing code that doesn't pass tests
+
+  - type: suggest
+    message: |
+      ### Conventional Commits System
+
+      Changes are automatically committed using conventional commits format:
+
+      **Format:** `type(scope): description`
+
+      **Types:**
+      - `feat`: A new feature
+      - `fix`: A bug fix
+      - `docs`: Documentation changes
+      - `style`: Formatting changes (no code change)
+      - `refactor`: Code restructuring (no feature change)
+      - `perf`: Performance improvements
+      - `test`: Test additions or corrections
+      - `chore`: Maintenance tasks and build changes
+
+      **Automatic Behaviors:**
+      - After successful builds, changes are committed
+      - After passing tests, changes are committed
+      - Files in `.cursor/specs/` are committed as `docs(specs)`
+      - Test failures prevent commits until fixed
+
+      This ensures your repository maintains a clean, descriptive history that follows best practices.
 
 examples:
   - input: |
       # After adding a new function
-      CHANGE_DESCRIPTION="add user authentication function"
-      FILE="src/auth/login.ts"
-    output: "feat(src-auth): add user authentication function"
+      feat(auth): add user authentication function
+    output: "Changes committed with message: feat(auth): add user authentication function"
 
   - input: |
       # After updating a spec file
-      FILE=".cursor/specs/architecture.md"
-      CHANGE_DESCRIPTION=""
-    output: "docs(specs): update specifications for architecture"
+      docs(specs): update specifications for authentication
+    output: "Spec changes committed with message: docs(specs): update specifications for authentication"
+
+  - input: |
+      # After fixing a bug
+      fix(validation): correct email validation regex
+    output: "Bug fix committed with message: fix(validation): correct email validation regex"
 
 metadata:
   priority: high
-  version: 1.2
+  version: 1.0
 </rule>
-
-
-<!--
- Copyright (c) 2025 Geoffrey Huntley <ghuntley@ghuntley.com>. All rights reserved.
- SPDX-License-Identifier: Proprietary
--->

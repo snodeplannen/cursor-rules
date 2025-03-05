@@ -23,555 +23,89 @@ filters:
     pattern: "validate"
 
 actions:
-  - type: execute
+  - type: react
     conditions:
       - pattern: "spec validate|validate spec"
-    command: |
+    action: |
       # Validate a specification against quality standards and implementation
-      if [ -z "$SPEC_PATH" ]; then
-        echo "Error: No specification path provided"
-        echo "Usage: spec validate [path to specification]"
-        exit 1
-      fi
       
-      # Ensure the spec file exists
-      if [ ! -f "$SPEC_PATH" ]; then
-        echo "Error: Specification file not found at $SPEC_PATH"
-        exit 1
-      fi
+      I'll perform a comprehensive validation of the specification:
       
-      # Create validation report
-      VALIDATION_FILE=".cursor/output/spec_validation_$(basename "$SPEC_PATH" .md)_$(date +%Y%m%d_%H%M%S).md"
+      1. Analyze specification quality:
+         - Check for vague terms (should, would, could, etc.)
+         - Identify non-atomic requirements (multiple requirements in one)
+         - Verify all required sections exist (description, requirements, acceptance criteria)
+         - Assess overall specification clarity and completeness
       
-      # Start validation report
-      cat > "$VALIDATION_FILE" << EOF
-# Specification Validation Report: $(basename "$SPEC_PATH")
+      2. Validate implementation status:
+         - Trace requirements to actual code
+         - Check if completed requirements have corresponding implementations
+         - Identify discrepancies between spec completion status and actual code
+         - Calculate implementation coverage percentage
+      
+      3. Review test coverage:
+         - Look for test files related to this specification
+         - Verify test existence for key requirements
+         - Identify gaps in test coverage
+      
+      4. Provide actionable recommendations:
+         - Suggest quality improvements
+         - Highlight missing implementations
+         - Recommend test additions
+      
+      The validation report will be saved to `.cursor/output/spec_validation_[filename]_[timestamp].md`
 
-Generated on $(date)
-
-## Specification Overview
-
-EOF
-      
-      # Extract spec title and basic info
-      SPEC_TITLE=$(grep -m 1 "^# " "$SPEC_PATH" | sed 's/^# //')
-      if [ -z "$SPEC_TITLE" ]; then
-        SPEC_TITLE=$(basename "$SPEC_PATH" .md)
-      fi
-      
-      # Count requirements
-      TOTAL_REQS=$(grep -c "\- \[" "$SPEC_PATH")
-      COMPLETED_REQS=$(grep -c "\- \[x\]" "$SPEC_PATH")
-      PENDING_REQS=$(grep -c "\- \[ \]" "$SPEC_PATH")
-      
-      # Calculate completion percentage
-      if [ $TOTAL_REQS -eq 0 ]; then
-        COMPLETION_PCT="0"
-      else
-        COMPLETION_PCT=$((COMPLETED_REQS * 100 / TOTAL_REQS))
-      fi
-      
-      # Add basic info to report
-      cat >> "$VALIDATION_FILE" << EOF
-- **Title**: ${SPEC_TITLE}
-- **Path**: ${SPEC_PATH}
-- **Total Requirements**: ${TOTAL_REQS}
-- **Completed Requirements**: ${COMPLETED_REQS} (${COMPLETION_PCT}%)
-- **Pending Requirements**: ${PENDING_REQS}
-
-## Quality Assessment
-EOF
-      
-      # Check for quality issues
-      QUALITY_ISSUES=0
-      
-      # Check for vague requirements
-      VAGUE_TERMS=("should" "would" "could" "may" "might" "consider" "probably" "somehow" "etc" "and so on" "as needed")
-      VAGUE_REQS=""
-      
-      for TERM in "${VAGUE_TERMS[@]}"; do
-        FOUND=$(grep -n "\- \[ \].*$TERM" "$SPEC_PATH" || echo "")
-        if [ -n "$FOUND" ]; then
-          if [ -z "$VAGUE_REQS" ]; then
-            VAGUE_REQS="Vague requirements containing terms like '$TERM':\n"
-          fi
-          while IFS= read -r LINE; do
-            LINE_NUM=$(echo "$LINE" | cut -d: -f1)
-            LINE_TEXT=$(echo "$LINE" | cut -d: -f2-)
-            VAGUE_REQS+="- Line $LINE_NUM: $LINE_TEXT\n"
-          done <<< "$FOUND"
-          QUALITY_ISSUES=$((QUALITY_ISSUES + 1))
-        fi
-      done
-      
-      # Check for non-atomic requirements (multiple requirements in one)
-      MULTI_REQS=$(grep -n "\- \[ \].*and.*" "$SPEC_PATH" | grep -v "and the" | grep -v "and a" | grep -v "and an" || echo "")
-      if [ -n "$MULTI_REQS" ]; then
-        MULTI_TEXT="Potentially non-atomic requirements (multiple requirements in one):\n"
-        while IFS= read -r LINE; do
-          LINE_NUM=$(echo "$LINE" | cut -d: -f1)
-          LINE_TEXT=$(echo "$LINE" | cut -d: -f2-)
-          MULTI_TEXT+="- Line $LINE_NUM: $LINE_TEXT\n"
-        done <<< "$MULTI_REQS"
-        QUALITY_ISSUES=$((QUALITY_ISSUES + 1))
-      else
-        MULTI_TEXT=""
-      fi
-      
-      # Check for missing acceptance criteria
-      if ! grep -q "## Acceptance Criteria" "$SPEC_PATH"; then
-        ACCEPTANCE_TEXT="Missing 'Acceptance Criteria' section\n"
-        QUALITY_ISSUES=$((QUALITY_ISSUES + 1))
-      else
-        ACCEPTANCE_TEXT=""
-      fi
-      
-      # Output quality assessment
-      if [ $QUALITY_ISSUES -eq 0 ]; then
-        cat >> "$VALIDATION_FILE" << EOF
-✅ No quality issues detected in the specification.
-
-EOF
-      else
-        cat >> "$VALIDATION_FILE" << EOF
-⚠️ Found ${QUALITY_ISSUES} potential quality issues:
-
-EOF
-        
-        if [ -n "$VAGUE_REQS" ]; then
-          echo -e "### Vague Requirements" >> "$VALIDATION_FILE"
-          echo "" >> "$VALIDATION_FILE"
-          echo -e "$VAGUE_REQS" >> "$VALIDATION_FILE"
-          echo "" >> "$VALIDATION_FILE"
-        fi
-        
-        if [ -n "$MULTI_TEXT" ]; then
-          echo -e "### Non-Atomic Requirements" >> "$VALIDATION_FILE"
-          echo "" >> "$VALIDATION_FILE"
-          echo -e "$MULTI_TEXT" >> "$VALIDATION_FILE"
-          echo "" >> "$VALIDATION_FILE"
-        fi
-        
-        if [ -n "$ACCEPTANCE_TEXT" ]; then
-          echo -e "### Missing Components" >> "$VALIDATION_FILE"
-          echo "" >> "$VALIDATION_FILE"
-          echo -e "$ACCEPTANCE_TEXT" >> "$VALIDATION_FILE"
-          echo "" >> "$VALIDATION_FILE"
-        fi
-      fi
-      
-      # Implementation validation
-      cat >> "$VALIDATION_FILE" << EOF
-## Implementation Validation
-EOF
-      
-      # Extract requirements and check for implementations
-      REQUIREMENTS=$(grep -n "\- \[" "$SPEC_PATH" || echo "")
-      
-      if [ -z "$REQUIREMENTS" ]; then
-        cat >> "$VALIDATION_FILE" << EOF
-No requirements found to validate against implementation.
-EOF
-      else
-        cat >> "$VALIDATION_FILE" << EOF
-### Requirement Implementation Status
-
-| Requirement | Status | Implementation Found |
-|-------------|--------|---------------------|
-EOF
-        
-        FULLY_IMPLEMENTED=0
-        PARTIALLY_IMPLEMENTED=0
-        UNIMPLEMENTED=0
-        
-        while IFS= read -r REQ_LINE; do
-          LINE_NUM=$(echo "$REQ_LINE" | cut -d: -f1)
-          REQ_TEXT=$(echo "$REQ_LINE" | cut -d: -f2- | sed 's/- \[[x ]\] //')
-          IS_COMPLETED=$(echo "$REQ_LINE" | grep -c "\- \[x\]")
-          
-          # Extract key terms from requirement for searching
-          KEY_TERMS=$(echo "$REQ_TEXT" | tr -d ',.()[]{}' | tr ' ' '\n' | grep -v -e '^the$' -e '^a$' -e '^an$' -e '^and$' -e '^or$' -e '^to$' -e '^in$' -e '^for$' -e '^of$' -e '^with$' -e '^on$' -e '^by$' | sort | uniq)
-          
-          # Look for implementation in source files
-          IMPL_FOUND=0
-          IMPL_FILES=""
-          
-          for TERM in $KEY_TERMS; do
-            # Skip very short terms
-            if [ ${#TERM} -lt 4 ]; then
-              continue
-            fi
-            
-            # Search for this term in non-test source files
-            FOUND_FILES=$(find . -type f -name "*.js" -o -name "*.ts" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.c" -o -name "*.cpp" | grep -v "test" | grep -v "spec" | xargs grep -l "$TERM" 2>/dev/null || echo "")
-            
-            if [ -n "$FOUND_FILES" ]; then
-              IMPL_FOUND=1
-              for FILE in $FOUND_FILES; do
-                if [[ ! "$IMPL_FILES" == *"$FILE"* ]]; then
-                  IMPL_FILES+="$FILE, "
-                fi
-              done
-            fi
-          done
-          
-          # Trim trailing comma and space
-          IMPL_FILES=$(echo "$IMPL_FILES" | sed 's/, $//')
-          
-          # Determine status
-          if [ $IS_COMPLETED -eq 1 ]; then
-            if [ $IMPL_FOUND -eq 1 ]; then
-              STATUS="✅ Implemented"
-              FULLY_IMPLEMENTED=$((FULLY_IMPLEMENTED + 1))
-            else
-              STATUS="⚠️ Marked complete but not found"
-              PARTIALLY_IMPLEMENTED=$((PARTIALLY_IMPLEMENTED + 1))
-            fi
-          else
-            if [ $IMPL_FOUND -eq 1 ]; then
-              STATUS="🔄 Partially implemented"
-              PARTIALLY_IMPLEMENTED=$((PARTIALLY_IMPLEMENTED + 1))
-            else
-              STATUS="❌ Not implemented"
-              UNIMPLEMENTED=$((UNIMPLEMENTED + 1))
-            fi
-          fi
-          
-          # Add to report
-          echo "| $REQ_TEXT | $STATUS | $IMPL_FILES |" >> "$VALIDATION_FILE"
-        done <<< "$REQUIREMENTS"
-        
-        # Add implementation statistics
-        cat >> "$VALIDATION_FILE" << EOF
-
-### Implementation Statistics
-- **Fully Implemented**: ${FULLY_IMPLEMENTED}
-- **Partially Implemented**: ${PARTIALLY_IMPLEMENTED}
-- **Not Implemented**: ${UNIMPLEMENTED}
-EOF
-      fi
-      
-      # Test coverage
-      cat >> "$VALIDATION_FILE" << EOF
-
-## Test Coverage
-
-EOF
-      
-      # Check for test files related to this specification
-      SPEC_NAME=$(basename "$SPEC_PATH" .md)
-      
-      # Look for test files with similar names
-      TEST_FILES=$(find . -name "*test*" -o -name "*spec*" | grep -i "$SPEC_NAME" | grep -v ".cursor" | grep -v "node_modules" || echo "")
-      
-      if [ -n "$TEST_FILES" ]; then
-        cat >> "$VALIDATION_FILE" << EOF
-✅ Test files found that may cover this specification:
-
-EOF
-        while IFS= read -r TEST_FILE; do
-          echo "- $TEST_FILE" >> "$VALIDATION_FILE"
-        done <<< "$TEST_FILES"
-      else
-        cat >> "$VALIDATION_FILE" << EOF
-⚠️ No test files found matching this specification name.
-EOF
-      fi
-      
-      # Final recommendation
-      cat >> "$VALIDATION_FILE" << EOF
-
-## Recommendations
-
-Based on the validation results, the following actions are recommended:
-
-EOF
-      
-      # Quality recommendations
-      if [ $QUALITY_ISSUES -gt 0 ]; then
-        echo "- **Improve Specification Quality**: Address the identified quality issues" >> "$VALIDATION_FILE"
-      fi
-      
-      # Implementation recommendations
-      if [ $UNIMPLEMENTED -gt 0 ]; then
-        echo "- **Implementation Required**: ${UNIMPLEMENTED} requirements need implementation" >> "$VALIDATION_FILE"
-      fi
-      
-      if [ $PARTIALLY_IMPLEMENTED -gt 0 ]; then
-        echo "- **Complete Implementation**: ${PARTIALLY_IMPLEMENTED} requirements need completion or verification" >> "$VALIDATION_FILE"
-      fi
-      
-      # Test recommendations
-      if [ -z "$TEST_FILES" ]; then
-        echo "- **Add Tests**: Create tests covering the requirements in this specification" >> "$VALIDATION_FILE"
-      fi
-      
-      echo "Specification validation report generated at $VALIDATION_FILE"
-      echo "Validation found $QUALITY_ISSUES quality issues, $UNIMPLEMENTED unimplemented requirements, and $PARTIALLY_IMPLEMENTED partially implemented requirements"
-
-  - type: execute
+  - type: react
     conditions:
       - pattern: "spec format|format spec"
-    command: |
+    action: |
       # Format a specification to improve its quality
-      if [ -z "$SPEC_PATH" ]; then
-        echo "Error: No specification path provided"
-        echo "Usage: spec format [path to specification]"
-        exit 1
-      fi
       
-      # Ensure the spec file exists
-      if [ ! -f "$SPEC_PATH" ]; then
-        echo "Error: Specification file not found at $SPEC_PATH"
-        exit 1
-      fi
+      I'll improve the specification format:
       
-      # Create a backup of the original file
-      BACKUP_FILE="${SPEC_PATH}.bak"
-      cp "$SPEC_PATH" "$BACKUP_FILE"
+      1. Ensure proper structure:
+         - Add title if missing
+         - Create standard sections (Description, Requirements, Acceptance Criteria, Notes)
+         - Format requirements as proper checkboxes
       
-      # Extract the specification title
-      SPEC_TITLE=$(grep -m 1 "^# " "$SPEC_PATH" | sed 's/^# //')
-      if [ -z "$SPEC_TITLE" ]; then
-        SPEC_TITLE=$(basename "$SPEC_PATH" .md)
-        
-        # Add title if missing
-        sed -i "1i# ${SPEC_TITLE}\n" "$SPEC_PATH"
-      fi
+      2. Improve requirement quality:
+         - Split non-atomic requirements (containing "and")
+         - Convert vague requirements to specific ones
+         - Ensure consistent formatting
       
-      # Ensure standard sections exist
-      if ! grep -q "## Description" "$SPEC_PATH"; then
-        echo -e "\n## Description\n\n" >> "$SPEC_PATH"
-      fi
+      3. Backup the original specification
       
-      if ! grep -q "## Requirements" "$SPEC_PATH"; then
-        echo -e "\n## Requirements\n\n" >> "$SPEC_PATH"
-      fi
-      
-      if ! grep -q "## Acceptance Criteria" "$SPEC_PATH"; then
-        echo -e "\n## Acceptance Criteria\n\n- [ ] All requirements are implemented\n- [ ] Unit tests pass\n- [ ] Integration tests pass\n" >> "$SPEC_PATH"
-      fi
-      
-      if ! grep -q "## Notes" "$SPEC_PATH"; then
-        echo -e "\n## Notes\n\n" >> "$SPEC_PATH"
-      fi
-      
-      # Format requirements to ensure they are properly formatted as checkboxes
-      # This is a simple approach - more complex formatting would require a more sophisticated script
-      sed -i 's/^- \([^[].*$\)/- [ ] \1/g' "$SPEC_PATH"
-      
-      # Improve requirement atomicity by splitting requirements with "and"
-      # This is a simplified approach that may need manual review
-      MULTI_REQS=$(grep -n "\- \[ \].*and.*" "$SPEC_PATH" | grep -v "and the" | grep -v "and a" | grep -v "and an" || echo "")
-      
-      if [ -n "$MULTI_REQS" ]; then
-        # Create a temporary file for processing
-        TMP_FILE=$(mktemp)
-        cat "$SPEC_PATH" > "$TMP_FILE"
-        
-        while IFS= read -r LINE; do
-          LINE_NUM=$(echo "$LINE" | cut -d: -f1)
-          LINE_TEXT=$(echo "$LINE" | cut -d: -f2-)
-          
-          # Split the line at "and" if it's a non-atomic requirement
-          if echo "$LINE_TEXT" | grep -q "\- \[ \].*and.*" && ! echo "$LINE_TEXT" | grep -q "and the" && ! echo "$LINE_TEXT" | grep -q "and a" && ! echo "$LINE_TEXT" | grep -q "and an"; then
-            PART1=$(echo "$LINE_TEXT" | sed 's/\(.*\)and.*/\1/')
-            PART2=$(echo "$LINE_TEXT" | sed 's/.*and\(.*\)/\1/')
-            
-            # Replace the original line with split requirements
-            sed -i "${LINE_NUM}s/.*/${PART1}/" "$SPEC_PATH"
-            sed -i "${LINE_NUM}a- [ ]${PART2}" "$SPEC_PATH"
-          fi
-        done <<< "$MULTI_REQS"
-      fi
-      
-      echo "Specification formatted and saved to $SPEC_PATH"
-      echo "Original specification backed up to $BACKUP_FILE"
+      This improves specification quality while preserving all original content.
 
-  - type: execute
+  - type: react
     conditions:
       - pattern: "spec completeness|completeness check"
-    command: |
+    action: |
       # Check specification completeness across the project
-      COMPLETENESS_FILE=".cursor/output/spec_completeness_$(date +%Y%m%d_%H%M%S).md"
       
-      # Start completeness report
-      cat > "$COMPLETENESS_FILE" << EOF
-# Specification Completeness Report
-
-Generated on $(date)
-
-## Overview
-
-EOF
+      I'll analyze specification coverage across the entire project:
       
-      # Find all spec files
-      SPEC_FILES=$(find .cursor/specs -name "*.md" -type f | sort)
-      SPEC_COUNT=$(echo "$SPEC_FILES" | wc -l)
+      1. Generate overall statistics:
+         - Total specification files
+         - Total requirements and completion rate
+         - Quality assessment
       
-      # Count total requirements and completed requirements
-      TOTAL_REQS=0
-      COMPLETED_REQS=0
+      2. Examine per-specification metrics:
+         - Requirements count and completion
+         - Quality scores
+         - Implementation status
       
-      for SPEC_FILE in $SPEC_FILES; do
-        FILE_REQS=$(grep -c "\- \[" "$SPEC_FILE" || echo "0")
-        FILE_COMPLETED=$(grep -c "\- \[x\]" "$SPEC_FILE" || echo "0")
-        
-        TOTAL_REQS=$((TOTAL_REQS + FILE_REQS))
-        COMPLETED_REQS=$((COMPLETED_REQS + FILE_COMPLETED))
-      done
+      3. Analyze source code coverage:
+         - Check which directories/components have specification coverage
+         - Identify code areas lacking specifications
+         - Calculate coverage percentages
       
-      # Calculate completion percentage
-      if [ $TOTAL_REQS -eq 0 ]; then
-        COMPLETION_PCT="0"
-      else
-        COMPLETION_PCT=$((COMPLETED_REQS * 100 / TOTAL_REQS))
-      fi
+      4. Provide recommendations:
+         - Areas needing specification improvement
+         - Low-quality specifications to address
+         - Missing specifications to create
       
-      # Add overall stats
-      cat >> "$COMPLETENESS_FILE" << EOF
-- **Total Specification Files**: ${SPEC_COUNT}
-- **Total Requirements**: ${TOTAL_REQS}
-- **Completed Requirements**: ${COMPLETED_REQS}
-- **Overall Completion**: ${COMPLETION_PCT}%
-
-## Specification Completeness by File
-
-| Specification | Requirements | Completed | Percentage | Quality Score |
-|---------------|-------------|-----------|------------|--------------|
-EOF
-      
-      # Process each spec file
-      for SPEC_FILE in $SPEC_FILES; do
-        SPEC_NAME=$(basename "$SPEC_FILE" .md)
-        SPEC_TITLE=$(grep -m 1 "^# " "$SPEC_FILE" | sed 's/^# //')
-        if [ -z "$SPEC_TITLE" ]; then
-          SPEC_TITLE=$SPEC_NAME
-        fi
-        
-        # Count requirements
-        FILE_REQS=$(grep -c "\- \[" "$SPEC_FILE" || echo "0")
-        FILE_COMPLETED=$(grep -c "\- \[x\]" "$SPEC_FILE" || echo "0")
-        
-        if [ $FILE_REQS -eq 0 ]; then
-          FILE_PCT="0"
-        else
-          FILE_PCT=$((FILE_COMPLETED * 100 / FILE_REQS))
-        fi
-        
-        # Calculate quality score
-        QUALITY_SCORE=100
-        
-        # Check for vague terms
-        VAGUE_TERMS=("should" "would" "could" "may" "might" "consider" "probably" "somehow" "etc" "and so on" "as needed")
-        
-        for TERM in "${VAGUE_TERMS[@]}"; do
-          VAGUE_COUNT=$(grep -c "\- \[ \].*$TERM" "$SPEC_FILE" || echo "0")
-          
-          if [ $VAGUE_COUNT -gt 0 ]; then
-            QUALITY_SCORE=$((QUALITY_SCORE - (VAGUE_COUNT * 5)))
-          fi
-        done
-        
-        # Check for missing sections
-        if ! grep -q "## Description" "$SPEC_FILE"; then
-          QUALITY_SCORE=$((QUALITY_SCORE - 10))
-        fi
-        
-        if ! grep -q "## Requirements" "$SPEC_FILE"; then
-          QUALITY_SCORE=$((QUALITY_SCORE - 10))
-        fi
-        
-        if ! grep -q "## Acceptance Criteria" "$SPEC_FILE"; then
-          QUALITY_SCORE=$((QUALITY_SCORE - 15))
-        fi
-        
-        # Ensure quality score is not negative
-        if [ $QUALITY_SCORE -lt 0 ]; then
-          QUALITY_SCORE=0
-        fi
-        
-        # Add to report
-        echo "| ${SPEC_TITLE} | ${FILE_REQS} | ${FILE_COMPLETED} | ${FILE_PCT}% | ${QUALITY_SCORE}% |" >> "$COMPLETENESS_FILE"
-      done
-      
-      # Add coverage analysis
-      cat >> "$COMPLETENESS_FILE" << EOF
-
-## Source Code Coverage Analysis
-
-EOF
-      
-      # Find code files
-      CODE_FILES=$(find . -type f -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.c" -o -name "*.cpp" | grep -v "node_modules" | grep -v ".git" | sort)
-      
-      # Group code files by directory
-      CODE_DIRS=$(echo "$CODE_FILES" | xargs -n1 dirname | sort | uniq)
-      
-      cat >> "$COMPLETENESS_FILE" << EOF
-### Directory Coverage
-
-| Directory | Files | Spec Coverage |
-|-----------|-------|--------------|
-EOF
-      
-      for DIR in $CODE_DIRS; do
-        # Count files in this directory
-        DIR_FILES=$(find "$DIR" -maxdepth 1 -type f -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.c" -o -name "*.cpp" | grep -v "node_modules" | grep -v ".git" | wc -l)
-        
-        # Look for specifications mentioning this directory
-        DIR_NAME=$(basename "$DIR")
-        SPEC_MENTIONS=$(grep -r "$DIR_NAME" .cursor/specs | wc -l)
-        
-        # Simple calculation for coverage
-        if [ $DIR_FILES -eq 0 ]; then
-          COVERAGE="N/A"
-        elif [ $SPEC_MENTIONS -eq 0 ]; then
-          COVERAGE="❌ No coverage"
-        elif [ $SPEC_MENTIONS -lt $DIR_FILES ]; then
-          COVERAGE="⚠️ Partial"
-        else
-          COVERAGE="✅ Good"
-        fi
-        
-        echo "| $DIR | $DIR_FILES | $COVERAGE |" >> "$COMPLETENESS_FILE"
-      done
-      
-      # Add recommendations
-      cat >> "$COMPLETENESS_FILE" << EOF
-
-## Recommendations
-
-Based on the completeness analysis, the following actions are recommended:
-
-EOF
-      
-      # Overall completion recommendations
-      if [ $COMPLETION_PCT -lt 50 ]; then
-        echo "- **Focus on Implementation**: Project has a low specification completion rate (${COMPLETION_PCT}%). Prioritize implementing existing requirements." >> "$COMPLETENESS_FILE"
-      fi
-      
-      # Identify specs with low quality scores
-      LOW_QUALITY=$(grep "\|" "$COMPLETENESS_FILE" | grep -v "Specification \| Requirements" | awk -F '|' '$6 ~ /[0-9]+%/ && $6 < " 70%" {print $2}')
-      
-      if [ -n "$LOW_QUALITY" ]; then
-        echo "- **Improve Specification Quality**: The following specs have quality issues:" >> "$COMPLETENESS_FILE"
-        echo "$LOW_QUALITY" | while read -r SPEC; do
-          echo "  - $SPEC" >> "$COMPLETENESS_FILE"
-        done
-      fi
-      
-      # Find directories without coverage
-      NO_COVERAGE=$(grep "❌ No coverage" "$COMPLETENESS_FILE" | cut -d'|' -f2)
-      
-      if [ -n "$NO_COVERAGE" ]; then
-        echo "- **Add Missing Specifications**: The following directories have no specification coverage:" >> "$COMPLETENESS_FILE"
-        echo "$NO_COVERAGE" | while read -r DIR; do
-          echo "  - $DIR" >> "$COMPLETENESS_FILE"
-        done
-      fi
-      
-      echo "Specification completeness report generated at $COMPLETENESS_FILE"
+      The completeness report will be saved to `.cursor/output/spec_completeness_[timestamp].md`
 
   - type: react
     event: "file_change"
@@ -579,151 +113,57 @@ EOF
       - pattern: ".cursor/specs/.*\\.md$"
     action: |
       # Automatically validate specifications when they change
-      SPEC_FILE="$FILE"
       
-      # Perform a basic quality check
-      QUALITY_ISSUES=0
+      When a specification file changes, I'll:
       
-      # Check for vague requirements
-      VAGUE_TERMS=("should" "would" "could" "may" "might" "consider" "probably" "somehow" "etc" "and so on" "as needed")
-      VAGUE_ISSUES=0
+      1. Perform a basic quality check:
+         - Look for vague terms
+         - Check for missing sections
+         - Identify potential quality issues
       
-      for TERM in "${VAGUE_TERMS[@]}"; do
-        VAGUE_COUNT=$(grep -c "\- \[ \].*$TERM" "$SPEC_FILE" || echo "0")
-        VAGUE_ISSUES=$((VAGUE_ISSUES + VAGUE_COUNT))
-      done
+      2. Update the specifications index:
+         - Add new specifications to the index
+         - Update completion percentages
+         - Refresh requirement counts
       
-      if [ $VAGUE_ISSUES -gt 0 ]; then
-        QUALITY_ISSUES=$((QUALITY_ISSUES + 1))
-      fi
+      3. Notify about any quality issues found
       
-      # Check for missing sections
-      if ! grep -q "## Description" "$SPEC_FILE"; then
-        QUALITY_ISSUES=$((QUALITY_ISSUES + 1))
-      fi
-      
-      if ! grep -q "## Requirements" "$SPEC_FILE"; then
-        QUALITY_ISSUES=$((QUALITY_ISSUES + 1))
-      fi
-      
-      if ! grep -q "## Acceptance Criteria" "$SPEC_FILE"; then
-        QUALITY_ISSUES=$((QUALITY_ISSUES + 1))
-      fi
-      
-      # Notify if quality issues are found
-      if [ $QUALITY_ISSUES -gt 0 ]; then
-        echo "⚠️ Quality issues detected in specification $SPEC_FILE"
-        echo "Run 'spec validate $SPEC_FILE' for detailed validation or 'spec format $SPEC_FILE' to improve format"
-      else
-        echo "✅ Specification $SPEC_FILE passed basic quality checks"
-      fi
-      
-      # Update SPECS.md index
-      if [ -f ".cursor/SPECS.md" ]; then
-        # Check if this spec is already in the index
-        SPEC_RELATIVE_PATH=$(echo "$SPEC_FILE" | sed 's/^.cursor\///')
-        
-        if ! grep -q "$SPEC_RELATIVE_PATH" ".cursor/SPECS.md"; then
-          # Extract title
-          SPEC_TITLE=$(grep -m 1 "^# " "$SPEC_FILE" | sed 's/^# //')
-          if [ -z "$SPEC_TITLE" ]; then
-            SPEC_TITLE=$(basename "$SPEC_FILE" .md)
-          fi
-          
-          # Count requirements
-          TOTAL_REQS=$(grep -c "\- \[" "$SPEC_FILE" || echo "0")
-          COMPLETED_REQS=$(grep -c "\- \[x\]" "$SPEC_FILE" || echo "0")
-          
-          if [ $TOTAL_REQS -eq 0 ]; then
-            COMPLETION="0%"
-          else
-            COMPLETION_PCT=$((COMPLETED_REQS * 100 / TOTAL_REQS))
-            COMPLETION="${COMPLETION_PCT}%"
-          fi
-          
-          # Add to index
-          SPECS_INDEX=".cursor/SPECS.md"
-          
-          # Create index if it doesn't exist
-          if [ ! -f "$SPECS_INDEX" ]; then
-            mkdir -p .cursor
-            cat > "$SPECS_INDEX" << EOF
-# Specifications Index
-
-| Specification | Path | Requirements | Completion |
-|---------------|------|-------------|------------|
-EOF
-          fi
-          
-          # Add to index
-          echo "| ${SPEC_TITLE} | ${SPEC_RELATIVE_PATH} | ${TOTAL_REQS} | ${COMPLETION} |" >> "$SPECS_INDEX"
-          
-          echo "Added specification to SPECS.md index"
-        else
-          # Update the existing entry
-          SPEC_TITLE=$(grep -m 1 "^# " "$SPEC_FILE" | sed 's/^# //')
-          if [ -z "$SPEC_TITLE" ]; then
-            SPEC_TITLE=$(basename "$SPEC_FILE" .md)
-          fi
-          
-          # Count requirements
-          TOTAL_REQS=$(grep -c "\- \[" "$SPEC_FILE" || echo "0")
-          COMPLETED_REQS=$(grep -c "\- \[x\]" "$SPEC_FILE" || echo "0")
-          
-          if [ $TOTAL_REQS -eq 0 ]; then
-            COMPLETION="0%"
-          else
-            COMPLETION_PCT=$((COMPLETED_REQS * 100 / TOTAL_REQS))
-            COMPLETION="${COMPLETION_PCT}%"
-          fi
-          
-          # Update the index entry
-          SPEC_RELATIVE_PATH=$(echo "$SPEC_FILE" | sed 's/^.cursor\///')
-          sed -i "s|^.*${SPEC_RELATIVE_PATH}.*$|\\| ${SPEC_TITLE} \\| ${SPEC_RELATIVE_PATH} \\| ${TOTAL_REQS} \\| ${COMPLETION} \\||" ".cursor/SPECS.md"
-          
-          echo "Updated specification in SPECS.md index"
-        fi
-      fi
+      This ensures specifications maintain high quality and are properly indexed.
 
   - type: suggest
     message: |
       ### Specification Validation System
 
-      Your specifications are now automatically validated to ensure quality and completeness:
+      Specifications are automatically validated to ensure quality and completeness:
 
-      **Key Commands:**
-      - `spec validate path/to/spec.md` - Detailed validation of a specification
-      - `spec format path/to/spec.md` - Automatically improve specification formatting
+      **Commands:**
+      - `spec validate [path/to/spec.md]` - Detailed validation of a specification
+      - `spec format [path/to/spec.md]` - Automatically improve specification formatting
       - `spec completeness` - Generate project-wide specification coverage report
 
       **Validation Checks:**
-      - Quality: Vague language, non-atomic requirements, missing sections
-      - Implementation: Traces requirements to actual code files
-      - Completeness: Ensures all code areas have specification coverage
-      - Test Coverage: Verifies tests exist for requirements
+      - Quality: Vague language, atomic requirements, complete sections
+      - Implementation: Tracing requirements to actual code
+      - Completeness: Ensuring all code areas have specification coverage
+      - Test Coverage: Verifying tests exist for requirements
 
-      **Automatic Features:**
+      **Automatic Behaviors:**
       - Specifications are validated when changed
-      - SPECS.md index is kept updated
+      - The specifications index is kept updated
       - Quality issues trigger suggestions for improvement
 
-      These tools help maintain high-quality specifications that drive accurate implementations.
+      This system helps maintain high-quality specifications that drive accurate implementations.
 
 examples:
   - input: |
-      # Validate a specification
-      SPEC_PATH=".cursor/specs/auth/login.md"
-      spec validate
+      spec validate .cursor/specs/auth/login.md
     output: "Specification validation report generated at .cursor/output/spec_validation_login_20250305_123456.md"
 
   - input: |
-      # Format a specification
-      SPEC_PATH=".cursor/specs/auth/registration.md"
-      spec format
-    output: "Specification formatted and saved to .cursor/specs/auth/registration.md"
+      spec format .cursor/specs/api/endpoints.md
+    output: "Specification formatted and saved to .cursor/specs/api/endpoints.md"
 
   - input: |
-      # Check project-wide specification completeness
       spec completeness
     output: "Specification completeness report generated at .cursor/output/spec_completeness_20250305_123456.md"
 

@@ -25,417 +25,161 @@ filters:
     pattern: "test_failure"
 
 actions:
-  - type: execute
-    conditions:
-      - pattern: "implementation_start"
-    command: |
-      # When implementation begins, create test files based on specs
-      # First, find active task
-      ACTIVE_TASK=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md | head -1)
+  - type: react
+    event: "implementation_start"
+    action: |
+      # Create test files when implementation begins
       
-      if [ -z "$ACTIVE_TASK" ]; then
-        echo "No active task found"
-        exit 0
-      fi
+      When implementation starts, I'll:
       
-      # Get task ID
-      TASK_ID=$(basename "$ACTIVE_TASK" | cut -d'_' -f1)
+      1. Find the active task and its associated specifications
+      2. For each specification, create appropriate test files:
+         - Detect the project type (Node.js, Python, Rust, etc.)
+         - Create test files in the proper location and format
+         - Link tests to the specification requirements
+         - Add placeholder tests for each requirement
+         - Include references to the specs and task
       
-      # Extract relevant specs from the task
-      SPECS=$(sed -n '/## Relevant Specifications/,/##/p' "$ACTIVE_TASK" | sed '1d;$d' | grep -o "specs/[a-zA-Z0-9_/.-]\+\.md" || echo "")
+      3. Consider project-specific testing patterns:
+         - Use Jest for JavaScript/TypeScript
+         - Use pytest for Python
+         - Use Cargo test for Rust
+         - Use JUnit for Java
       
-      if [ -z "$SPECS" ]; then
-        echo "No specs found for task ${TASK_ID}"
-        exit 0
-      fi
-      
-      # For each spec, generate test file(s)
-      for SPEC in $SPECS; do
-        if [ ! -f ".cursor/$SPEC" ]; then
-          echo "Warning: Spec file .cursor/$SPEC not found"
-          continue
-        fi
-        
-        # Determine test directory and file name based on project structure
-        # Check for common project structures
-        if [ -d "tests" ]; then
-          TEST_DIR="tests"
-        elif [ -d "test" ]; then
-          TEST_DIR="test"
-        elif [ -d "src/test" ]; then
-          TEST_DIR="src/test"
-        elif [ -d "__tests__" ]; then
-          TEST_DIR="__tests__"
-        else
-          # Create a tests directory if none exists
-          mkdir -p "tests"
-          TEST_DIR="tests"
-        fi
-        
-        # Extract component name from spec
-        COMPONENT=$(basename "$SPEC" .md)
-        
-        # Create test file based on project type
-        if [ -f "package.json" ]; then
-          # Node.js project
-          TEST_FILE="${TEST_DIR}/${COMPONENT}.test.js"
-          if [ ! -f "$TEST_FILE" ]; then
-            echo "Creating JavaScript test file for $COMPONENT"
-            mkdir -p $(dirname "$TEST_FILE")
-            cat > "$TEST_FILE" << EOF
-/**
- * Tests for ${COMPONENT}
- * Based on specs from: .cursor/${SPEC}
- * Task: ${TASK_ID}
- */
+      This ensures tests are created before implementation, supporting 
+      test-driven development.
 
-describe('${COMPONENT}', () => {
-  // Extract test cases from spec
-  // TODO: Implement test cases based on the spec
-  
-  test('should meet basic requirements', () => {
-    // This is a placeholder test
-    expect(true).toBe(true);
-  });
-});
-EOF
-          fi
-        elif [ -f "Cargo.toml" ]; then
-          # Rust project
-          TEST_FILE="${TEST_DIR}/${COMPONENT}_test.rs"
-          if [ ! -f "$TEST_FILE" ]; then
-            echo "Creating Rust test file for $COMPONENT"
-            mkdir -p $(dirname "$TEST_FILE")
-            cat > "$TEST_FILE" << EOF
-/**
- * Tests for ${COMPONENT}
- * Based on specs from: .cursor/${SPEC}
- * Task: ${TASK_ID}
- */
-
-#[cfg(test)]
-mod tests {
-    // Extract test cases from spec
-    // TODO: Implement test cases based on the spec
-    
-    #[test]
-    fn basic_requirements() {
-        assert!(true);
-    }
-}
-EOF
-          fi
-        elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
-          # Python project
-          TEST_FILE="${TEST_DIR}/test_${COMPONENT}.py"
-          if [ ! -f "$TEST_FILE" ]; then
-            echo "Creating Python test file for $COMPONENT"
-            mkdir -p $(dirname "$TEST_FILE")
-            cat > "$TEST_FILE" << EOF
-"""
-Tests for ${COMPONENT}
-Based on specs from: .cursor/${SPEC}
-Task: ${TASK_ID}
-"""
-
-import unittest
-
-class Test${COMPONENT^}(unittest.TestCase):
-    # Extract test cases from spec
-    # TODO: Implement test cases based on the spec
-    
-    def test_basic_requirements(self):
-        self.assertTrue(True)
-
-if __name__ == '__main__':
-    unittest.main()
-EOF
-          fi
-        else
-          echo "Unknown project type, can't determine test format"
-        fi
-      done
-      
-      echo "Test files created based on specifications"
-
-  - type: execute
+  - type: react
     conditions:
       - pattern: "test run|test execute"
-    command: |
+    action: |
       # Run tests based on project type
-      if [ -f "package.json" ]; then
-        # Node.js project
-        if grep -q "\"test\":" "package.json"; then
-          echo "Running tests for Node.js project..."
-          npm test
-          TEST_EXIT_CODE=$?
-        else
-          echo "No test script found in package.json"
-          TEST_EXIT_CODE=1
-        fi
-      elif [ -f "Cargo.toml" ]; then
-        # Rust project
-        echo "Running tests for Rust project..."
-        cargo test
-        TEST_EXIT_CODE=$?
-      elif [ -f "pom.xml" ]; then
-        # Java/Maven project
-        echo "Running tests for Java project..."
-        mvn test
-        TEST_EXIT_CODE=$?
-      elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
-        # Python project
-        echo "Running tests for Python project..."
-        if [ -f "pytest.ini" ] || [ -d "tests" ]; then
-          python -m pytest
-          TEST_EXIT_CODE=$?
-        else
-          python -m unittest discover
-          TEST_EXIT_CODE=$?
-        fi
-      else
-        echo "Unknown project type, can't determine how to run tests"
-        TEST_EXIT_CODE=1
-      fi
       
-      # Record test results
-      if [ $TEST_EXIT_CODE -eq 0 ]; then
-        echo "✅ Tests passed successfully"
-        
-        # Find active task and update it
-        ACTIVE_TASK=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md | head -1)
-        if [ -n "$ACTIVE_TASK" ]; then
-          # Update acceptance criteria in the task file
-          sed -i "s/- \[ \] Unit tests pass/- \[x\] Unit tests pass/g" "$ACTIVE_TASK"
-          echo "Updated task to reflect passing tests"
-        fi
-        
-        # Create a test success event for other rules
-        echo "Triggering test_success event"
-        # Other rules like git-commit-rule can respond to this
-      else
-        echo "❌ Tests failed"
-        
-        # Record details of test failure
-        mkdir -p .cursor/test_results
-        TEST_FAILURE_LOG=".cursor/test_results/test_failure_$(date +%Y%m%d_%H%M%S).log"
-        echo "Test failure logged to $TEST_FAILURE_LOG"
-        
-        # Trigger test_failure event for other rules
-        echo "Triggering test_failure event"
-      fi
+      I'll execute tests for the project:
+      
+      1. Detect the project type:
+         - Node.js (package.json) → npm test
+         - Rust (Cargo.toml) → cargo test
+         - Java (pom.xml) → mvn test
+         - Python (requirements.txt/setup.py) → pytest or unittest
+      
+      2. Process test results:
+         - If tests pass, update active task to reflect passing tests
+         - If tests fail, create detailed failure report
+         - Trigger appropriate success/failure events
+      
+      3. Update task acceptance criteria:
+         - Mark "Unit tests pass" criteria based on results
+      
+      This validates implementation quality through automated testing.
 
   - type: react
     event: "test_failure"
     action: |
-      # When tests fail, analyze the failure and suggest fixes
-      echo "Analyzing test failures..."
+      # Analyze test failures and suggest fixes
       
-      # Find latest test failure log
-      LATEST_FAILURE=$(ls -t .cursor/test_results/test_failure_*.log 2>/dev/null | head -1)
+      When tests fail, I'll:
       
-      if [ -z "$LATEST_FAILURE" ]; then
-        echo "No test failure log found"
-        exit 0
-      fi
+      1. Analyze the failure details:
+         - Identify failing tests
+         - Determine failure reasons
+         - Isolate problematic code
       
-      # Create a learning about the test failure
-      LEARNING_TITLE="Test Failure Analysis"
-      LEARNING_SHORT_DESC="Analysis of test failures and potential solutions"
-      LEARNING_DETAILED_DESC="$(cat "$LATEST_FAILURE")"
+      2. Create a learning about the test failure:
+         - Document the failure details
+         - Record potential solutions
+         - Link to relevant code and specifications
       
-      # Generate learning ID
-      LEARNING_DATE=$(date +%Y-%m-%d)
-      LEARNING_COUNT=$(ls -1 .cursor/learnings/LEARN-${LEARNING_DATE}* 2>/dev/null | wc -l)
-      LEARNING_NUM=$(printf "%02d" $((LEARNING_COUNT + 1)))
-      LEARNING_ID="LEARN-${LEARNING_DATE}-${LEARNING_NUM}"
+      3. Store the learning for future reference:
+         - Save to `.cursor/learnings/` with proper ID
+         - Update the learnings index
       
-      # Create learning file
-      mkdir -p .cursor/learnings
-      LEARNING_FILE=".cursor/learnings/${LEARNING_ID}_Test_Failure_Analysis.md"
-      
-      cat > "$LEARNING_FILE" << EOF
-# Test Failure Analysis
+      This captures valuable information from failures and helps prevent 
+      similar issues in the future.
 
-## Learning ID
-${LEARNING_ID}
-
-## Short Description
-${LEARNING_SHORT_DESC}
-
-## Detailed Description
-Test failures were detected. Analyzing the failures:
-
-${LEARNING_DETAILED_DESC}
-
-## Potential Solutions
-- Review implementation against test expectations
-- Check for environment or configuration issues
-- Verify test data
-
-## Date
-$(date +"%Y-%m-%d")
-EOF
+  - type: react
+    event: "implementation_complete"
+    action: |
+      # Run verification tests when implementation is complete
       
-      # Update learnings index
-      LEARNINGS_INDEX=".cursor/LEARNINGS.md"
-      if [ ! -f "$LEARNINGS_INDEX" ]; then
-        mkdir -p .cursor
-        cat > "$LEARNINGS_INDEX" << EOF
-# Learnings Index
-
-| Learning ID | Date | Description |
-|-------------|------|-------------|
-EOF
-      fi
+      When implementation is marked complete, I'll:
       
-      echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Test_Failure_Analysis.md) | $(date +"%Y-%m-%d") | ${LEARNING_SHORT_DESC} |" >> "$LEARNINGS_INDEX"
+      1. Run all relevant tests:
+         - Execute tests based on project type
+         - Verify all tests pass
       
-      echo "Learning created for test failure: ${LEARNING_ID}"
-
-  - type: execute
-    conditions:
-      - pattern: "implementation_complete"
-    command: |
-      # When implementation is complete, run tests to verify
-      echo "Implementation complete, running verification tests..."
+      2. Update the task status:
+         - Mark acceptance criteria as met if tests pass
+         - Indicate readiness for completion
+         - Flag issues if tests fail
       
-      # Run tests based on project type
-      if [ -f "package.json" ]; then
-        # Node.js project
-        npm test
-        TEST_EXIT_CODE=$?
-      elif [ -f "Cargo.toml" ]; then
-        # Rust project
-        cargo test
-        TEST_EXIT_CODE=$?
-      elif [ -f "pom.xml" ]; then
-        # Java/Maven project
-        mvn test
-        TEST_EXIT_CODE=$?
-      elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
-        # Python project
-        python -m pytest || python -m unittest discover
-        TEST_EXIT_CODE=$?
-      else
-        echo "Unknown project type, assuming tests pass"
-        TEST_EXIT_CODE=0
-      fi
+      3. Prevent completion if tests fail:
+         - Record verification failure
+         - Request fixes before allowing completion
       
-      # Process test results
-      if [ $TEST_EXIT_CODE -eq 0 ]; then
-        echo "✅ Implementation verified by tests"
-        
-        # Find active task and update it
-        ACTIVE_TASK=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md | head -1)
-        if [ -n "$ACTIVE_TASK" ]; then
-          # Mark acceptance criteria as met
-          sed -i "s/- \[ \] Unit tests pass/- \[x\] Unit tests pass/g" "$ACTIVE_TASK"
-          sed -i "s/- \[ \] Implementation matches specifications/- \[x\] Implementation matches specifications/g" "$ACTIVE_TASK"
-          
-          # Task is ready to be completed
-          echo "Task acceptance criteria met, ready for completion"
-        fi
-      else
-        echo "❌ Implementation verification failed"
-        echo "Please fix test failures before marking implementation as complete"
-        
-        # Record test failure
-        mkdir -p .cursor/test_results
-        TEST_FAILURE_LOG=".cursor/test_results/verification_failure_$(date +%Y%m%d_%H%M%S).log"
-        echo "Verification failure logged to $TEST_FAILURE_LOG"
-        
-        exit 1
-      fi
+      This ensures only properly tested implementations are marked complete.
 
   - type: react
     event: "file_change"
     conditions:
       - pattern: "src/.*\\.(js|ts|jsx|tsx|py|rs|go|java|rb|cpp|c|h|hpp)$"
     action: |
-      # When source files change, check if there are corresponding test files
-      # Extract the component name
-      COMPONENT=$(basename "$FILE" | cut -d. -f1)
+      # Check for test files when source files change
       
-      # Determine test directory and possible test file locations
-      POSSIBLE_TEST_FILES=(
-        "tests/${COMPONENT}.test.js"
-        "tests/${COMPONENT}.spec.js"
-        "test/${COMPONENT}.test.js"
-        "test/${COMPONENT}.spec.js"
-        "tests/test_${COMPONENT}.py"
-        "test/test_${COMPONENT}.py"
-        "tests/${COMPONENT}_test.rb"
-        "test/${COMPONENT}_test.rb"
-        "tests/${COMPONENT}_test.rs"
-        "test/${COMPONENT}_test.rs"
-        "__tests__/${COMPONENT}.test.js"
-        "__tests__/${COMPONENT}.spec.js"
-      )
+      When a source file changes, I'll:
       
-      # Check if any test file exists
-      TEST_EXISTS=0
-      for TEST_FILE in "${POSSIBLE_TEST_FILES[@]}"; do
-        if [ -f "$TEST_FILE" ]; then
-          TEST_EXISTS=1
-          break
-        fi
-      done
+      1. Extract the component name from the file path
+      2. Look for corresponding test files in common locations:
+         - tests/[component].test.js
+         - tests/test_[component].py
+         - tests/[component]_test.rs
+         - __tests__/[component].test.js
+         - etc.
       
-      # If no test file exists, create a suggestion to add one
-      if [ $TEST_EXISTS -eq 0 ]; then
-        echo "No test file found for ${COMPONENT}"
-        
-        # Make note in a dedicated "test_needed" file
-        mkdir -p .cursor/test_tracking
-        echo "${FILE}: No test file exists" >> .cursor/test_tracking/test_needed.md
-        
-        # Create a task to add tests if one doesn't exist
-        if ! grep -q "Add tests for ${COMPONENT}" .cursor/tasks/*.md 2>/dev/null; then
-          echo "Creating a reminder to add tests for ${COMPONENT}"
-          
-          # This output will be visible to the AI to remind it to suggest adding tests
-        fi
-      fi
+      3. If no test file exists:
+         - Make note of missing test coverage
+         - Create a reminder to add tests
+         - Track untested components
       
+      This ensures all components have corresponding test coverage.
+
   - type: suggest
     message: |
       ### Automated Testing Framework
-      
-      Tests are now automatically managed throughout the development lifecycle:
-      
-      - **Test Creation**: When implementation starts, test files are automatically created based on specs
-      - **Test Execution**: Run tests with `test run` or tests automatically run when implementation is complete
-      - **Test Tracking**: Test failures are analyzed and recorded as learnings
-      - **Test Coverage**: When source files change, the system checks for corresponding test files
-      
-      Testing is integrated with the task workflow:
-      - Tasks are updated to reflect passing tests
-      - Tasks can only be completed when tests pass
-      - Test failures generate learnings with analysis
-      
-      You can run tests manually at any time with:
-      ```
-      test run
-      ```
-      
-      All test results are tracked in `.cursor/test_results/` for review.
+
+      Tests are automatically managed throughout development:
+
+      **Automatic Behaviors:**
+      - When implementation starts → Test files are created based on specs
+      - When source files change → Test coverage is checked
+      - When implementation completes → Verification tests are run
+      - When tests fail → Analysis and learnings are created
+
+      **Commands:**
+      - `test run` - Execute tests for the project
+
+      **Integration with Tasks:**
+      - Tasks track test status in acceptance criteria
+      - Tasks require passing tests for completion
+      - Test failures are recorded as learnings
+
+      This framework ensures comprehensive test coverage and prevents 
+      untested code from being marked complete.
 
 examples:
   - input: |
-      # Begin implementing a feature
-      # This would be triggered by an implementation_start event
-    output: "Test files created based on specifications"
+      # When implementation starts
+      Implementation starting for user authentication feature
+    output: "Test files created for user authentication based on specifications"
 
   - input: |
-      # Run tests manually
       test run
-    output: "✅ Tests passed successfully"
+    output: "Running tests... ✅ Tests passed successfully! Task updated to reflect passing tests."
 
   - input: |
-      # Mark implementation as complete
-      # This would be triggered by an implementation_complete event
-    output: "✅ Implementation verified by tests"
+      # When implementation is complete
+      Implementation complete for user authentication
+    output: "Running verification tests... ✅ Implementation verified by tests. Task ready for completion."
 
 metadata:
   priority: high

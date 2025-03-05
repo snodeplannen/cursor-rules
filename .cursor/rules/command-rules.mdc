@@ -11,8 +11,6 @@ Rule for defining and handling custom commands for AI-assisted development workf
 <rule>
 name: ai_command_system
 filters:
-  - type: event
-    pattern: "user_command"
   - type: command
     pattern: "Specs"
   - type: command
@@ -28,1221 +26,209 @@ filters:
 
 actions:
   # Specs Commands
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Specs.getHtml"
-    command: |
-      # Generate HTML representation of specifications
-      # Create output directory if it doesn't exist
-      mkdir -p .cursor/output
+    action: |
+      # Generate an HTML representation of all specifications
+      # This will create a dashboard showing all specs with their completion status
       
-      # Create HTML output file
-      HTML_FILE=".cursor/output/specs_$(date +%Y%m%d_%H%M%S).html"
+      I'll generate an HTML dashboard of all specifications, showing:
+      - Project specifications overview
+      - Completion percentages
+      - Requirements status for each spec
+      - Categories of specifications
+      - A visual indicator of progress
       
-      # Start HTML document
-      cat > "$HTML_FILE" << EOF
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Project Specifications</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      line-height: 1.6;
-      color: #333;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    h1 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    h2 { color: #3498db; margin-top: 30px; }
-    h3 { color: #2980b9; }
-    .spec-card {
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .spec-header { display: flex; justify-content: space-between; align-items: center; }
-    .spec-meta { color: #7f8c8d; font-size: 0.9em; }
-    pre {
-      background-color: #f8f8f8;
-      border: 1px solid #ddd;
-      border-radius: 3px;
-      padding: 10px;
-      overflow-x: auto;
-    }
-    .tag {
-      display: inline-block;
-      background-color: #e0f7fa;
-      color: #00838f;
-      padding: 3px 8px;
-      border-radius: 4px;
-      margin-right: 5px;
-      font-size: 0.85em;
-    }
-    .status-pending { background-color: #fff3e0; color: #e65100; }
-    .status-inprogress { background-color: #e8f5e9; color: #2e7d32; }
-    .status-completed { background-color: #e1f5fe; color: #0277bd; }
-    .toc { background-color: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 30px; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    tr:nth-child(even) { background-color: #f9f9f9; }
-  </style>
-</head>
-<body>
-  <h1>Project Specifications</h1>
-  <div class="toc">
-    <h2>Table of Contents</h2>
-    <ul id="toc-list">
-      <!-- Will be populated dynamically -->
-    </ul>
-  </div>
-  <div id="specs-container">
-EOF
-      
-      # Find all spec files
-      SPEC_FILES=$(find .cursor/specs -name "*.md" -type f | sort)
-      
-      # Extract TOC entries and process each spec file
-      TOC_ENTRIES=""
-      
-      for SPEC_FILE in $SPEC_FILES; do
-        # Get spec name and title
-        SPEC_NAME=$(basename "$SPEC_FILE" .md)
-        SPEC_TITLE=$(grep -m 1 "^# " "$SPEC_FILE" | sed 's/^# //')
-        if [ -z "$SPEC_TITLE" ]; then
-          SPEC_TITLE=$SPEC_NAME
-        fi
-        
-        # Add to TOC
-        TOC_ENTRIES="${TOC_ENTRIES}<li><a href=\"#${SPEC_NAME}\">${SPEC_TITLE}</a></li>\n"
-        
-        # Process the spec file content
-        SPEC_CONTENT=$(cat "$SPEC_FILE" | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g')
-        
-        # Determine status based on content
-        STATUS="pending"
-        if grep -q "\- \[x\]" "$SPEC_FILE"; then
-          if grep -q "\- \[ \]" "$SPEC_FILE"; then
-            STATUS="inprogress"
-          else
-            STATUS="completed"
-          fi
-        fi
-        
-        # Add spec card to HTML
-        cat >> "$HTML_FILE" << EOF
-  <div class="spec-card" id="${SPEC_NAME}">
-    <div class="spec-header">
-      <h2>${SPEC_TITLE}</h2>
-      <span class="tag status-${STATUS}">${STATUS}</span>
-    </div>
-    <div class="spec-meta">
-      File: ${SPEC_FILE}
-    </div>
-    <div class="spec-content">
-      <pre>${SPEC_CONTENT}</pre>
-    </div>
-  </div>
-EOF
-      done
-      
-      # Complete the HTML document
-      cat >> "$HTML_FILE" << EOF
-  </div>
-  
-  <script>
-    // Insert TOC entries
-    document.getElementById('toc-list').innerHTML = \`${TOC_ENTRIES}\`;
-    
-    // Convert Markdown in spec content to HTML (basic conversion)
-    document.querySelectorAll('.spec-content pre').forEach(pre => {
-      const content = pre.textContent;
-      let html = content
-        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/\- \[x\] (.*$)/gm, '<div><input type="checkbox" checked disabled> $1</div>')
-        .replace(/\- \[ \] (.*$)/gm, '<div><input type="checkbox" disabled> $1</div>')
-        .replace(/^\- (.*$)/gm, '<ul><li>$1</li></ul>')
-        .replace(/<\/ul>\n<ul>/g, '');
-      
-      const div = document.createElement('div');
-      div.innerHTML = html;
-      pre.parentNode.replaceChild(div, pre);
-    });
-  </script>
-</body>
-</html>
-EOF
-      
-      echo "Specs HTML generated at $HTML_FILE"
-      echo "Open this file in a browser to view the specifications dashboard"
+      The dashboard will be saved to `.cursor/output/specs_[timestamp].html`
 
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Specs.getSummary"
-    command: |
-      # Generate a summary of all specifications
-      SUMMARY_FILE=".cursor/output/specs_summary_$(date +%Y%m%d_%H%M%S).md"
+    action: |
+      # Generate a markdown summary of all specifications
       
-      # Create the summary file
-      cat > "$SUMMARY_FILE" << EOF
-# Specifications Summary
+      I'll create a markdown summary showing:
+      - Total specification files
+      - Total requirements
+      - Completion percentage
+      - Breakdown by category
+      - Details on each individual specification
+      
+      The summary will be saved to `.cursor/output/specs_summary_[timestamp].md`
 
-Generated on $(date)
-
-## Overview Stats
-
-EOF
-      
-      # Count specs and completion status
-      TOTAL_SPECS=$(find .cursor/specs -name "*.md" -type f | wc -l)
-      COMPLETED_ITEMS=$(grep -r "\- \[x\]" .cursor/specs | wc -l)
-      PENDING_ITEMS=$(grep -r "\- \[ \]" .cursor/specs | wc -l)
-      TOTAL_ITEMS=$((COMPLETED_ITEMS + PENDING_ITEMS))
-      
-      if [ $TOTAL_ITEMS -eq 0 ]; then
-        COMPLETION_PCT="0"
-      else
-        COMPLETION_PCT=$((COMPLETED_ITEMS * 100 / TOTAL_ITEMS))
-      fi
-      
-      # Add stats to summary
-      cat >> "$SUMMARY_FILE" << EOF
-- **Total Specification Files**: ${TOTAL_SPECS}
-- **Total Requirement Items**: ${TOTAL_ITEMS}
-- **Completed Items**: ${COMPLETED_ITEMS}
-- **Pending Items**: ${PENDING_ITEMS}
-- **Completion Percentage**: ${COMPLETION_PCT}%
-
-## Specification Areas
-EOF
-      
-      # Get list of top-level directories in specs
-      SPEC_DIRS=$(find .cursor/specs -mindepth 1 -maxdepth 1 -type d | sort)
-      
-      for DIR in $SPEC_DIRS; do
-        DIR_NAME=$(basename "$DIR")
-        DIR_SPECS=$(find "$DIR" -name "*.md" -type f | wc -l)
-        
-        # Count items in this directory
-        DIR_COMPLETED=$(grep -r "\- \[x\]" "$DIR" | wc -l)
-        DIR_PENDING=$(grep -r "\- \[ \]" "$DIR" | wc -l)
-        DIR_TOTAL=$((DIR_COMPLETED + DIR_PENDING))
-        
-        if [ $DIR_TOTAL -eq 0 ]; then
-          DIR_PCT="0"
-        else
-          DIR_PCT=$((DIR_COMPLETED * 100 / DIR_TOTAL))
-        fi
-        
-        # Add directory stats
-        cat >> "$SUMMARY_FILE" << EOF
-
-### ${DIR_NAME}
-- Specification files: ${DIR_SPECS}
-- Completion: ${DIR_COMPLETED}/${DIR_TOTAL} (${DIR_PCT}%)
-EOF
-      done
-      
-      # Add detailed file listing
-      cat >> "$SUMMARY_FILE" << EOF
-
-## Detailed Specification Listing
-
-| Specification | Requirements | Completed | Percentage |
-|---------------|-------------|-----------|------------|
-EOF
-      
-      # Process each spec file
-      SPEC_FILES=$(find .cursor/specs -name "*.md" -type f | sort)
-      
-      for SPEC_FILE in $SPEC_FILES; do
-        SPEC_NAME=$(basename "$SPEC_FILE" .md)
-        SPEC_TITLE=$(grep -m 1 "^# " "$SPEC_FILE" | sed 's/^# //')
-        if [ -z "$SPEC_TITLE" ]; then
-          SPEC_TITLE=$SPEC_NAME
-        fi
-        
-        SPEC_COMPLETED=$(grep -c "\- \[x\]" "$SPEC_FILE")
-        SPEC_PENDING=$(grep -c "\- \[ \]" "$SPEC_FILE")
-        SPEC_TOTAL=$((SPEC_COMPLETED + SPEC_PENDING))
-        
-        if [ $SPEC_TOTAL -eq 0 ]; then
-          SPEC_PCT="N/A"
-        else
-          SPEC_PCT=$((SPEC_COMPLETED * 100 / SPEC_TOTAL))
-        fi
-        
-        # Add to table
-        echo "| ${SPEC_TITLE} | ${SPEC_TOTAL} | ${SPEC_COMPLETED} | ${SPEC_PCT}% |" >> "$SUMMARY_FILE"
-      done
-      
-      echo "Specs summary generated at $SUMMARY_FILE"
-
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Specs.verify"
-    command: |
-      # Verify that implementations match specifications
-      VERIFICATION_FILE=".cursor/output/spec_verification_$(date +%Y%m%d_%H%M%S).md"
+    action: |
+      # Verify implementations match specifications
       
-      # Start verification report
-      cat > "$VERIFICATION_FILE" << EOF
-# Specification Verification Report
-
-Generated on $(date)
-
-This report compares implementations against specifications to verify completeness.
-
-## Verification Results
-
-EOF
+      I'll analyze the codebase to verify that specifications have been implemented:
+      - Trace each requirement to implementation code
+      - Verify marked items actually exist in the codebase
+      - Identify gaps between specs and implementation
+      - Generate a verification report with findings
       
-      # Find all spec files
-      SPEC_FILES=$(find .cursor/specs -name "*.md" -type f | sort)
-      
-      # Track overall stats
-      TOTAL_SPECS=0
-      VERIFIED_SPECS=0
-      
-      for SPEC_FILE in $SPEC_FILES; do
-        TOTAL_SPECS=$((TOTAL_SPECS + 1))
-        SPEC_NAME=$(basename "$SPEC_FILE" .md)
-        SPEC_TITLE=$(grep -m 1 "^# " "$SPEC_FILE" | sed 's/^# //')
-        if [ -z "$SPEC_TITLE" ]; then
-          SPEC_TITLE=$SPEC_NAME
-        fi
-        
-        # Extract requirements
-        REQUIREMENTS=$(grep -n "\- \[" "$SPEC_FILE" || echo "")
-        if [ -z "$REQUIREMENTS" ]; then
-          echo "### ${SPEC_TITLE} (No requirements found)" >> "$VERIFICATION_FILE"
-          echo "" >> "$VERIFICATION_FILE"
-          continue
-        fi
-        
-        # Add spec to report
-        echo "### ${SPEC_TITLE}" >> "$VERIFICATION_FILE"
-        echo "" >> "$VERIFICATION_FILE"
-        
-        # Check each requirement
-        TOTAL_REQS=0
-        VERIFIED_REQS=0
-        
-        while IFS= read -r REQ_LINE; do
-          TOTAL_REQS=$((TOTAL_REQS + 1))
-          LINE_NUM=$(echo "$REQ_LINE" | cut -d: -f1)
-          REQ_TEXT=$(echo "$REQ_LINE" | cut -d: -f2- | sed 's/- \[[x ]\] //')
-          IS_COMPLETED=$(echo "$REQ_LINE" | grep -c "\- \[x\]")
-          
-          # Look for related implementation
-          # This is a basic search - can be enhanced to be more intelligent
-          IMPL_FILES=$(grep -l "$REQ_TEXT" $(find . -type f -not -path "./.git/*" -not -path "./.cursor/*") || echo "")
-          
-          if [ $IS_COMPLETED -eq 1 ]; then
-            if [ -n "$IMPL_FILES" ]; then
-              echo "- ✅ `${REQ_TEXT}` - Verified in:" >> "$VERIFICATION_FILE"
-              for IMPL_FILE in $IMPL_FILES; do
-                echo "  - ${IMPL_FILE}" >> "$VERIFICATION_FILE"
-              done
-              VERIFIED_REQS=$((VERIFIED_REQS + 1))
-            else
-              echo "- ⚠️ `${REQ_TEXT}` - Marked complete but implementation not found" >> "$VERIFICATION_FILE"
-            fi
-          else
-            echo "- ❌ `${REQ_TEXT}` - Not implemented yet" >> "$VERIFICATION_FILE"
-          fi
-        done <<< "$REQUIREMENTS"
-        
-        # Add stats for this spec
-        if [ $TOTAL_REQS -eq 0 ]; then
-          SPEC_PCT="0"
-        else
-          SPEC_PCT=$((VERIFIED_REQS * 100 / TOTAL_REQS))
-        fi
-        
-        echo "" >> "$VERIFICATION_FILE"
-        echo "**Verification Rate**: ${VERIFIED_REQS}/${TOTAL_REQS} (${SPEC_PCT}%)" >> "$VERIFICATION_FILE"
-        echo "" >> "$VERIFICATION_FILE"
-        
-        if [ $VERIFIED_REQS -eq $TOTAL_REQS ] && [ $TOTAL_REQS -gt 0 ]; then
-          VERIFIED_SPECS=$((VERIFIED_SPECS + 1))
-        fi
-      done
-      
-      # Add overall stats
-      if [ $TOTAL_SPECS -eq 0 ]; then
-        OVERALL_PCT="0"
-      else
-        OVERALL_PCT=$((VERIFIED_SPECS * 100 / TOTAL_SPECS))
-      fi
-      
-      # Insert overall stats at the top
-      TMP_FILE=$(mktemp)
-      cat "$VERIFICATION_FILE" > "$TMP_FILE"
-      
-      cat > "$VERIFICATION_FILE" << EOF
-# Specification Verification Report
-
-Generated on $(date)
-
-This report compares implementations against specifications to verify completeness.
-
-## Summary
-- **Total Specifications**: ${TOTAL_SPECS}
-- **Fully Verified Specifications**: ${VERIFIED_SPECS}
-- **Overall Verification Rate**: ${OVERALL_PCT}%
-
-## Verification Results
-EOF
-      
-      cat "$TMP_FILE" | tail -n +6 >> "$VERIFICATION_FILE"
-      rm "$TMP_FILE"
-      
-      echo "Specification verification report generated at $VERIFICATION_FILE"
+      The verification report will be saved to `.cursor/output/spec_verification_[timestamp].md`
 
   # Code Commands
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Code.analyze"
-    command: |
+    action: |
       # Analyze code structure and quality
-      ANALYSIS_FILE=".cursor/output/code_analysis_$(date +%Y%m%d_%H%M%S).md"
       
-      # Start analysis report
-      cat > "$ANALYSIS_FILE" << EOF
-# Code Analysis Report
+      I'll perform a comprehensive analysis of the codebase:
+      - File types and lines of code
+      - Directory structure
+      - Code complexity metrics
+      - Potential complex functions (>50 lines)
+      - TODOs and FIXMEs
+      - Potential architectural issues
+      
+      The analysis report will be saved to `.cursor/output/code_analysis_[timestamp].md`
 
-Generated on $(date)
-
-## Project Structure
-EOF
-      
-      # Find code files by extension
-      CODE_EXTENSIONS=("js" "ts" "jsx" "tsx" "py" "rb" "java" "go" "rs" "c" "cpp" "h" "hpp" "cs")
-      
-      # Build find command for code files
-      FIND_CMD="find . -type f"
-      for EXT in "${CODE_EXTENSIONS[@]}"; do
-        FIND_CMD="$FIND_CMD -o -name \"*.$EXT\""
-      done
-      FIND_CMD="$FIND_CMD | grep -v \"node_modules\" | grep -v \".git\" | sort"
-      
-      # Execute find command
-      CODE_FILES=$(eval $FIND_CMD)
-      
-      # Count files by type
-      echo "### File Types" >> "$ANALYSIS_FILE"
-      echo "" >> "$ANALYSIS_FILE"
-      echo "| Extension | Count | Lines of Code |" >> "$ANALYSIS_FILE"
-      echo "|-----------|-------|---------------|" >> "$ANALYSIS_FILE"
-      
-      TOTAL_FILES=0
-      TOTAL_LINES=0
-      
-      for EXT in "${CODE_EXTENSIONS[@]}"; do
-        FILE_COUNT=$(echo "$CODE_FILES" | grep -c "\.$EXT$")
-        if [ $FILE_COUNT -gt 0 ]; then
-          LINE_COUNT=$(find . -name "*.$EXT" -not -path "./node_modules/*" -not -path "./.git/*" -exec cat {} \; | wc -l)
-          echo "| .$EXT | $FILE_COUNT | $LINE_COUNT |" >> "$ANALYSIS_FILE"
-          TOTAL_FILES=$((TOTAL_FILES + FILE_COUNT))
-          TOTAL_LINES=$((TOTAL_LINES + LINE_COUNT))
-        fi
-      done
-      
-      echo "| **Total** | **$TOTAL_FILES** | **$TOTAL_LINES** |" >> "$ANALYSIS_FILE"
-      echo "" >> "$ANALYSIS_FILE"
-      
-      # Directory structure
-      echo "### Directory Structure" >> "$ANALYSIS_FILE"
-      echo "" >> "$ANALYSIS_FILE"
-      echo '```' >> "$ANALYSIS_FILE"
-      find . -type d -not -path "./node_modules/*" -not -path "./.git/*" | sort | sed -e "s/[^-][^\/]*\//  │   /g" -e "s/│\([^ ]\)/│─\1/" >> "$ANALYSIS_FILE"
-      echo '```' >> "$ANALYSIS_FILE"
-      echo "" >> "$ANALYSIS_FILE"
-      
-      # Code quality metrics (basic)
-      echo "## Code Quality Metrics" >> "$ANALYSIS_FILE"
-      echo "" >> "$ANALYSIS_FILE"
-      
-      # Complexity approximation (long functions)
-      echo "### Potential Complex Functions (>50 lines)" >> "$ANALYSIS_FILE"
-      echo "" >> "$ANALYSIS_FILE"
-      
-      # For each known language, check for long functions/methods
-      COMPLEX_FOUND=0
-      
-      # JavaScript/TypeScript
-      JS_FILES=$(echo "$CODE_FILES" | grep -E "\.(js|ts|jsx|tsx)$" || echo "")
-      if [ -n "$JS_FILES" ]; then
-        echo "#### JavaScript/TypeScript" >> "$ANALYSIS_FILE"
-        echo "" >> "$ANALYSIS_FILE"
-        
-        for FILE in $JS_FILES; do
-          # Find function declarations with many lines
-          LONG_FUNCTIONS=$(grep -n -E "function |=>|class " "$FILE" || echo "")
-          if [ -n "$LONG_FUNCTIONS" ]; then
-            while IFS= read -r FUNC_LINE; do
-              LINE_NUM=$(echo "$FUNC_LINE" | cut -d: -f1)
-              FUNC_TEXT=$(echo "$FUNC_LINE" | cut -d: -f2-)
-              
-              # Simplified approach to count function length - just search for } after this line
-              END_LINE=$(tail -n +$LINE_NUM "$FILE" | grep -n "}" | head -1 | cut -d: -f1)
-              if [ -n "$END_LINE" ]; then
-                FUNC_LENGTH=$END_LINE
-                if [ $FUNC_LENGTH -gt 50 ]; then
-                  echo "- **$FILE:$LINE_NUM** - `$FUNC_TEXT` - ~$FUNC_LENGTH lines" >> "$ANALYSIS_FILE"
-                  COMPLEX_FOUND=1
-                fi
-              fi
-            done <<< "$LONG_FUNCTIONS"
-          fi
-        done
-        
-        if [ $COMPLEX_FOUND -eq 0 ]; then
-          echo "No complex functions found." >> "$ANALYSIS_FILE"
-        fi
-        echo "" >> "$ANALYSIS_FILE"
-      fi
-      
-      # Python
-      PY_FILES=$(echo "$CODE_FILES" | grep "\.py$" || echo "")
-      if [ -n "$PY_FILES" ]; then
-        echo "#### Python" >> "$ANALYSIS_FILE"
-        echo "" >> "$ANALYSIS_FILE"
-        COMPLEX_FOUND=0
-        
-        for FILE in $PY_FILES; do
-          # Find function and method declarations
-          LONG_FUNCTIONS=$(grep -n -E "def |class " "$FILE" || echo "")
-          if [ -n "$LONG_FUNCTIONS" ]; then
-            while IFS= read -r FUNC_LINE; do
-              LINE_NUM=$(echo "$FUNC_LINE" | cut -d: -f1)
-              FUNC_TEXT=$(echo "$FUNC_LINE" | cut -d: -f2-)
-              
-              # Count indented lines to approximate function length
-              # This is a simplified approach
-              NEXT_DEF=$(tail -n +$((LINE_NUM + 1)) "$FILE" | grep -n -E "def |class " | head -1 | cut -d: -f1 || echo "")
-              if [ -n "$NEXT_DEF" ]; then
-                FUNC_LENGTH=$NEXT_DEF
-                if [ $FUNC_LENGTH -gt 50 ]; then
-                  echo "- **$FILE:$LINE_NUM** - `$FUNC_TEXT` - ~$FUNC_LENGTH lines" >> "$ANALYSIS_FILE"
-                  COMPLEX_FOUND=1
-                fi
-              fi
-            done <<< "$LONG_FUNCTIONS"
-          fi
-        done
-        
-        if [ $COMPLEX_FOUND -eq 0 ]; then
-          echo "No complex functions found." >> "$ANALYSIS_FILE"
-        fi
-        echo "" >> "$ANALYSIS_FILE"
-      fi
-      
-      # Add more language-specific checks as needed
-      
-      # TODOs and FIXMEs
-      echo "### Code TODOs" >> "$ANALYSIS_FILE"
-      echo "" >> "$ANALYSIS_FILE"
-      TODOS=$(grep -r "TODO\|FIXME" --include="*.*" --exclude-dir=".git" --exclude-dir="node_modules" . || echo "")
-      
-      if [ -n "$TODOS" ]; then
-        echo "| File | Line | Description |" >> "$ANALYSIS_FILE"
-        echo "|------|------|-------------|" >> "$ANALYSIS_FILE"
-        
-        while IFS= read -r TODO_LINE; do
-          FILE=$(echo "$TODO_LINE" | cut -d: -f1)
-          LINE=$(echo "$TODO_LINE" | cut -d: -f2)
-          DESC=$(echo "$TODO_LINE" | cut -d: -f3- | sed 's/\/\/\s*//;s/\/\*\s*//;s/\*\/\s*//;s/#\s*//')
-          echo "| $FILE | $LINE | $DESC |" >> "$ANALYSIS_FILE"
-        done <<< "$TODOS"
-      else
-        echo "No TODOs or FIXMEs found." >> "$ANALYSIS_FILE"
-      fi
-      
-      echo "Code analysis report generated at $ANALYSIS_FILE"
-
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Code.refactor:(.*)"
-    command: |
+    action: |
       # Extract the code file to refactor from the command
-      CODE_FILE=$(echo "$COMMAND" | sed 's/Code\.refactor://')
+      # Pattern will capture the file path
       
-      if [ ! -f "$CODE_FILE" ]; then
-        echo "Error: File $CODE_FILE not found"
-        exit 1
-      fi
+      I'll analyze the specified file and provide refactoring recommendations:
+      - Identify long functions that could be broken down
+      - Find duplicated code patterns
+      - Review naming conventions
+      - Suggest code structure improvements
+      - Generate refactored code
       
-      # Create refactoring report
-      REFACTOR_FILE=".cursor/output/refactor_$(basename "$CODE_FILE")_$(date +%Y%m%d_%H%M%S).md"
-      
-      # Start refactoring report
-      cat > "$REFACTOR_FILE" << EOF
-# Code Refactoring Report: $(basename "$CODE_FILE")
+      The refactoring report will be saved to `.cursor/output/refactor_[filename]_[timestamp].md`
 
-Generated on $(date)
-
-## Original Code
-\`\`\`
-$(cat "$CODE_FILE")
-\`\`\`
-
-## Refactoring Suggestions
-
-EOF
-      
-      # Analyze code for refactoring opportunities
-      # This is a simplified analysis - in reality, Cursor/Claude would do this
-      
-      # Check for long functions
-      LONG_FUNCTIONS=$(grep -n -E "function |=>|def |class |void " "$CODE_FILE" || echo "")
-      if [ -n "$LONG_FUNCTIONS" ]; then
-        echo "### Long Functions" >> "$REFACTOR_FILE"
-        echo "" >> "$REFACTOR_FILE"
-        echo "Consider breaking down the following functions into smaller, more focused pieces:" >> "$REFACTOR_FILE"
-        echo "" >> "$REFACTOR_FILE"
-        
-        while IFS= read -r FUNC_LINE; do
-          LINE_NUM=$(echo "$FUNC_LINE" | cut -d: -f1)
-          FUNC_TEXT=$(echo "$FUNC_LINE" | cut -d: -f2-)
-          echo "- Line $LINE_NUM: `$FUNC_TEXT`" >> "$REFACTOR_FILE"
-        done <<< "$LONG_FUNCTIONS"
-        echo "" >> "$REFACTOR_FILE"
-      fi
-      
-      # Check for duplicated code fragments
-      echo "### Code Duplication" >> "$REFACTOR_FILE"
-      echo "" >> "$REFACTOR_FILE"
-      echo "Analyze for duplicated code patterns (to be expanded by AI)" >> "$REFACTOR_FILE"
-      echo "" >> "$REFACTOR_FILE"
-      
-      # Check for naming issues
-      echo "### Naming Conventions" >> "$REFACTOR_FILE"
-      echo "" >> "$REFACTOR_FILE"
-      echo "Review variable and function naming (to be expanded by AI)" >> "$REFACTOR_FILE"
-      echo "" >> "$REFACTOR_FILE"
-      
-      # Add refactored code section (to be filled by AI)
-      echo "## Refactored Code" >> "$REFACTOR_FILE"
-      echo "" >> "$REFACTOR_FILE"
-      echo "```" >> "$REFACTOR_FILE"
-      echo "// AI would generate refactored code here" >> "$REFACTOR_FILE"
-      echo "```" >> "$REFACTOR_FILE"
-      
-      echo "Refactoring report created at $REFACTOR_FILE"
-      echo "This report provides a starting point - Cursor will now analyze and provide detailed refactoring recommendations."
-
-  # Task Commands
   # Evaluation Commands
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Eval.project"
-    command: |
+    action: |
       # Generate a comprehensive project evaluation report
-      EVAL_FILE=".cursor/output/project_evaluation_$(date +%Y%m%d_%H%M%S).md"
       
-      # Create evaluation report
-      cat > "$EVAL_FILE" << EOF
-# Project Evaluation Report
+      I'll evaluate the entire project:
+      - Project overview and statistics
+      - Task completion assessment
+      - Specification coverage
+      - Code quality assessment
+      - Documentation assessment
+      - Recommendations for improvement
+      
+      The evaluation report will be saved to `.cursor/output/project_evaluation_[timestamp].md`
 
-Generated on $(date)
-
-## Project Overview
-
-EOF
-      
-      # Project structure stats
-      TOTAL_FILES=$(find . -type f -not -path "./.git/*" -not -path "./node_modules/*" | wc -l)
-      TOTAL_DIRS=$(find . -type d -not -path "./.git/*" -not -path "./node_modules/*" | wc -l)
-      LINES_OF_CODE=$(find . -type f -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.go" -o -name "*.rs" -o -name "*.c" -o -name "*.cpp" | xargs cat 2>/dev/null | wc -l)
-      
-      cat >> "$EVAL_FILE" << EOF
-- **Total Files**: ${TOTAL_FILES}
-- **Total Directories**: ${TOTAL_DIRS}
-- **Lines of Code**: ${LINES_OF_CODE}
-
-## Progress Assessment
-EOF
-      
-      # Get task stats
-      OPEN_TASKS=$(grep -l "**State**: 📝 (Open)" .cursor/tasks/*.md 2>/dev/null | wc -l)
-      ACTIVE_TASKS=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md 2>/dev/null | wc -l)
-      DONE_TASKS=$(grep -l "**State**: ✅ (Done)" .cursor/tasks/*.md 2>/dev/null | wc -l)
-      TOTAL_TASKS=$((OPEN_TASKS + ACTIVE_TASKS + DONE_TASKS))
-      
-      # Calculate completion percentage
-      if [ $TOTAL_TASKS -eq 0 ]; then
-        TASK_PCT="0"
-      else
-        TASK_PCT=$((DONE_TASKS * 100 / TOTAL_TASKS))
-      fi
-      
-      # Get spec stats
-      SPEC_FILES=$(find .cursor/specs -name "*.md" -type f | wc -l)
-      SPEC_COMPLETED=$(grep -r "\- \[x\]" .cursor/specs | wc -l)
-      SPEC_PENDING=$(grep -r "\- \[ \]" .cursor/specs | wc -l)
-      SPEC_TOTAL=$((SPEC_COMPLETED + SPEC_PENDING))
-      
-      if [ $SPEC_TOTAL -eq 0 ]; then
-        SPEC_PCT="0"
-      else
-        SPEC_PCT=$((SPEC_COMPLETED * 100 / SPEC_TOTAL))
-      fi
-      
-      cat >> "$EVAL_FILE" << EOF
-### Task Completion
-- **Progress**: ${DONE_TASKS}/${TOTAL_TASKS} tasks completed (${TASK_PCT}%)
-- **Active Tasks**: ${ACTIVE_TASKS}
-- **Pending Tasks**: ${OPEN_TASKS}
-
-### Specification Coverage
-- **Progress**: ${SPEC_COMPLETED}/${SPEC_TOTAL} requirements implemented (${SPEC_PCT}%)
-- **Specification Files**: ${SPEC_FILES}
-
-## Code Quality Assessment
-EOF
-      
-      # Check for code quality indicators
-      # TODOs and FIXMEs
-      TODO_COUNT=$(grep -r "TODO\|FIXME" --include="*.*" --exclude-dir=".git" --exclude-dir="node_modules" . | wc -l)
-      
-      # Look for long functions as a complexity metric
-      COMPLEX_FUNC_COUNT=$(grep -r -n -A 50 "function \|def \|class \|void " --include="*.js" --include="*.py" --include="*.java" --include="*.ts" --include="*.jsx" --include="*.tsx" --include="*.go" --include="*.rs" --include="*.c" --include="*.cpp" . | grep -c "{.*{.*{")
-      
-      # Test files
-      TEST_FILES=$(find . -name "*test*" -o -name "*spec*" | grep -v "node_modules" | wc -l)
-      
-      cat >> "$EVAL_FILE" << EOF
-- **TODOs/FIXMEs**: ${TODO_COUNT}
-- **Complex Functions**: ~${COMPLEX_FUNC_COUNT}
-- **Test Files**: ${TEST_FILES}
-
-## Learning & Documentation Assessment
-EOF
-      
-      # Count learnings and documents
-      LEARNING_COUNT=$(find .cursor/learnings -name "*.md" | wc -l)
-      DOC_COUNT=$(find .cursor/docs -name "*.md" | wc -l)
-      
-      cat >> "$EVAL_FILE" << EOF
-- **Captured Learnings**: ${LEARNING_COUNT}
-- **Documentation Files**: ${DOC_COUNT}
-
-## Recommendations
-EOF
-      
-      # Generate recommendations based on metrics
-      cat >> "$EVAL_FILE" << EOF
-Based on the current state of the project:
-
-EOF
-      
-      # Task recommendations
-      if [ $TASK_PCT -lt 50 ]; then
-        echo "- **Tasks**: Project has many incomplete tasks. Consider prioritizing completion of key tasks." >> "$EVAL_FILE"
-      else
-        echo "- **Tasks**: Task completion rate is good. Continue maintaining progress." >> "$EVAL_FILE"
-      fi
-      
-      # Specification recommendations
-      if [ $SPEC_PCT -lt 50 ]; then
-        echo "- **Specifications**: Many specifications remain unimplemented. Focus on closing specification gaps." >> "$EVAL_FILE"
-      else
-        echo "- **Specifications**: Specification coverage is good. Ensure any new features have corresponding specs." >> "$EVAL_FILE"
-      fi
-      
-      # Code quality recommendations
-      if [ $TODO_COUNT -gt 20 ]; then
-        echo "- **Code Quality**: Large number of TODOs indicates technical debt. Consider addressing these." >> "$EVAL_FILE"
-      fi
-      
-      if [ $COMPLEX_FUNC_COUNT -gt 10 ]; then
-        echo "- **Code Quality**: Project has potentially complex functions. Consider refactoring for maintainability." >> "$EVAL_FILE"
-      fi
-      
-      if [ $TEST_FILES -lt 5 ]; then
-        echo "- **Testing**: Limited test files found. Improve test coverage for better reliability." >> "$EVAL_FILE"
-      fi
-      
-      # Documentation recommendations
-      if [ $LEARNING_COUNT -lt 5 ]; then
-        echo "- **Knowledge Management**: Few learnings captured. Improve knowledge documentation." >> "$EVAL_FILE"
-      fi
-      
-      echo "Project evaluation report generated at $EVAL_FILE"
-
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Eval.progress"
-    command: |
+    action: |
       # Generate a progress report comparing current state to project goals
-      PROGRESS_FILE=".cursor/output/progress_report_$(date +%Y%m%d_%H%M%S).md"
       
-      # Start progress report
-      cat > "$PROGRESS_FILE" << EOF
-# Project Progress Report
-
-Generated on $(date)
-
-## Milestone Progress
-EOF
+      I'll analyze project progress:
+      - Milestone status and completion
+      - Weekly task completion trends
+      - Burndown analysis with completion projections
+      - Risk assessment
+      - Recommendations to maintain momentum
       
-      # Look for milestone indicators in specs
-      MILESTONE_SPECS=$(grep -l "## Milestone" .cursor/specs/*.md 2>/dev/null)
-      
-      if [ -n "$MILESTONE_SPECS" ]; then
-        echo "" >> "$PROGRESS_FILE"
-        echo "| Milestone | Status | Completion |" >> "$PROGRESS_FILE"
-        echo "|-----------|--------|------------|" >> "$PROGRESS_FILE"
-        
-        for SPEC_FILE in $MILESTONE_SPECS; do
-          MILESTONE=$(grep -A 1 "## Milestone" "$SPEC_FILE" | tail -n 1)
-          
-          # Count requirements and completions
-          TOTAL_REQS=$(grep -c "\- \[" "$SPEC_FILE")
-          COMPLETED_REQS=$(grep -c "\- \[x\]" "$SPEC_FILE")
-          
-          if [ $TOTAL_REQS -eq 0 ]; then
-            COMPLETION="N/A"
-            STATUS="⚠️ No requirements"
-          else
-            COMPLETION_PCT=$((COMPLETED_REQS * 100 / TOTAL_REQS))
-            COMPLETION="${COMPLETION_PCT}%"
-            
-            if [ $COMPLETION_PCT -eq 100 ]; then
-              STATUS="✅ Complete"
-            elif [ $COMPLETION_PCT -gt 50 ]; then
-              STATUS="🔄 In progress"
-            else
-              STATUS="📝 Planning"
-            fi
-          fi
-          
-          echo "| $MILESTONE | $STATUS | $COMPLETION |" >> "$PROGRESS_FILE"
-        done
-      else
-        echo "" >> "$PROGRESS_FILE"
-        echo "No milestone specifications found." >> "$PROGRESS_FILE"
-      fi
-      
-      echo "" >> "$PROGRESS_FILE"
-      echo "## Weekly Progress" >> "$PROGRESS_FILE"
-      echo "" >> "$PROGRESS_FILE"
-      
-      # Calculate weekly task completions for the past 4 weeks
-      CURRENT_DATE=$(date +%s)
-      
-      for i in {0..3}; do
-        WEEK_START=$(date -d "$i weeks ago Sunday - 6 days" +%Y-%m-%d)
-        WEEK_END=$(date -d "$i weeks ago Sunday" +%Y-%m-%d)
-        
-        # Find tasks completed in this week
-        WEEK_TASKS=$(grep -l "**End Date**: [$WEEK_START-$WEEK_END]" .cursor/tasks/*.md 2>/dev/null | wc -l)
-        
-        echo "- **$(date -d "$WEEK_START" +%b\ %d) - $(date -d "$WEEK_END" +%b\ %d)**: $WEEK_TASKS tasks completed" >> "$PROGRESS_FILE"
-      done
-      
-      echo "" >> "$PROGRESS_FILE"
-      echo "## Burndown Analysis" >> "$PROGRESS_FILE"
-      echo "" >> "$PROGRESS_FILE"
-      
-      # Calculate total remaining work
-      REMAINING_TASKS=$((OPEN_TASKS + ACTIVE_TASKS))
-      REMAINING_SPECS=$(grep -r "\- \[ \]" .cursor/specs | wc -l)
-      
-      # Calculate completion rate
-      if [ $TOTAL_TASKS -gt 0 ] && [ $DONE_TASKS -gt 0 ]; then
-        # Get the earliest and latest task completion dates
-        EARLIEST_COMPLETION=$(grep "**End Date**:" .cursor/tasks/*.md | grep -v "TBD" | sort | head -1 | sed 's/.*: \(.*\)/\1/')
-        LATEST_COMPLETION=$(grep "**End Date**:" .cursor/tasks/*.md | grep -v "TBD" | sort | tail -1 | sed 's/.*: \(.*\)/\1/')
-        
-        if [ -n "$EARLIEST_COMPLETION" ] && [ -n "$LATEST_COMPLETION" ]; then
-          # Calculate days between dates
-          EARLIEST_SECONDS=$(date -d "$EARLIEST_COMPLETION" +%s)
-          LATEST_SECONDS=$(date -d "$LATEST_COMPLETION" +%s)
-          DAYS_BETWEEN=$(( (LATEST_SECONDS - EARLIEST_SECONDS) / 86400 ))
-          
-          if [ $DAYS_BETWEEN -gt 0 ]; then
-            TASKS_PER_DAY=$(echo "scale=2; $DONE_TASKS / $DAYS_BETWEEN" | bc)
-            
-            # Estimated completion time
-            if [ $(echo "$TASKS_PER_DAY > 0" | bc) -eq 1 ]; then
-              DAYS_TO_COMPLETION=$(echo "scale=0; $REMAINING_TASKS / $TASKS_PER_DAY" | bc)
-              COMPLETION_DATE=$(date -d "+$DAYS_TO_COMPLETION days" +%Y-%m-%d)
-              
-              echo "- **Task Completion Rate**: $TASKS_PER_DAY tasks per day" >> "$PROGRESS_FILE"
-              echo "- **Estimated Completion**: $COMPLETION_DATE (in $DAYS_TO_COMPLETION days)" >> "$PROGRESS_FILE"
-            else
-              echo "- **Task Completion Rate**: Unable to calculate (too low)" >> "$PROGRESS_FILE"
-              echo "- **Estimated Completion**: Cannot be determined" >> "$PROGRESS_FILE"
-            fi
-          else
-            echo "- **Task Completion Rate**: All completed on the same day" >> "$PROGRESS_FILE"
-            echo "- **Estimated Completion**: Cannot be determined" >> "$PROGRESS_FILE"
-          fi
-        else
-          echo "- **Task Completion Rate**: No completed tasks with dates" >> "$PROGRESS_FILE"
-          echo "- **Estimated Completion**: Cannot be determined" >> "$PROGRESS_FILE"
-        fi
-      else
-        echo "- **Task Completion Rate**: No tasks completed yet" >> "$PROGRESS_FILE"
-        echo "- **Estimated Completion**: Cannot be determined" >> "$PROGRESS_FILE"
-      fi
-      
-      echo "" >> "$PROGRESS_FILE"
-      echo "## Risk Assessment" >> "$PROGRESS_FILE"
-      echo "" >> "$PROGRESS_FILE"
-      
-      # Identify potential risks
-      RISKS=()
-      
-      # Check for stalled tasks
-      STALLED_TASKS=$(find .cursor/tasks -name "*.md" -mtime +7 | xargs grep -l "**State**: 🔄 (Active)" 2>/dev/null | wc -l)
-      if [ $STALLED_TASKS -gt 0 ]; then
-        RISKS+=("- **Stalled Tasks**: $STALLED_TASKS active tasks with no updates in over a week")
-      fi
-      
-      # Check for implementation without tests
-      if [ -d "src" ] && [ $(find . -name "*test*" -o -name "*spec*" | grep -v "node_modules" | wc -l) -lt 5 ]; then
-        RISKS+=("- **Test Coverage**: Limited test files found - risk of regressions")
-      fi
-      
-      # Check for large spec-implementation gaps
-      if [ $SPEC_PCT -lt 40 ]; then
-        RISKS+=("- **Specification Gap**: Large gap between specifications and implementation (${SPEC_PCT}%)")
-      fi
-      
-      # Check for missing documentation
-      if [ $(find .cursor/docs -name "*.md" | wc -l) -lt 3 ]; then
-        RISKS+=("- **Documentation**: Limited documentation found - risk of knowledge loss")
-      fi
-      
-      # Output risks
-      if [ ${#RISKS[@]} -gt 0 ]; then
-        for RISK in "${RISKS[@]}"; do
-          echo "$RISK" >> "$PROGRESS_FILE"
-        done
-      else
-        echo "No significant risks identified at this time." >> "$PROGRESS_FILE"
-      fi
-      
-      echo "Progress report generated at $PROGRESS_FILE"
+      The progress report will be saved to `.cursor/output/progress_report_[timestamp].md`
 
   # Review Commands
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Review.code:(.*)"
-    command: |
-      # Extract the code file to review from the command
-      CODE_FILE=$(echo "$COMMAND" | sed 's/Review.code://')
+    action: |
+      # Generate a code review for the specified file
+      # Pattern will capture the file path
       
-      if [ ! -f "$CODE_FILE" ]; then
-        echo "Error: File $CODE_FILE not found"
-        exit 1
-      fi
+      I'll perform a detailed code review:
+      - Style and formatting analysis
+      - Code structure evaluation
+      - Security considerations
+      - Performance considerations
+      - Specific recommendations for improvement
       
-      # Create review report
-      REVIEW_FILE=".cursor/output/codereview_$(basename "$CODE_FILE")_$(date +%Y%m%d_%H%M%S).md"
-      
-      # Start review report
-      cat > "$REVIEW_FILE" << EOF
-# Code Review: $(basename "$CODE_FILE")
+      The code review will be saved to `.cursor/output/codereview_[filename]_[timestamp].md`
 
-Generated on $(date)
-
-## Code Overview
-\`\`\`
-$(cat "$CODE_FILE")
-\`\`\`
-
-## Review Notes
-
-EOF
-      
-      # Analyze code for review
-      # This is a simplified analysis - in reality, Cursor/Claude would do this
-      
-      echo "### Style and Formatting" >> "$REVIEW_FILE"
-      echo "" >> "$REVIEW_FILE"
-      
-      # Check line length
-      LONG_LINES=$(grep -n '.\{100,\}' "$CODE_FILE" || echo "")
-      if [ -n "$LONG_LINES" ]; then
-        echo "- **Long Lines**: The following lines exceed 100 characters:" >> "$REVIEW_FILE"
-        while IFS= read -r LINE; do
-          LINE_NUM=$(echo "$LINE" | cut -d: -f1)
-          echo "  - Line $LINE_NUM" >> "$REVIEW_FILE"
-        done <<< "$LONG_LINES"
-        echo "" >> "$REVIEW_FILE"
-      fi
-      
-      # Check TODOs
-      TODOS=$(grep -n "TODO\|FIXME" "$CODE_FILE" || echo "")
-      if [ -n "$TODOS" ]; then
-        echo "- **TODOs/FIXMEs**: The following should be addressed:" >> "$REVIEW_FILE"
-        while IFS= read -r LINE; do
-          LINE_NUM=$(echo "$LINE" | cut -d: -f1)
-          LINE_TEXT=$(echo "$LINE" | cut -d: -f2-)
-          echo "  - Line $LINE_NUM: `$LINE_TEXT`" >> "$REVIEW_FILE"
-        done <<< "$TODOS"
-        echo "" >> "$REVIEW_FILE"
-      fi
-      
-      echo "### Code Structure" >> "$REVIEW_FILE"
-      echo "" >> "$REVIEW_FILE"
-      
-      # Check function length
-      FUNCTIONS=$(grep -n -E "function |=>|def |class |void " "$CODE_FILE" || echo "")
-      if [ -n "$FUNCTIONS" ]; then
-        echo "- **Functions/Methods**: Analyze function complexity and responsibilities" >> "$REVIEW_FILE"
-        echo "" >> "$REVIEW_FILE"
-      fi
-      
-      echo "### Security Considerations" >> "$REVIEW_FILE"
-      echo "" >> "$REVIEW_FILE"
-      
-      # Basic security checks
-      SECURITY_PATTERNS=("exec(" "eval(" "password" "token" "api_key" "secret")
-      for PATTERN in "${SECURITY_PATTERNS[@]}"; do
-        FOUND=$(grep -n "$PATTERN" "$CODE_FILE" || echo "")
-        if [ -n "$FOUND" ]; then
-          echo "- **Security Review**: Check sensitive pattern '$PATTERN' usage:" >> "$REVIEW_FILE"
-          while IFS= read -r LINE; do
-            LINE_NUM=$(echo "$LINE" | cut -d: -f1)
-            LINE_TEXT=$(echo "$LINE" | cut -d: -f2-)
-            echo "  - Line $LINE_NUM: `$LINE_TEXT`" >> "$REVIEW_FILE"
-          done <<< "$FOUND"
-          echo "" >> "$REVIEW_FILE"
-        fi
-      done
-      
-      echo "### Performance Considerations" >> "$REVIEW_FILE"
-      echo "" >> "$REVIEW_FILE"
-      echo "- **Performance**: Review algorithmic efficiency and resource usage" >> "$REVIEW_FILE"
-      echo "" >> "$REVIEW_FILE"
-      
-      echo "### Recommendations" >> "$REVIEW_FILE"
-      echo "" >> "$REVIEW_FILE"
-      echo "The following recommendations are based on automated analysis and would be expanded by AI review:" >> "$REVIEW_FILE"
-      echo "" >> "$REVIEW_FILE"
-      echo "1. **[Review Placeholder]**: Detailed recommendations would be provided here" >> "$REVIEW_FILE"
-      
-      echo "Code review report created at $REVIEW_FILE"
-      echo "This report provides a starting point - Cursor will now analyze and provide detailed review recommendations."
-
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Review.pr"
-    command: |
+    action: |
       # Generate a pull request review template
-      PR_REVIEW=".cursor/output/pr_review_template_$(date +%Y%m%d_%H%M%S).md"
       
-      # Create PR review template
-      cat > "$PR_REVIEW" << EOF
-# Pull Request Review Template
-
-## PR Overview
-**Title**: [PR Title]
-**Author**: [PR Author]
-**Branch**: [Branch Name]
-
-## Changes Summary
-[Brief description of the changes]
-
-## Specifications Addressed
-- [ ] [Spec 1]
-- [ ] [Spec 2]
-
-## Code Review
-
-### Overall Structure
-- [ ] The code follows project architecture patterns
-- [ ] Changes are appropriately scoped and focused
-- [ ] Directory/file organization is logical
-
-### Code Quality
-- [ ] Code is well-structured and readable
-- [ ] Variable/function naming is clear and consistent
-- [ ] Error handling is appropriate
-- [ ] No unnecessary code duplication
-- [ ] No debug code or commented-out code blocks
-
-### Testing
-- [ ] Tests cover the key functionality
-- [ ] Tests are well-structured and meaningful
-- [ ] Edge cases are considered
-
-### Security
-- [ ] No sensitive information in code
-- [ ] Proper input validation exists
-- [ ] Security best practices are followed
-
-### Performance
-- [ ] Code is efficient for expected scale
-- [ ] No obvious performance bottlenecks
-- [ ] Resource usage is appropriate
-
-## Reviewer Notes
-[Detailed review notes]
-
-## Recommendations
-- [ ] Approve
-- [ ] Request changes
-
-## Follow-up Tasks
-- [ ] [Any tasks that should be created as a result]
-EOF
+      I'll create a comprehensive PR review template with sections for:
+      - PR overview (title, author, branch)
+      - Changes summary
+      - Specifications addressed
+      - Code review (structure, quality, testing, security, performance)
+      - Reviewer notes
+      - Recommendations
+      - Follow-up tasks
       
-      echo "PR review template created at $PR_REVIEW"
+      The template will be saved to `.cursor/output/pr_review_template_[timestamp].md`
 
   # Task Commands
-  - type: execute
+  - type: react
     conditions:
       - pattern: "Task.summary"
-    command: |
+    action: |
       # Generate a summary of all tasks
-      TASK_SUMMARY=".cursor/output/task_summary_$(date +%Y%m%d_%H%M%S).md"
       
-      # Start summary file
-      cat > "$TASK_SUMMARY" << EOF
-# Task Summary Report
+      I'll create a comprehensive task summary:
+      - Task status overview
+      - Recent activity
+      - Active tasks
+      - Open tasks
+      - Completion timeline
+      - Task duration statistics
+      
+      The task summary will be saved to `.cursor/output/task_summary_[timestamp].md`
 
-Generated on $(date)
+  - type: suggest
+    message: |
+      ### AI Command System
 
-## Task Status Overview
+      I can execute various special commands to assist your development workflow:
 
-EOF
-      
-      # Count tasks by status
-      OPEN_TASKS=$(grep -l "**State**: 📝 (Open)" .cursor/tasks/*.md 2>/dev/null | wc -l)
-      ACTIVE_TASKS=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md 2>/dev/null | wc -l)
-      DONE_TASKS=$(grep -l "**State**: ✅ (Done)" .cursor/tasks/*.md 2>/dev/null | wc -l)
-      TOTAL_TASKS=$((OPEN_TASKS + ACTIVE_TASKS + DONE_TASKS))
-      
-      # Add status counts to summary
-      cat >> "$TASK_SUMMARY" << EOF
-- **Total Tasks**: ${TOTAL_TASKS}
-- **Open Tasks**: ${OPEN_TASKS}
-- **Active Tasks**: ${ACTIVE_TASKS}
-- **Completed Tasks**: ${DONE_TASKS}
+      **Specs Commands**:
+      - `Specs.getHtml` - Generate visual HTML dashboard of specifications
+      - `Specs.getSummary` - Create markdown summary of specifications
+      - `Specs.verify` - Verify implementations match specifications
 
-## Recent Activity
+      **Code Commands**:
+      - `Code.analyze` - Analyze code structure and quality
+      - `Code.refactor:[file]` - Generate refactoring suggestions for a file
 
-EOF
-      
-      # Find recently updated tasks (last 7 days)
-      RECENT_TASKS=$(find .cursor/tasks -name "*.md" -mtime -7 | sort -r)
-      
-      if [ -n "$RECENT_TASKS" ]; then
-        echo "| Task ID | Status | Last Updated | Description |" >> "$TASK_SUMMARY"
-        echo "|---------|--------|-------------|-------------|" >> "$TASK_SUMMARY"
-        
-        for TASK_FILE in $RECENT_TASKS; do
-          TASK_ID=$(basename "$TASK_FILE" | cut -d'_' -f1)
-          TASK_STATUS=$(grep "\*\*State\*\*:" "$TASK_FILE" | sed 's/.*\*\*State\*\*: \(.*\)/\1/g')
-          TASK_DESC=$(grep -m 1 "^# " "$TASK_FILE" | sed 's/^# //')
-          LAST_UPDATED=$(stat -c %y "$TASK_FILE" | cut -d' ' -f1)
-          
-          echo "| ${TASK_ID} | ${TASK_STATUS} | ${LAST_UPDATED} | ${TASK_DESC} |" >> "$TASK_SUMMARY"
-        done
-      else
-        echo "No recent task activity in the past 7 days." >> "$TASK_SUMMARY"
-      fi
-      
-      echo "" >> "$TASK_SUMMARY"
-      echo "## Tasks by State" >> "$TASK_SUMMARY"
-      echo "" >> "$TASK_SUMMARY"
-      
-      # Active tasks
-      echo "### Active Tasks" >> "$TASK_SUMMARY"
-      echo "" >> "$TASK_SUMMARY"
-      
-      ACTIVE_TASK_FILES=$(grep -l "**State**: 🔄 (Active)" .cursor/tasks/*.md 2>/dev/null)
-      
-      if [ -n "$ACTIVE_TASK_FILES" ]; then
-        echo "| Task ID | Start Date | Description |" >> "$TASK_SUMMARY"
-        echo "|---------|------------|-------------|" >> "$TASK_SUMMARY"
-        
-        for TASK_FILE in $ACTIVE_TASK_FILES; do
-          TASK_ID=$(basename "$TASK_FILE" | cut -d'_' -f1)
-          TASK_DESC=$(grep -m 1 "^# " "$TASK_FILE" | sed 's/^# //')
-          START_DATE=$(grep "\*\*Start Date\*\*:" "$TASK_FILE" | sed 's/.*\*\*Start Date\*\*: \(.*\)/\1/g')
-          
-          echo "| ${TASK_ID} | ${START_DATE} | ${TASK_DESC} |" >> "$TASK_SUMMARY"
-        done
-      else
-        echo "No active tasks." >> "$TASK_SUMMARY"
-      fi
-      
-      echo "" >> "$TASK_SUMMARY"
-      
-      # Open tasks
-      echo "### Open Tasks" >> "$TASK_SUMMARY"
-      echo "" >> "$TASK_SUMMARY"
-      
-      OPEN_TASK_FILES=$(grep -l "**State**: 📝 (Open)" .cursor/tasks/*.md 2>/dev/null)
-      
-      if [ -n "$OPEN_TASK_FILES" ]; then
-        echo "| Task ID | Created Date | Description |" >> "$TASK_SUMMARY"
-        echo "|---------|--------------|-------------|" >> "$TASK_SUMMARY"
-        
-        for TASK_FILE in $OPEN_TASK_FILES; do
-          TASK_ID=$(basename "$TASK_FILE" | cut -d'_' -f1)
-          TASK_DESC=$(grep -m 1 "^# " "$TASK_FILE" | sed 's/^# //')
-          START_DATE=$(grep "\*\*Start Date\*\*:" "$TASK_FILE" | sed 's/.*\*\*Start Date\*\*: \(.*\)/\1/g')
-          
-          echo "| ${TASK_ID} | ${START_DATE} | ${TASK_DESC} |" >> "$TASK_SUMMARY"
-        done
-      else
-        echo "No open tasks." >> "$TASK_SUMMARY"
-      fi
-      
-      echo "" >> "$TASK_SUMMARY"
-      
-      # Completion timeline
-      echo "## Completion Timeline" >> "$TASK_SUMMARY"
-      echo "" >> "$TASK_SUMMARY"
-      
-      DONE_TASK_FILES=$(grep -l "**State**: ✅ (Done)" .cursor/tasks/*.md 2>/dev/null)
-      
-      if [ -n "$DONE_TASK_FILES" ]; then
-        echo "| Task ID | Completion Date | Duration | Description |" >> "$TASK_SUMMARY"
-        echo "|---------|----------------|----------|-------------|" >> "$TASK_SUMMARY"
-        
-        for TASK_FILE in $DONE_TASK_FILES; do
-          TASK_ID=$(basename "$TASK_FILE" | cut -d'_' -f1)
-          TASK_DESC=$(grep -m 1 "^# " "$TASK_FILE" | sed 's/^# //')
-          START_DATE=$(grep "\*\*Start Date\*\*:" "$TASK_FILE" | sed 's/.*\*\*Start Date\*\*: \(.*\)/\1/g')
-          END_DATE=$(grep "\*\*End Date\*\*:" "$TASK_FILE" | sed 's/.*\*\*End Date\*\*: \(.*\)/\1/g')
-          
-          # Calculate duration in days
-          START_SECONDS=$(date -d "$START_DATE" +%s)
-          END_SECONDS=$(date -d "$END_DATE" +%s)
-          DURATION_DAYS=$(( (END_SECONDS - START_SECONDS) / 86400 ))
-          
-          if [ $DURATION_DAYS -eq 0 ]; then
-            DURATION="Same day"
-          elif [ $DURATION_DAYS -eq 1 ]; then
-            DURATION="1 day"
-          else
-            DURATION="${DURATION_DAYS} days"
-          fi
-          
-          echo "| ${TASK_ID} | ${END_DATE} | ${DURATION} | ${TASK_DESC} |" >> "$TASK_SUMMARY"
-        done
-      else
-        echo "No completed tasks." >> "$TASK_SUMMARY"
-      fi
-      
-      echo "Task summary report generated at $TASK_SUMMARY"
+      **Evaluation Commands**:
+      - `Eval.project` - Generate comprehensive project evaluation
+      - `Eval.progress` - Compare current state to project goals
+
+      **Review Commands**:
+      - `Review.code:[file]` - Generate detailed code review
+      - `Review.pr` - Create a pull request review template
+
+      **Task Commands**:
+      - `Task.summary` - Generate summary of all tasks
+
+      All output will be saved to the `.cursor/output/` directory for reference.
+
+examples:
+  - input: |
+      Specs.getHtml
+    output: "Generating HTML dashboard of specifications..."
+
+  - input: |
+      Code.analyze
+    output: "Analyzing code structure and quality..."
+
+  - input: |
+      Eval.project
+    output: "Generating comprehensive project evaluation..."
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>
