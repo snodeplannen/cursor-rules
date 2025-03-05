@@ -46,7 +46,25 @@ Rules allow you to:
   - Learnings and insights gained during implementation
 - Supports multiple concurrent tasks and planning sessions
 - Ensures all acceptance criteria (including tests) pass before task completion
-- Preserves learnings in `.cursor/docs/learnings/` for future reference
+- Preserves learnings in `.cursor/learnings/` for future reference
+
+### Information Tracking Rule
+`information-tracking-rule.mdc`: Manages knowledge tracking and documentation organization.
+- Captures and organizes two types of knowledge:
+  - **Learnings**: Knowledge gained during development or user interaction
+  - **Documents**: Information shared by users for reference
+- Creates structured learning files in `.cursor/learnings/` with:
+  - Unique ID and title
+  - Short and detailed descriptions
+  - Links to relevant code, tasks, specs, and documents
+  - Timestamps for reference
+- Automatically processes user-provided documents in `.cursor/docs/`
+- Maintains centralized indexes:
+  - LEARNINGS.md: Catalog of all captured knowledge
+  - DOCUMENTS.md: Registry of user-provided documentation
+- Creates cross-references between related information assets
+- Automatically generates learnings when new documents are added
+- Ensures knowledge is preserved and discoverable throughout the project
 
 ## Inspiration
 

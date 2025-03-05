@@ -1,4 +1,9 @@
 ---
+description: 
+globs: 
+alwaysApply: false
+---
+---
 description: Controls development workflow with task tracking and management
 globs: 
 alwaysApply: true
@@ -85,7 +90,7 @@ EOF
         SHORT_DESC="${SHORT_DESC}..."
       fi
       
-      echo "| [${TASK_ID}](.cursor/tasks/${TASK_ID}_${TASK_HEADER// /_}.md) | $(date +"%Y-%m-%d") | 📝 | ${SHORT_DESC} |" >> "$TASKS_INDEX"
+      echo "| [${TASK_ID}](mdc:.cursor/tasks/${TASK_ID}_${TASK_HEADER/ /_}.md) | $(date +"%Y-%m-%d") | 📝 | ${SHORT_DESC} |" >> "$TASKS_INDEX"
       
       echo "Task created: ${TASK_ID} - ${TASK_HEADER}"
       echo "Task file: ${TASK_FILE}"
@@ -132,7 +137,7 @@ EOF
       
       # Update task index
       TASKS_INDEX=".cursor/TASKS.md"
-      sed -i "s|${TASK_ID}.*|[${TASK_ID}](.cursor/tasks/${TASK_ID}_*.md) | $(date +"%Y-%m-%d") | ✅ | $(grep "^# " "$TASK_FILE" | sed 's/# //g') ||g" "$TASKS_INDEX"
+      sed -i "s|${TASK_ID}.*|[${TASK_ID}](mdc:.cursor/tasks/${TASK_ID}_*.md) | $(date +"%Y-%m-%d") | ✅ | $(grep "^# " "$TASK_FILE" | sed 's/# //g') ||g" "$TASKS_INDEX"
       
       # Mark associated specs as done if they exist
       SPECS=$(sed -n '/## Relevant Specifications/,/##/p' "$TASK_FILE" | sed '1d;$d' | grep "\- \[" | sed 's/- \[ \]/- \[x\]/g')
@@ -190,7 +195,7 @@ EOF
         SHORT_DESC="${SHORT_DESC}..."
       fi
       
-      sed -i "s|${TASK_ID}.*|[${TASK_ID}](.cursor/tasks/${TASK_ID}_*.md) | $(date +"%Y-%m-%d") | 🔄 | ${SHORT_DESC} ||g" "$TASKS_INDEX"
+      sed -i "s|${TASK_ID}.*|[${TASK_ID}](mdc:.cursor/tasks/${TASK_ID}_*.md) | $(date +"%Y-%m-%d") | 🔄 | ${SHORT_DESC} ||g" "$TASKS_INDEX"
       
       echo "Task ${TASK_ID} marked as active"
 

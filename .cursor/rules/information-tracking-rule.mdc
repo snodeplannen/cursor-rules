@@ -1,0 +1,270 @@
+---
+description: Manages knowledge tracking and documentation organization
+globs: 
+alwaysApply: true
+---
+# Information and Knowledge Tracking
+
+Rule for managing knowledge assets, tracking learnings, and organizing documentation.
+
+<rule>
+name: information_tracking
+filters:
+  - type: event
+    pattern: "knowledge_capture"
+  - type: event
+    pattern: "file_create"
+  - type: event
+    pattern: "file_change"
+  - type: command
+    pattern: "learn"
+  - type: command
+    pattern: "document"
+
+actions:
+  - type: execute
+    conditions:
+      - pattern: "learn add|learning create"
+    command: |
+      # Generate learning ID (format: LEARN-YYYY-MM-DD-NN)
+      LEARNING_DATE=$(date +%Y-%m-%d)
+      LEARNING_COUNT=$(ls -1 .cursor/learnings/LEARN-${LEARNING_DATE}* 2>/dev/null | wc -l)
+      LEARNING_NUM=$(printf "%02d" $((LEARNING_COUNT + 1)))
+      LEARNING_ID="LEARN-${LEARNING_DATE}-${LEARNING_NUM}"
+      
+      # Format learning title
+      LEARNING_TITLE=$(echo "$LEARNING_TITLE" | tr -d '\n' | head -c 50)
+      if [ ${#LEARNING_TITLE} -gt 50 ]; then
+        LEARNING_TITLE="${LEARNING_TITLE}..."
+      fi
+      
+      # Create learnings directory if it doesn't exist
+      mkdir -p .cursor/learnings
+      
+      # Create the learning file
+      LEARNING_FILE=".cursor/learnings/${LEARNING_ID}_${LEARNING_TITLE// /_}.md"
+      cat > "$LEARNING_FILE" << EOF
+# ${LEARNING_TITLE}
+
+## Learning ID
+${LEARNING_ID}
+
+## Short Description
+${LEARNING_SHORT_DESC}
+
+## Detailed Description
+${LEARNING_DETAILED_DESC}
+
+## Relevant Code Files
+${LEARNING_CODE_FILES:-"- None"}
+
+## Relevant Tasks
+${LEARNING_TASKS:-"- None"}
+
+## Relevant Specifications
+${LEARNING_SPECS:-"- None"}
+
+## Relevant Documents
+${LEARNING_DOCS:-"- None"}
+
+## Date
+$(date +"%Y-%m-%d")
+
+EOF
+      
+      # Update the learnings index
+      mkdir -p .cursor
+      LEARNINGS_INDEX=".cursor/LEARNINGS.md"
+      
+      # Create index file if it doesn't exist
+      if [ ! -f "$LEARNINGS_INDEX" ]; then
+        cat > "$LEARNINGS_INDEX" << EOF
+# Learnings Index
+
+| Learning ID | Date | Description |
+|-------------|------|-------------|
+EOF
+      fi
+      
+      # Add the new learning to the index
+      echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_${LEARNING_TITLE// /_}.md) | $(date +"%Y-%m-%d") | ${LEARNING_SHORT_DESC} |" >> "$LEARNINGS_INDEX"
+      
+      echo "Learning created: ${LEARNING_ID} - ${LEARNING_TITLE}"
+      echo "Learning file: ${LEARNING_FILE}"
+
+  - type: execute
+    conditions:
+      - pattern: "document add|document create|document detect"
+    command: |
+      # Monitor for new files in docs directory
+      if [ -z "$DOCUMENT_PATH" ]; then
+        # If no specific document was referenced, check for new files
+        # This could be enhanced for automatic detection
+        echo "Error: No document path provided"
+        exit 1
+      fi
+      
+      # Create docs directory if it doesn't exist
+      mkdir -p .cursor/docs
+      
+      # Only process if it's a new file
+      if [ ! -f ".cursor/docs/$DOCUMENT_PATH" ]; then
+        # If it's not in the docs directory, copy it
+        if [[ "$DOCUMENT_PATH" != ".cursor/docs/"* ]]; then
+          # Create directory structure if needed
+          mkdir -p $(dirname ".cursor/docs/$DOCUMENT_PATH")
+          cp "$DOCUMENT_PATH" ".cursor/docs/$DOCUMENT_PATH"
+        fi
+      fi
+      
+      # Update the documents index
+      DOCUMENTS_INDEX=".cursor/DOCUMENTS.md"
+      
+      # Create index file if it doesn't exist
+      if [ ! -f "$DOCUMENTS_INDEX" ]; then
+        cat > "$DOCUMENTS_INDEX" << EOF
+# Documents Index
+
+| Document | Description | Relevant Learning |
+|----------|-------------|-------------------|
+EOF
+      fi
+      
+      # Check if document already in index
+      if ! grep -q "$DOCUMENT_PATH" "$DOCUMENTS_INDEX"; then
+        # Create a learning for this document
+        LEARNING_TITLE="Document added: $(basename "$DOCUMENT_PATH")"
+        LEARNING_SHORT_DESC="New document added: $DOCUMENT_PATH"
+        
+        if [ -z "$DOCUMENT_DESC" ]; then
+          DOCUMENT_DESC="Document contains information that may be relevant for future reference."
+        fi
+        
+        LEARNING_DETAILED_DESC="A new document was added to the repository at $DOCUMENT_PATH. $DOCUMENT_DESC"
+        LEARNING_DOCS="- $DOCUMENT_PATH"
+        
+        # Generate learning
+        LEARNING_DATE=$(date +%Y-%m-%d)
+        LEARNING_COUNT=$(ls -1 .cursor/learnings/LEARN-${LEARNING_DATE}* 2>/dev/null | wc -l)
+        LEARNING_NUM=$(printf "%02d" $((LEARNING_COUNT + 1)))
+        LEARNING_ID="LEARN-${LEARNING_DATE}-${LEARNING_NUM}"
+        
+        # Create the learning file
+        mkdir -p .cursor/learnings
+        LEARNING_FILE=".cursor/learnings/${LEARNING_ID}_Document_added_$(basename "$DOCUMENT_PATH" | tr -d ' ' | tr '.' '_').md"
+        cat > "$LEARNING_FILE" << EOF
+# Document added: $(basename "$DOCUMENT_PATH")
+
+## Learning ID
+${LEARNING_ID}
+
+## Short Description
+New document added: $DOCUMENT_PATH
+
+## Detailed Description
+A new document was added to the repository at $DOCUMENT_PATH.
+$DOCUMENT_DESC
+
+## Relevant Code Files
+- None
+
+## Relevant Tasks
+- None
+
+## Relevant Specifications
+- None
+
+## Relevant Documents
+- $DOCUMENT_PATH
+
+## Date
+$(date +"%Y-%m-%d")
+EOF
+        
+        # Add document to index with reference to the learning
+        echo "| $DOCUMENT_PATH | $DOCUMENT_DESC | [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Document_added_$(basename "$DOCUMENT_PATH" | tr -d ' ' | tr '.' '_').md) |" >> "$DOCUMENTS_INDEX"
+        
+        # Add learning to learnings index
+        LEARNINGS_INDEX=".cursor/LEARNINGS.md"
+        if [ ! -f "$LEARNINGS_INDEX" ]; then
+          cat > "$LEARNINGS_INDEX" << EOF
+# Learnings Index
+
+| Learning ID | Date | Description |
+|-------------|------|-------------|
+EOF
+        fi
+        echo "| [${LEARNING_ID}](.cursor/learnings/${LEARNING_ID}_Document_added_$(basename "$DOCUMENT_PATH" | tr -d ' ' | tr '.' '_').md) | $(date +"%Y-%m-%d") | New document added: $DOCUMENT_PATH |" >> "$LEARNINGS_INDEX"
+        
+        echo "Document registered: $DOCUMENT_PATH"
+        echo "Learning created: ${LEARNING_ID} for document"
+      else
+        echo "Document already registered in the index."
+      fi
+
+  - type: react
+    event: "file_create"
+    conditions:
+      - pattern: ".cursor/docs/.*"
+    action: |
+      # Automatically detect new files in the docs directory
+      DOCUMENT_PATH=$(echo "$FILE" | sed 's/^.cursor\/docs\///')
+      
+      # Check if this is a new document
+      if [ ! -f ".cursor/DOCUMENTS.md" ] || ! grep -q "$DOCUMENT_PATH" ".cursor/DOCUMENTS.md"; then
+        # Trigger document registration
+        echo "New document detected: $DOCUMENT_PATH"
+        DOCUMENT_DESC="Document contains information that may be relevant for future reference."
+        # Logic to call the document add command would go here
+      fi
+
+  - type: suggest
+    message: |
+      ### Knowledge Management Commands
+
+      You can manage learnings and documents using these commands:
+
+      1. **Create a new learning**:
+         ```
+         learn add "Learning title" --short="Short description" --detailed="Detailed description" --code="file1.js,file2.js" --tasks="TASK-ID-1,TASK-ID-2" --specs="spec1.md,spec2.md" --docs="doc1.md,doc2.md"
+         ```
+
+      2. **Register a document**:
+         ```
+         document add "path/to/document.md" --desc="Description of what this document contains"
+         ```
+
+      Knowledge is stored in two main locations:
+      
+      - `.cursor/learnings/`: Contains all learnings created during development
+      - `.cursor/docs/`: Contains all documents shared by the user
+
+      Index files are maintained at:
+      
+      - `.cursor/LEARNINGS.md`: Index of all learnings
+      - `.cursor/DOCUMENTS.md`: Index of all documents
+
+      Learnings capture important information discovered during development.
+      Documents are resources provided by users for reference.
+
+examples:
+  - input: |
+      # Create a new learning
+      LEARNING_TITLE="Authentication best practices"
+      LEARNING_SHORT_DESC="Security patterns for JWT implementation"
+      LEARNING_DETAILED_DESC="When implementing JWT authentication, we discovered that using short expiration times (15min) with refresh tokens provides the best balance of security and user experience."
+      LEARNING_CODE_FILES="- src/auth/jwt.js\n- src/auth/refresh.js"
+      LEARNING_TASKS="- TASK-2023-10-15-01"
+      LEARNING_SPECS="- specs/auth/security.md"
+    output: "Learning created: LEARN-2023-10-15-01 - Authentication best practices"
+
+  - input: |
+      # Register a document
+      DOCUMENT_PATH="architecture/system-design.md"
+      DOCUMENT_DESC="System architecture overview with component descriptions"
+    output: "Document registered: architecture/system-design.md"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 
