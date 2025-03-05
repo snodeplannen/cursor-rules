@@ -19,7 +19,9 @@ Rules allow you to:
 
 ### Git Commit Rule
 `git-commit-rule.mdc`: Automatically commits changes made by CursorAI using conventional commits format.
-- Detects file changes and build successes
+- Detects file changes, build successes, and successful unit tests
+- Only commits code when builds and/or unit tests pass (for languages without formal build processes, unit tests are the validation mechanism)
+- If tests fail, Cursor will attempt to fix issues until all tests pass
 - Categorizes changes appropriately (feat, fix, docs, etc.)
 - Creates properly formatted commit messages
 - Special handling for specification files

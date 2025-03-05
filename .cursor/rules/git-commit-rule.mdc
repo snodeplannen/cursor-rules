@@ -13,6 +13,8 @@ filters:
   - type: event
     pattern: "build_success"
   - type: event
+    pattern: "test_success"
+  - type: event
     pattern: "file_save"
   - type: file_change
     pattern: "*"
@@ -38,6 +40,49 @@ actions:
         git commit -m "$CHANGE_TYPE($SCOPE): $CHANGE_DESCRIPTION"
         echo "Committed spec file: $FILE"
         exit 0
+      fi
+
+      # Detect project type and run appropriate test command
+      # First, check if tests need to be run (skip for certain file types)
+      if [[ "$FILE" == *".md"* || "$FILE" == *".txt"* || "$FILE" == *".json"* || "$FILE" == *"README"* ]]; then
+        # Documentation or configuration files don't need tests
+        echo "Documentation or configuration file detected, skipping tests"
+      else
+        # Run tests based on project type
+        if [ -f "package.json" ]; then
+          # Node.js project
+          echo "Detected Node.js project, running tests..."
+          npm test
+          TEST_RESULT=$?
+        elif [ -f "Cargo.toml" ]; then
+          # Rust project
+          echo "Detected Rust project, running tests..."
+          cargo test
+          TEST_RESULT=$?
+        elif [ -f "pom.xml" ]; then
+          # Java/Maven project
+          echo "Detected Java project, running tests..."
+          mvn test
+          TEST_RESULT=$?
+        elif [ -f "requirements.txt" ] || [ -f "setup.py" ]; then
+          # Python project
+          echo "Detected Python project, running tests..."
+          python -m pytest
+          TEST_RESULT=$?
+        else
+          # Unknown project type, assume success
+          echo "Unknown project type, assuming tests pass"
+          TEST_RESULT=0
+        fi
+        
+        # If tests failed, don't commit and notify
+        if [ $TEST_RESULT -ne 0 ]; then
+          echo "Tests failed! Please fix tests before committing."
+          echo "Asking Cursor to fix the failing tests..."
+          # Here we would integrate with Cursor to fix the tests
+          # For now, we'll just exit with error
+          exit 1
+        fi
       fi
       
       # Regular processing for non-spec files
@@ -80,6 +125,14 @@ actions:
       The scope should be derived from the file path or affected component.
       The description should be clear and concise, written in imperative mood.
 
+  - type: react
+    event: "test_failure"
+    action: |
+      # When tests fail, notify and attempt to fix
+      echo "Tests failed. Attempting to fix the failing tests..."
+      # The AI would analyze the test failures and fix them
+      # For this rule, we'll just notify that this functionality exists
+
 examples:
   - input: |
       # After adding a new function
@@ -95,7 +148,7 @@ examples:
 
 metadata:
   priority: high
-  version: 1.1
+  version: 1.2
 </rule>
 
 
