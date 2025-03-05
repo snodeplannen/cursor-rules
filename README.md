@@ -75,13 +75,61 @@ Follow this concrete workflow to get the most out of these rules:
 
 This workflow ensures all development is specification-driven and automatically documented through well-structured Git commits.
 
+## Something Missing?
+
+One of the most powerful aspects of Cursor is its ability to extend itself! You can ask Cursor to create new rules that address your specific workflow needs:
+
+### How to Ask Cursor to Implement New Rules
+
+1. **Identify a Workflow Pain Point**: Think about a repetitive task or pattern you'd like to automate
+
+2. **Ask Cursor to Create a Rule**: Use prompts like:
+   ```
+   Create a Cursor IDE MDC rule that automatically [describes desired behavior].
+   The rule should be saved to .cursor/rules/[rule-name].mdc
+   ```
+
+3. **Example Prompts**:
+   - "Create a Cursor IDE MDC rule that automatically generates unit tests whenever I create a new function"
+   - "Create a Cursor MDC rule for TypeScript files that enforces consistent error handling patterns"
+   - "Create a rule that inserts license headers into new files based on file type"
+
+4. **Refine the Rule**: Cursor will generate a rule file, but you can continue the conversation to refine it:
+   ```
+   That looks good, but can you modify the rule to also handle [additional case]?
+   ```
+
+5. **Test and Iterate**: Apply the rule in your workflow and ask Cursor to make adjustments as needed
+
+This meta-capability - using Cursor to extend Cursor - demonstrates the true power of rule-based AI assistance. You're not limited to the rules in this repository; you can create a completely customized workflow tailored to your project's needs.
+
 ## Contributing
 
 Feel free to contribute your own rules or improvements to existing ones via pull requests.
 
 ## License
 
-[Specify your license here]
+MIT License
+
+Copyright (c) 2023 
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ---
 
