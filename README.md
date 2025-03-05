@@ -33,6 +33,21 @@ Rules allow you to:
 - Creates a master SPECS.md document linking to all specs
 - Enforces "spec first" development (no implementation without specs)
 
+### Development Workflow Rule
+`development-rule.mdc`: Controls the development workflow with comprehensive task tracking.
+- Creates task files in `.cursor/tasks/` with unique IDs and structured metadata
+- Maintains a central TASKS.md index of all tasks with their status
+- Tracks each task's:
+  - Description and header
+  - Relevant specifications
+  - Acceptance criteria (always including unit tests)
+  - Start and end dates
+  - State (📝 Open, 🔄 Active, ✅ Done)
+  - Learnings and insights gained during implementation
+- Supports multiple concurrent tasks and planning sessions
+- Ensures all acceptance criteria (including tests) pass before task completion
+- Preserves learnings in `.cursor/docs/learnings/` for future reference
+
 ## Inspiration
 
 This approach was inspired by [Geoffrey Huntley's method](https://ghuntley.com/specs/) of using Cursor AI effectively. Huntley demonstrates how combining specifications with technical rules creates a powerful workflow that can dramatically increase development productivity.
