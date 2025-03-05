@@ -1,6 +1,6 @@
 # Cursor Rules Collection
 
-> ⚠️ **Important**: If you're using Cursor without rules, you're using it incorrectly!
+> ⚠️ **Important**: If you're using Cursor without rules, you're doing it wrong!
 
 This repository contains a collection of custom rules for the [Cursor](https://cursor.sh/) AI coding assistant that significantly enhance its capabilities. These rules provide structure, automation, and consistency to your AI-assisted coding workflow.
 
