@@ -2,6 +2,9 @@
 
 > ⚠️ **Important**: If you're using Cursor without rules, you're doing it wrong!
 
+> ⚠️ **Important Part 2**: Every major update seems to slightly change how the rules work and how they need to be applied. I'm currently working on a more generalizable solution to the problem and also exploring ways to port all ideas to GitHub Copilot and Windsurf.
+
+
 ---
 
 This repository contains a collection of custom rules for the [Cursor](https://cursor.sh/) AI coding assistant that significantly enhance its capabilities. These rules provide structure, automation, and consistency to your AI-assisted coding workflow.
