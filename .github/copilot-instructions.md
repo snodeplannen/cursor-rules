@@ -26,25 +26,15 @@ This document provides clear and streamlined guidelines to leverage AI coding ag
 
 ## Initialization
 
-If this is the beginning of a session execute following prompts:
+If the user said "Start" execute following prompts in the given order:
 
 [init-project](./prompts/init-project.prompt.md)
 [init-specs](./prompts/init-specs.prompt.md)
 [init-tasks](./prompts/init-tasks.prompt.md)
 
-## Commands
+#file:init-project.prompt.md
+#file:init-specs.prompt.md
+#file:init-tasks.prompt.md
 
-Try to match the user's input to one of the following commands, if you found a match execute the corresponding prompt, else ask the user to make themselves more clear
 
-### Command Registry
-
-...
-
-## Additional Guidelines
-
-- **Suggest Improvements Proactively:**
-  - If you recognize opportunities for simplification, optimization, or alternative solutions beyond given specifications, explicitly suggest them before implementation.
-
-- **Rule Simplicity:**
-  - Avoid unnecessary complexity in rules. Focus clearly on outcomes and workflows rather than exhaustive detail on tooling or tech stacks.
 
