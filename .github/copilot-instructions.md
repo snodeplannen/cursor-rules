@@ -24,66 +24,21 @@ This document provides clear and streamlined guidelines to leverage AI coding ag
 3. **Task Creation** → Create structured tasks in `.project/tasks/`.
 4. **Implementation** → Begin only after task and spec confirmation.
 
-## Initialization and Setup
+## Initialization
 
-- **Project Management Setup:**
-  - Automatically check if the project is managed with `uv`. If not, prompt the user clearly:
-    > "The repository isn't currently managed with `uv`. Should I initialize it using `uv init --package`?"
+If this is the beginning of a session execute following prompts:
 
-- **Documentation Setup:**
-  - Automatically create `.project/specs/` and `.project/tasks/` directories if absent, along with `SPECS.md` and `TASKS.md` as their indexes.
-  - Avoid creating extraneous placeholder or example files unless explicitly requested.
+[init-project](./prompts/init-project.prompt.md)
+[init-specs](./prompts/init-specs.prompt.md)
+[init-tasks](./prompts/init-tasks.prompt.md)
 
-- **Commit Automation:**
-  - Automatically commit changes immediately after successful implementation or documentation updates.
-  - Adhere strictly to conventional git commit standards.
-  - Include clear, concise commit messages explaining "what" was changed and "why."
+## Commands
 
-## Specifications and Task Management
+Try to match the user's input to one of the following commands, if you found a match execute the corresponding prompt, else ask the user to make themselves more clear
 
-**Specifications:**
+### Command Registry
 
-- Maintain `.project/specs/` with:
-  - An index (`SPECS.md`) clearly linking and summarizing all specifications.
-  - Detailed specs for every task clearly describing intent, requirements, and outcomes, but avoiding unnecessary implementation details.
-
-**Tasks:**
-
-- Maintain `.project/tasks/` and an index `TASKS.md`:
-
-**Task Structure Template:**
-```markdown
-# Task Title
-
-- **State:** open | in_progress | closed
-- **Created:** YYYY-MM-DD
-- **Spec Reference:** @Spec-Name
-- **Dependencies:** (Optional) @Task-Name(s)
-
-## Overview
-Clear, concise description of the task.
-
-## Implementation Guidelines
-- Provide an outline of intended outcomes.
-- Avoid prescribing technical solutions unless necessary.
-- Allow AI flexibility unless a specific implementation approach is explicitly required.
-
-### Directory Structure:
-```
-project-folder/
-├── file.py        # Purpose and overview
-└── module/
-    └── utils.py   # Purpose and overview
-```
-
-### Definition of Done
-- [ ] Implementation complete
-- [ ] All tests passing
-- [ ] Documentation updated
-
-### References
-- Relevant links or documents
-```
+...
 
 ## Additional Guidelines
 
