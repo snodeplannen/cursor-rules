@@ -1,0 +1,12 @@
+.venv
+__pycache__/
+.pytest_cache/
+.git/
+.gitignore
+*.pyc
+*.log
+.env
+uv.lock
+.devcontainer/
+tests/
+README.md

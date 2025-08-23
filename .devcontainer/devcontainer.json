@@ -1,0 +1,20 @@
+{
+  "name": "MCP Invoice Processor Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/workspaces/mcp-invoice-processor/.venv/bin/python"
+      }
+    }
+  },
+  "postCreateCommand": "uv sync --dev",
+  "remoteUser": "vscode"
+}
