@@ -9,7 +9,7 @@ class OllamaSettings(BaseSettings):
     """Configuratie voor Ollama integratie."""
     model_config = SettingsConfigDict(env_prefix="OLLAMA_")
     HOST: str = "http://localhost:11434"
-    MODEL: str = "llama3"
+    MODEL: str = "llama3:8b"
     TIMEOUT: int = 120
 
 

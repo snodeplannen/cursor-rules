@@ -69,6 +69,69 @@ De applicatie gebruikt de volgende omgevingsvariabelen:
 
 ## 🚀 Gebruik
 
+### MCP Configuratie
+
+De applicatie kan worden gebruikt via verschillende MCP configuraties:
+
+#### STDIO Transport (Aanbevolen voor lokale ontwikkeling)
+```json
+{
+  "mcpServers": {
+    "mcp-invoice-processor": {
+      "command": "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
+      "args": [
+        "--directory",
+        "C:\\py_cursor-rules\\cursor_ratsenbergertest\\",
+        "run",
+        "python",
+        "-m",
+        "src.mcp_invoice_processor.main"
+      ],
+      "env": {
+        "LOG_LEVEL": "INFO",
+        "OLLAMA_HOST": "http://localhost:11434",
+        "OLLAMA_MODEL": "llama3"
+      }
+    }
+  }
+}
+```
+
+**Let op**: Pas de paden aan naar jouw systeem:
+- `command`: Absolute pad naar uv executable
+- `--directory`: Absolute pad naar je project directory
+
+#### HTTP Transport (Voor netwerk toegang)
+```json
+{
+  "mcpServers": {
+    "mcp-invoice-processor-http": {
+      "command": "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
+      "args": [
+        "--directory",
+        "C:\\py_cursor-rules\\cursor_ratsenbergertest\\",
+        "run",
+        "fastmcp",
+        "run",
+        "src.mcp_invoice_processor.main:mcp",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8080",
+        "--transport",
+        "http"
+      ]
+    }
+  }
+}
+```
+
+**Let op**: Pas de paden aan naar jouw systeem:
+- `command`: Absolute pad naar uv executable
+- `--directory`: Absolute pad naar je project directory
+
+Gebruik `mcp.json` of `mcp-http.json` in je MCP client configuratie.
+
 ### Lokale ontwikkeling
 
 ```bash
@@ -100,6 +163,7 @@ docker run -p 8080:8080 \
 
 ## 🧪 Testen
 
+### Unit Tests
 ```bash
 # Voer alle tests uit
 uv run pytest
@@ -109,6 +173,42 @@ uv run pytest --cov=src
 
 # Voer specifieke tests uit
 uv run pytest tests/test_pipeline.py
+```
+
+### MCP Server Tests
+```bash
+# Test met Python client
+uv run python test_mcp_client.py
+
+# Test met shell script (Linux/macOS)
+./test_mcp.sh
+
+# Test met PowerShell (Windows)
+./test_mcp.ps1
+```
+
+### Uitgebreide Tests
+```bash
+# Alle tests uitvoeren
+uv run python tests/run_tests.py
+
+# Specifieke test categorieën
+uv run pytest tests/ -m fastmcp -v      # FastMCP tests
+uv run pytest tests/ -m mcp -v          # MCP library tests
+uv run pytest tests/ -m integration -v  # Integratie tests
+
+# Test rapporten genereren
+uv run pytest tests/ --html=tests/report.html --self-contained-html
+uv run pytest tests/ --cov=src --cov-report=html
+```
+
+### Snelle Verificatie
+```bash
+# Test server start
+uv run python -m src.mcp_invoice_processor.main
+
+# Test FastMCP CLI
+uv run fastmcp --help
 ```
 
 ## 📁 Projectstructuur
@@ -131,9 +231,24 @@ mcp-invoice-processor/
 │           ├── chunking.py # Tekst chunking strategieën
 │           └── merging.py  # Samenvoeg- en ontdubbelingslogica
 ├── tests/                  # Test bestanden
+│   ├── __init__.py
+│   ├── conftest.py        # Gedeelde fixtures en configuratie
+│   ├── test_pipeline.py   # Unit tests voor verwerkingspijplijn
+│   ├── test_fastmcp_client.py # FastMCP client tests
+│   ├── test_fastmcp_cli.py    # FastMCP CLI tests
+│   ├── test_mcp_client.py     # MCP library tests
+│   ├── run_tests.py       # Test runner script
+│   └── README.md          # Test documentatie
 ├── Dockerfile             # Productie container
 ├── .dockerignore          # Docker build context uitsluitingen
 ├── pyproject.toml         # Project configuratie
+├── mcp.json               # MCP configuratie (STDIO) - Windows
+├── mcp-http.json          # MCP configuratie (HTTP) - Windows
+├── mcp-module.json        # MCP configuratie (Module) - Windows
+├── test_mcp_client.py     # Python test client
+├── test_mcp.sh            # Shell test script
+├── test_mcp.ps1           # PowerShell test script
+├── MCP_USAGE.md           # Uitgebreide gebruikshandleiding
 └── README.md              # Deze file
 ```
 
@@ -145,6 +260,31 @@ mcp-invoice-processor/
 4. **AI-extractie**: Ollama LLM extraheert gestructureerde data volgens Pydantic schema's
 5. **Merging**: Partiële resultaten worden samengevoegd en ontdubbeld
 6. **Validatie**: Output wordt gevalideerd tegen Pydantic modellen
+
+## 🛠️ Beschikbare Tools
+
+### `process_document`
+Verwerkt een PDF-document en extraheert gestructureerde data.
+
+**Parameters:**
+- `file_content_base64` (string): Base64-gecodeerde PDF-inhoud
+- `file_name` (string): Naam van het bestand
+
+**Returns:**
+```json
+{
+  "document_type": "cv|invoice|unknown",
+  "data": {
+    // Gestructureerde data volgens documenttype
+  },
+  "status": "success|error",
+  "error_message": "Foutmelding indien van toepassing"
+}
+```
+
+**Voorbeelden:**
+- **CV's**: Extraheert naam, email, telefoon, werkervaring, opleiding, vaardigheden
+- **Facturen**: Extraheert factuurnummer, totaalbedrag, klantgegevens
 
 ## 🤖 Ollama Integratie
 
@@ -179,8 +319,11 @@ De applicatie gebruikt gestructureerde JSON logging:
 
 - **Unit Tests**: Pure functies en modellen
 - **Integratie Tests**: Volledige pijplijn met gemockte LLM
+- **FastMCP Client Tests**: Client integratie in STDIO mode
+- **MCP Library Tests**: MCP protocol integratie
 - **Mocking**: Ollama client wordt gemockt voor betrouwbare tests
 - **Fixtures**: Herbruikbare test data en mocks
+- **Test Markers**: Automatische skip van tests bij ontbrekende dependencies
 
 ## 🔒 Beveiliging
 
@@ -242,6 +385,60 @@ spec:
 ## 📝 Licentie
 
 Dit project is gelicentieerd onder de MIT License - zie het [LICENSE](LICENSE) bestand voor details.
+
+## 📚 Meer Informatie
+
+### Documentatie
+- [MCP_USAGE.md](MCP_USAGE.md) - Uitgebreide gebruikshandleiding
+- [FastMCP](https://github.com/fastmcp/fastmcp) - Moderne MCP server framework
+- [Ollama](https://ollama.ai/) - Lokale LLM server
+- [PyMuPDF](https://pymupdf.readthedocs.io/) - Snelle PDF verwerking
+- [Pydantic](https://docs.pydantic.dev/) - Data validatie en serialisatie
+- [uv](https://docs.astral.sh/uv/) - Snelle Python package manager
+
+### MCP Configuratie Bestanden
+- `mcp.json` - STDIO transport configuratie (aanbevolen voor lokale ontwikkeling) - Windows
+- `mcp-http.json` - HTTP transport configuratie (voor netwerk toegang) - Windows
+- `mcp-module.json` - Module transport configuratie - Windows
+
+**Let op**: Deze configuraties zijn geoptimaliseerd voor Windows. Voor andere besturingssystemen, pas de paden aan in de configuratie bestanden.
+
+#### Paden voor andere systemen:
+
+**macOS/Linux:**
+```json
+{
+  "command": "/usr/local/bin/uv",
+  "args": [
+    "--directory",
+    "/path/to/your/project/",
+    "run",
+    "python",
+    "-m",
+    "src.mcp_invoice_processor.main"
+  ]
+}
+```
+
+**Windows (PowerShell):**
+```json
+{
+  "command": "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
+  "args": [
+    "--directory",
+    "C:\\path\\to\\your\\project\\",
+    "run",
+    "python",
+    "-m",
+    "src.mcp_invoice_processor.main"
+  ]
+}
+```
+
+### Test Scripts
+- `test_mcp_client.py` - Python test client voor MCP server
+- `test_mcp.sh` - Shell test script (Linux/macOS)
+- `test_mcp.ps1` - PowerShell test script (Windows)
 
 ## 🙏 Dankbetuigingen
 

@@ -1,0 +1,30 @@
+FACTUUR
+
+Factuurnummer: INV-2025-001
+Factuurdatum: 24-08-2025
+Vervaldatum: 24-09-2025
+
+AFZENDER:
+TechCorp Solutions B.V.
+Hoofdstraat 123
+1234 AB Amsterdam
+Nederland
+BTW: NL123456789B01
+
+GEADRESSEERDE:
+Test Bedrijf B.V.
+Testweg 456
+5678 CD Rotterdam
+Nederland
+
+BESCHRIJVING:
+- Web Development Services: €2,500.00
+- Database Design: €1,200.00
+- API Integration: €800.00
+
+Subtotaal: €4,500.00
+BTW (21%): €945.00
+Totaal: €5,445.00
+
+Betalingsvoorwaarden: 30 dagen
+Rekeningnummer: NL91ABNA0417164300

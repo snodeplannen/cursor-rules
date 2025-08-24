@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mcp-invoice-processor": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "src/mcp_invoice_processor/fastmcp_server.py"
+      ],
+      "cwd": "C:\\py_cursor-rules\\cursor_ratsenbergertest"
+    }
+  }
+}

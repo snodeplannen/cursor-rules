@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "mcp-invoice-processor": {
+      "command": "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
+      "args": [
+        "--directory",
+        "C:\\py_cursor-rules\\cursor_ratsenbergertest\\",
+        "run",
+        "python",
+        "-m",
+        "src.mcp_invoice_processor.main"
+      ],
+      "env": {
+        "LOG_LEVEL": "INFO",
+        "OLLAMA_HOST": "http://localhost:11434",
+        "OLLAMA_MODEL": "llama3",
+        "OLLAMA_TIMEOUT": "120"
+      }
+    }
+  }
+}

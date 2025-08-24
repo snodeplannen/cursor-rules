@@ -1,0 +1,38 @@
+CURRICULUM VITAE
+
+PERSOONLIJKE GEGEVENS:
+Naam: Jan Jansen
+Geboortedatum: 15-03-1985
+Adres: Voorbeeldstraat 123, 1234 AB Amsterdam
+Telefoon: +31 6 12345678
+E-mail: jan.jansen@email.com
+
+PROFIEL:
+Ervaren software developer met 8+ jaar ervaring in Python, JavaScript en cloud technologieën. Specialist in AI/ML integratie en microservices architectuur.
+
+WERKERVARING:
+Senior Developer - TechCorp Solutions (2020-heden)
+- Leiding geven aan development team van 5 personen
+- Implementatie van AI-powered document processing systemen
+- Microservices architectuur met Docker en Kubernetes
+- Python, FastAPI, React, PostgreSQL
+
+Developer - WebTech BV (2017-2020)
+- Full-stack web development
+- REST API ontwikkeling
+- Database design en optimalisatie
+- JavaScript, Node.js, MongoDB
+
+OPLEIDING:
+Master Computer Science - Universiteit van Amsterdam (2017)
+Bachelor Informatica - Hogeschool van Amsterdam (2015)
+
+VAARDIGHEDEN:
+- Programmeertalen: Python, JavaScript, TypeScript, Java
+- Frameworks: FastAPI, Django, React, Node.js
+- Databases: PostgreSQL, MongoDB, Redis
+- Cloud: AWS, Docker, Kubernetes
+- AI/ML: TensorFlow, PyTorch, LangChain
+
+TALEN:
+Nederlands (moedertaal), Engels (vloeiend), Duits (basis)
