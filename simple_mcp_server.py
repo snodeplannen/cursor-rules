@@ -128,8 +128,9 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, An
             doc_type = classify_document(text)
             logger.info(f"Document geclassificeerd als: {doc_type}")
             
-            # Extraheer gestructureerde data
-            extracted_data = await extract_structured_data(text, doc_type)
+            # Extraheer gestructureerde data (default JSON schema mode)
+            from src.mcp_invoice_processor.processing.pipeline import ExtractionMethod
+            extracted_data = await extract_structured_data(text, doc_type, None, ExtractionMethod.JSON_SCHEMA)
             logger.info(f"Data geëxtraheerd: {extracted_data}")
             
             # Update metrics

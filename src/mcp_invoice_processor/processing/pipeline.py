@@ -5,6 +5,7 @@ import logging
 import time
 from typing import Union, Type, Any, List
 from pydantic import ValidationError
+from enum import Enum
 import ollama
 
 from ..config import settings
@@ -19,10 +20,51 @@ from .merging import merge_partial_cv_data, merge_partial_invoice_data
 logger = logging.getLogger(__name__)
 
 
+def _calculate_completeness(data: Union[CVData, InvoiceData]) -> float:
+    """Bereken completeness score van geëxtraheerde data (0-100)."""
+    if not data:
+        return 0.0
+    
+    data_dict = data.model_dump()
+    total_fields = 0
+    filled_fields = 0
+    
+    for key, value in data_dict.items():
+        if key == "line_items":
+            total_fields += 1
+            if isinstance(value, list) and len(value) > 0:
+                filled_fields += 1
+                # Tel ook line item velden
+                for item in value:
+                    if isinstance(item, dict):
+                        for item_key, item_value in item.items():
+                            total_fields += 1
+                            if item_value is not None and item_value != "" and item_value != 0:
+                                filled_fields += 1
+        elif key in ["work_experience", "education", "skills"]:
+            total_fields += 1
+            if isinstance(value, list) and len(value) > 0:
+                filled_fields += 1
+        else:
+            total_fields += 1
+            if value is not None and value != "" and value != 0:
+                filled_fields += 1
+    
+    return (filled_fields / total_fields * 100) if total_fields > 0 else 0
+
+
+class ExtractionMethod(str, Enum):
+    """Extractie methode enumeratie."""
+    JSON_SCHEMA = "json_schema"  # Ollama structured outputs met JSON schema
+    PROMPT_PARSING = "prompt_parsing"  # Traditionele prompt met JSON parsing
+    HYBRID = "hybrid"  # Probeer JSON schema eerst, fallback naar prompt parsing
+
+
 async def extract_structured_data(
     text: str,
     doc_type: DocumentType,
-    ctx: Any = None
+    ctx: Any = None,
+    extraction_method: ExtractionMethod = ExtractionMethod.HYBRID
 ) -> Union[CVData, InvoiceData, None]:
     """
     Extraheert gestructureerde data uit tekst met behulp van Ollama.
@@ -31,10 +73,64 @@ async def extract_structured_data(
         text: De tekst om te verwerken
         doc_type: Het gedetecteerde documenttype
         ctx: FastMCP context voor logging (optioneel)
+        extraction_method: Extractie methode (HYBRID default, JSON_SCHEMA, PROMPT_PARSING)
 
     Returns:
         Union[CVData, InvoiceData, None]: Geëxtraheerde data of None bij fout
     """
+    
+    # Hybrid mode: probeer JSON schema eerst, dan prompt parsing
+    if extraction_method == ExtractionMethod.HYBRID:
+        if ctx:
+            try:
+                await ctx.info("🔄 Hybrid mode: probeer JSON Schema eerst...")
+            except Exception:
+                pass
+        
+        # Probeer JSON Schema mode
+        json_result = await extract_structured_data(text, doc_type, ctx, ExtractionMethod.JSON_SCHEMA)
+        
+        if json_result:
+            # Evalueer kwaliteit van JSON schema resultaat
+            completeness = _calculate_completeness(json_result)
+            
+            if completeness >= 90.0:  # Als > 90% compleet, gebruik dit resultaat
+                if ctx:
+                    try:
+                        await ctx.info(f"✅ JSON Schema succesvol ({completeness:.1f}% compleet)")
+                    except Exception:
+                        pass
+                return json_result
+            else:
+                if ctx:
+                    try:
+                        await ctx.info(f"⚠️ JSON Schema incomplete ({completeness:.1f}%), probeer Prompt Parsing...")
+                    except Exception:
+                        pass
+        
+        # JSON Schema was niet goed genoeg, probeer Prompt Parsing
+        prompt_result = await extract_structured_data(text, doc_type, ctx, ExtractionMethod.PROMPT_PARSING)
+        
+        if prompt_result:
+            prompt_completeness = _calculate_completeness(prompt_result)
+            if ctx:
+                try:
+                    await ctx.info(f"✅ Prompt Parsing succesvol ({prompt_completeness:.1f}% compleet)")
+                except Exception:
+                    pass
+            return prompt_result
+        
+        # Beide gefaald, return het beste resultaat
+        if json_result:
+            if ctx:
+                try:
+                    await ctx.info("⚠️ Beide methodes problemen, gebruik JSON Schema resultaat")
+                except Exception:
+                    pass
+            return json_result
+        
+        return None
+    
     # Start timing voor Ollama request
     start_time = time.time()
     error_type = None
@@ -42,92 +138,166 @@ async def extract_structured_data(
     # Log start van extractie
     if ctx:
         try:
-            await ctx.info("🤖 Starten AI-gebaseerde data extractie...")
+            method_name = "JSON Schema Mode" if extraction_method == ExtractionMethod.JSON_SCHEMA else "Prompt Parsing Mode"
+            await ctx.info(f"🤖 Starten AI-gebaseerde data extractie ({method_name})...")
         except Exception:
             pass
     
-    # Bepaal het target model en prompt op basis van documenttype
+    # Bepaal het target model en prompt op basis van documenttype en extractie methode
     target_model: Type[Union[CVData, InvoiceData]]
     if doc_type == DocumentType.CV:
-        # Specifieke prompt voor CV extractie
-        prompt = f"""
-        Extract structured information from the following CV text.
-
-        IMPORTANT: Return ONLY valid JSON without any explanation text, comments, or markdown formatting.
-        Use EXACTLY these field names in your JSON output:
-        - full_name (for the full name)
-        - email (for email address)
-        - phone_number (for phone number)
-        - summary (for summary/objective)
-        - work_experience (list of work experiences, each with: job_title, company, start_date, end_date, description)
-        - education (list of education, each with: degree, institution, graduation_date)
-        - skills (list of skills as strings)
-        
-        Ensure all required fields are present. If a field cannot be found, use empty string or empty list.
-        
-        Text:
-        {text}
-        
-        Return ONLY the JSON object, no other text.
-        """
         target_model = CVData
-    elif doc_type == DocumentType.INVOICE:
-        # Specifieke prompt voor factuur extractie
-        prompt = f"""
-        Extract structured information from the following invoice text.
+        if extraction_method == ExtractionMethod.JSON_SCHEMA:
+            # Verbeterde prompt voor JSON schema mode - alle CV velden
+            prompt = f"""
+            Extract ALL structured information from the following CV text. Be thorough and complete.
+            
+            REQUIRED fields to fill:
+            1. full_name (complete name of the person)
+            2. email (email address)
+            3. phone_number (phone number)
+            4. summary (professional summary or objective)
+            5. work_experience array - extract ALL job positions with:
+               - job_title, company, start_date, end_date, description
+            6. education array - extract ALL education with:
+               - degree, institution, graduation_date
+            7. skills array - extract ALL skills mentioned
+            
+            Use empty string "" for missing text fields and empty array [] for missing lists.
+            
+            Text:
+            {text}
+            """
+        else:
+            # Uitgebreide prompt voor prompt parsing mode
+            prompt = f"""
+            Extract structured information from the following CV text.
 
-        IMPORTANT: Return ONLY valid JSON without any explanation text, comments, or markdown formatting.
-        Use EXACTLY these field names in your JSON output:
-        
-        Basic information:
-        - invoice_id (for unique identification, use invoice number or generate unique ID)
-        - invoice_number (for invoice number)
-        - invoice_date (for invoice date)
-        - due_date (for due date)
-        
-        Company information:
-        - supplier_name (for supplier name)
-        - supplier_address (for supplier address)
-        - supplier_vat_number (for supplier VAT number)
-        - customer_name (for customer name)
-        - customer_address (for customer address)
-        - customer_vat_number (for customer VAT number)
-        
-        Financial information:
-        - subtotal (for subtotal excluding VAT)
-        - vat_amount (for VAT amount)
-        - total_amount (for total including VAT)
-        - currency (for currency, default "EUR")
-        
-        Invoice lines (line_items):
-        - description (for product/service description)
-        - quantity (for quantity, must be a number, use 1 if not specified)
-        - unit_price (for unit price)
-        - unit (for unit: pieces, hours, etc.)
-        - line_total (for line total)
-        - vat_rate (for VAT rate percentage)
-        - vat_amount (for VAT amount per line)
-        
-        Payment information:
-        - payment_terms (for payment terms)
-        - payment_method (for payment method)
-        
-        Extra information:
-        - notes (for notes)
-        - reference (for reference/order number)
-        
-        CRITICAL: All quantity fields must be numbers (not strings). Use 1 for single items, 0 for discounts/promotions.
-        Ensure all required fields are present. If a field cannot be found, use empty string or empty list.
-        
-        Text:
-        {text}
-        
-        Return ONLY the JSON object, no other text.
-        """
+            IMPORTANT: Return ONLY valid JSON without any explanation text, comments, or markdown formatting.
+            Use EXACTLY these field names in your JSON output:
+            - full_name (for the full name)
+            - email (for email address)
+            - phone_number (for phone number)
+            - summary (for summary/objective)
+            - work_experience (list of work experiences, each with: job_title, company, start_date, end_date, description)
+            - education (list of education, each with: degree, institution, graduation_date)
+            - skills (list of skills as strings)
+            
+            Ensure all required fields are present. If a field cannot be found, use empty string or empty list.
+            
+            Text:
+            {text}
+            
+            Return ONLY the JSON object, no other text.
+            """
+    elif doc_type == DocumentType.INVOICE:
         target_model = InvoiceData
+        if extraction_method == ExtractionMethod.JSON_SCHEMA:
+            # Sterk verbeterde prompt voor JSON schema mode - focus op line_items
+            prompt = f"""
+            Extract ALL structured information from the following invoice text. Be extremely thorough and complete.
+            
+            CRITICAL: The line_items array is MANDATORY - extract ALL products/services from the invoice table/list.
+            Look for any table, list, or itemized section showing products, services, descriptions, quantities, and prices.
+            
+            REQUIRED fields to fill:
+            1. invoice_id AND invoice_number (use same value if only one number found)
+            2. invoice_date and due_date (extract all dates)
+            3. supplier_name, supplier_address, supplier_vat_number (from "Van:" section)
+            4. customer_name, customer_address, customer_vat_number (from "Aan:" section)
+            5. subtotal, vat_amount, total_amount (extract all monetary amounts as numbers)
+            6. line_items array - MUST contain ALL itemized products/services with:
+               - description (product/service name)
+               - quantity (as number, default 1 if not specified)
+               - unit_price (price per unit as number)
+               - line_total (total for this line as number)
+               - vat_rate (VAT percentage if available)
+               - vat_amount (VAT amount for this line if available)
+            7. payment_terms, payment_method, notes, reference (any additional info)
+            
+            DO NOT leave line_items empty if there are any products/services listed in the invoice!
+            
+            Text:
+            {text}
+            """
+        else:
+            # Uitgebreide prompt voor prompt parsing mode
+            prompt = f"""
+            Extract structured information from the following invoice text.
+
+            IMPORTANT: Return ONLY valid JSON without any explanation text, comments, or markdown formatting.
+            Use EXACTLY these field names in your JSON output:
+            
+            Basic information:
+            - invoice_id (for unique identification, use invoice number or generate unique ID)
+            - invoice_number (for invoice number)
+            - invoice_date (for invoice date)
+            - due_date (for due date)
+            
+            Company information:
+            - supplier_name (for supplier name)
+            - supplier_address (for supplier address)
+            - supplier_vat_number (for supplier VAT number)
+            - customer_name (for customer name)
+            - customer_address (for customer address)
+            - customer_vat_number (for customer VAT number)
+            
+            Financial information:
+            - subtotal (for subtotal excluding VAT)
+            - vat_amount (for VAT amount)
+            - total_amount (for total including VAT)
+            - currency (for currency, default "EUR")
+            
+            Invoice lines (line_items):
+            - description (for product/service description)
+            - quantity (for quantity, must be a number, use 1 if not specified)
+            - unit_price (for unit price)
+            - unit (for unit: pieces, hours, etc.)
+            - line_total (for line total)
+            - vat_rate (for VAT rate percentage)
+            - vat_amount (for VAT amount per line)
+            
+            Payment information:
+            - payment_terms (for payment terms)
+            - payment_method (for payment method)
+            
+            Extra information:
+            - notes (for notes)
+            - reference (for reference/order number)
+            
+            CRITICAL: All quantity fields must be numbers (not strings). Use 1 for single items, 0 for discounts/promotions.
+            Ensure all required fields are present. If a field cannot be found, use empty string or empty list.
+            
+            Text:
+            {text}
+            
+            Return ONLY the JSON object, no other text.
+            """
     else:
-        logger.error(f"Onbekend documenttype: {doc_type}")
-        return None
+        logger.warning(f"Onbekend documenttype: {doc_type}, probeer als invoice")
+        # Fallback: behandel onbekende documenten als invoice
+        target_model = InvoiceData
+        if extraction_method == ExtractionMethod.JSON_SCHEMA:
+            prompt = f"""
+            Extract structured information from the following text as if it were an invoice.
+            Focus on accuracy and completeness. If a field cannot be found, use empty string or empty list.
+            
+            Text:
+            {text}
+            """
+        else:
+            prompt = f"""
+            Extract structured information from the following text as if it were an invoice.
+
+            IMPORTANT: Return ONLY valid JSON without any explanation text, comments, or markdown formatting.
+            Use EXACTLY the same field names as for invoice extraction.
+            Ensure all required fields are present. If a field cannot be found, use empty string or empty list.
+            
+            Text:
+            {text}
+            
+            Return ONLY the JSON object, no other text.
+            """
 
     try:
         # Log Ollama request start
@@ -137,57 +307,81 @@ async def extract_structured_data(
             except Exception:
                 pass
         
-        # Ollama request uitvoeren
-        response = ollama.chat(
-            model=settings.ollama.MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
+        # Ollama request uitvoeren - verschillende configuraties per methode
+        if extraction_method == ExtractionMethod.JSON_SCHEMA:
+            # JSON Schema mode - gebruik format parameter
+            json_schema = target_model.model_json_schema()
+            response = ollama.chat(
+                model=settings.ollama.MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                format=json_schema,  # JSON schema voor structured output
+                options={
+                    "temperature": 0.1,  # Lage temperature voor consistente output
+                    "num_predict": 2048,  # Maximum tokens voor response
                 }
-            ],
-            options={
-                "temperature": 0.1,  # Lage temperature voor consistente output
-                "num_predict": 2048,  # Maximum tokens voor response
-                "stop": ["```", "```json", "```\n", "\n\n\n"]  # Stop bij code blocks
-            }
-        )
+            )
+        else:
+            # Prompt parsing mode - traditionele aanpak
+            response = ollama.chat(
+                model=settings.ollama.MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                options={
+                    "temperature": 0.1,  # Lage temperature voor consistente output
+                    "num_predict": 2048,  # Maximum tokens voor response
+                    "stop": ["```", "```json", "```\n", "\n\n\n"]  # Stop bij code blocks
+                }
+            )
         
-        # Response verwerken
+        # Response verwerken - verschillende parsing per methode
         response_content = response['message']['content'].strip()
         
         # Log response voor debugging
         logger.debug(f"Ollama response: {response_content[:500]}...")
         
-        # JSON extractie uit response - verbeterde methode
+        # JSON extractie uit response
         json_str = None
         
-        # Methode 1: Zoek naar JSON tussen ```json en ``` markers
-        if "```json" in response_content:
-            start_marker = "```json"
-            end_marker = "```"
-            start_idx = response_content.find(start_marker) + len(start_marker)
-            end_idx = response_content.find(end_marker, start_idx)
-            if start_idx != -1 and end_idx != -1:
-                json_str = response_content[start_idx:end_idx].strip()
-        
-        # Methode 2: Zoek naar JSON tussen ``` markers
-        elif "```" in response_content:
-            parts = response_content.split("```")
-            if len(parts) >= 3:
-                json_str = parts[1].strip()
-        
-        # Methode 3: Zoek naar JSON tussen { en }
-        if not json_str:
-            json_start = response_content.find('{')
-            json_end = response_content.rfind('}') + 1
+        if extraction_method == ExtractionMethod.JSON_SCHEMA:
+            # JSON Schema mode - response is direct JSON
+            json_str = response_content
+        else:
+            # Prompt parsing mode - extractie uit response tekst
+            # Methode 1: Zoek naar JSON tussen ```json en ``` markers
+            if "```json" in response_content:
+                start_marker = "```json"
+                end_marker = "```"
+                start_idx = response_content.find(start_marker) + len(start_marker)
+                end_idx = response_content.find(end_marker, start_idx)
+                if start_idx != -1 and end_idx != -1:
+                    json_str = response_content[start_idx:end_idx].strip()
             
-            if json_start != -1 and json_end > json_start:
-                json_str = response_content[json_start:json_end]
-        
-        # Methode 4: Probeer de hele response als JSON
-        if not json_str:
-            json_str = response_content.strip()
+            # Methode 2: Zoek naar JSON tussen ``` markers
+            elif "```" in response_content:
+                parts = response_content.split("```")
+                if len(parts) >= 3:
+                    json_str = parts[1].strip()
+            
+            # Methode 3: Zoek naar JSON tussen { en }
+            if not json_str:
+                json_start = response_content.find('{')
+                json_end = response_content.rfind('}') + 1
+                
+                if json_start != -1 and json_end > json_start:
+                    json_str = response_content[json_start:json_end]
+            
+            # Methode 4: Probeer de hele response als JSON
+            if not json_str:
+                json_str = response_content.strip()
         
         if not json_str:
             logger.error("Geen JSON gevonden in Ollama response")
@@ -195,16 +389,45 @@ async def extract_structured_data(
             error_type = "json_parsing_error"
             return None
         
-        # JSON parsen en valideren
+        # JSON parsen en valideren met reparatie voor incomplete JSON
         import json as json_module
         try:
             parsed_data = json_module.loads(json_str)
         except json_module.JSONDecodeError as e:
-            logger.error(f"JSON parsing fout: {e}")
-            logger.error(f"JSON string: {json_str}")
-            logger.error(f"Response content: {response_content}")
-            error_type = "json_decode_error"
-            return None
+            logger.warning(f"JSON parsing fout: {e}, probeer reparatie...")
+            
+            # Probeer incomplete JSON te repareren
+            repaired_json = json_str.strip()
+            
+            # Verwijder trailing comma's voor sluit-tekens
+            import re
+            repaired_json = re.sub(r',\s*([}\]])', r'\1', repaired_json)
+            
+            # Tel open en gesloten brackets
+            open_braces = repaired_json.count('{')
+            close_braces = repaired_json.count('}')
+            open_brackets = repaired_json.count('[')
+            close_brackets = repaired_json.count(']')
+            
+            # Voeg missende sluit-tekens toe
+            if open_braces > close_braces:
+                repaired_json += '}' * (open_braces - close_braces)
+            if open_brackets > close_brackets:
+                repaired_json += ']' * (open_brackets - close_brackets)
+                
+            # Verwijder opnieuw trailing comma's na reparatie
+            repaired_json = re.sub(r',\s*([}\]])', r'\1', repaired_json)
+            
+            # Probeer opnieuw te parsen
+            try:
+                parsed_data = json_module.loads(repaired_json)
+                logger.info("✅ JSON reparatie succesvol!")
+            except json_module.JSONDecodeError as repair_error:
+                logger.error(f"JSON reparatie gefaald: {repair_error}")
+                logger.error(f"Originele JSON: {json_str}")
+                logger.error(f"Gerepareerde JSON: {repaired_json}")
+                error_type = "json_decode_error"
+                return None
         
         # Data valideren met Pydantic model
         try:
@@ -263,7 +486,8 @@ async def process_document_pdf(
     chunking_method: ChunkingMethod = ChunkingMethod.SMART,
     max_chunk_size: int = 4000,
     overlap: int = 200,
-    ctx: Any = None
+    ctx: Any = None,
+    extraction_method: ExtractionMethod = ExtractionMethod.JSON_SCHEMA
 ) -> ProcessingResult:
     """
     Verwerkt een PDF document door tekst te extraheren, te chunken en gestructureerde data te extraheren.
@@ -274,6 +498,7 @@ async def process_document_pdf(
         max_chunk_size: Maximale grootte per chunk
         overlap: Overlap tussen chunks
         ctx: FastMCP context voor logging
+        extraction_method: Extractie methode (JSON_SCHEMA default, PROMPT_PARSING legacy)
 
     Returns:
         ProcessingResult: Resultaat van de verwerking
@@ -311,7 +536,7 @@ async def process_document_pdf(
             partial_results: List[Union[CVData, InvoiceData]] = []
             for i, chunk in enumerate(chunks):
                 logger.info(f"Chunk {i+1}/{len(chunks)} verwerken")
-                partial_data = await extract_structured_data(chunk, doc_type, ctx)
+                partial_data = await extract_structured_data(chunk, doc_type, ctx, extraction_method)
                 if partial_data:
                     partial_results.append(partial_data)
             
@@ -382,7 +607,7 @@ async def process_document_pdf(
         else:
             # Tekst is kort genoeg, direct verwerken
             logger.info("Tekst is kort genoeg, direct verwerken")
-            extracted_data = await extract_structured_data(extracted_text, doc_type, ctx)
+            extracted_data = await extract_structured_data(extracted_text, doc_type, ctx, extraction_method)
             
             if extracted_data:
                 processing_time = time.time() - start_time
@@ -447,7 +672,8 @@ async def process_document_pdf(
 
 async def process_document_text(
     text: str,
-    ctx: Any = None
+    ctx: Any = None,
+    extraction_method: ExtractionMethod = ExtractionMethod.HYBRID
 ) -> ProcessingResult:
     """
     Verwerkt documenttekst door deze te classificeren en gestructureerde data te extraheren.
@@ -455,6 +681,7 @@ async def process_document_text(
     Args:
         text: De tekst om te verwerken
         ctx: FastMCP context voor logging
+        extraction_method: Extractie methode (HYBRID default, JSON_SCHEMA, PROMPT_PARSING)
 
     Returns:
         ProcessingResult: Resultaat van de verwerking
@@ -469,7 +696,7 @@ async def process_document_text(
         
         # 2. Gestructureerde data extraheren
         logger.info("Gestructureerde data extraheren")
-        extracted_data = await extract_structured_data(text, doc_type, ctx)
+        extracted_data = await extract_structured_data(text, doc_type, ctx, extraction_method)
         
         if extracted_data:
             processing_time = time.time() - start_time

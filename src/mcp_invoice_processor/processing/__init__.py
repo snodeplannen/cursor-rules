@@ -14,7 +14,7 @@ from .models import (
 )
 
 from .classification import classify_document
-from .pipeline import extract_structured_data
+from .pipeline import extract_structured_data, ExtractionMethod
 
 __all__ = [
     "DocumentType",
@@ -25,5 +25,6 @@ __all__ = [
     "WorkExperience",
     "Education",
     "classify_document",
-    "extract_structured_data"
+    "extract_structured_data",
+    "ExtractionMethod"
 ]
