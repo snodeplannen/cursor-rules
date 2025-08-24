@@ -4,7 +4,7 @@ Logging configuratie voor de MCP Invoice Processor.
 import logging.config
 
 
-def setup_logging(log_level: str = "INFO"):
+def setup_logging(log_level: str = "DEBUG"):
     """Configureert gestructureerde JSON logging voor de applicatie."""
     LOGGING_CONFIG = {
         "version": 1,

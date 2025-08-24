@@ -6,11 +6,63 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from datetime import datetime
-import json
-from typing import Dict, Any
-
+from datetime import datetime, timedelta
 from .metrics import metrics_collector
+import random
+
+
+def generate_demo_metrics():
+    """Genereer demo metrics voor de dashboard."""
+    # Reset metrics voor schone start
+    metrics_collector.processing = metrics_collector.processing.__class__()
+    metrics_collector.ollama = metrics_collector.ollama.__class__()
+    metrics_collector.system = metrics_collector.system.__class__()
+    
+    # Simuleer document verwerking
+    for i in range(5):
+        processing_time = random.uniform(1.5, 4.0)
+        metrics_collector.record_document_processing("cv", True, processing_time)
+    
+    for i in range(3):
+        processing_time = random.uniform(2.0, 5.0)
+        success = random.choice([True, False])
+        if success:
+            metrics_collector.record_document_processing("invoice", True, processing_time)
+        else:
+            error_type = random.choice(["validation_error", "parsing_error", "timeout"])
+            metrics_collector.record_document_processing("invoice", False, processing_time, error_type)
+    
+    for i in range(2):
+        processing_time = random.uniform(0.5, 1.5)
+        metrics_collector.record_document_processing("unknown", True, processing_time)
+    
+    # Simuleer Ollama requests
+    models = ["llama3:8b", "llama3:70b", "mistral:7b"]
+    for i in range(8):
+        model = random.choice(models)
+        response_time = random.uniform(0.8, 3.5)
+        success = random.choice([True, True, True, False])  # 75% succes rate
+        
+        if success:
+            metrics_collector.record_ollama_request(model, response_time, True)
+        else:
+            error_type = random.choice(["timeout", "model_error", "connection_error"])
+            metrics_collector.record_ollama_request(model, response_time, False, error_type)
+    
+    # Update systeem metrics
+    uptime_hours = random.randint(1, 24)
+    uptime_minutes = random.randint(0, 59)
+    metrics_collector.system.uptime = timedelta(hours=uptime_hours, minutes=uptime_minutes)
+    metrics_collector.system.memory_usage_mb = random.uniform(100.0, 800.0)
+    metrics_collector.system.cpu_usage_percent = random.uniform(5.0, 45.0)
+    metrics_collector.system.active_connections = random.randint(1, 10)
+    metrics_collector.system.total_connections = random.randint(10, 100)
+    
+    print("✅ Demo metrics gegenereerd voor dashboard")
+
+
+# Genereer demo metrics bij startup
+generate_demo_metrics()
 
 
 # FastAPI app initialiseren
@@ -124,12 +176,78 @@ async def dashboard_home():
             }}
         </style>
         <script>
+            // Real-time metrics updates
+            let updateInterval;
+            
             function refreshMetrics() {{
                 location.reload();
             }}
             
-            // Auto-refresh elke 30 seconden
-            setInterval(refreshMetrics, 30000);
+            async function updateMetricsRealTime() {{
+                try {{
+                    const response = await fetch('/metrics');
+                    const metrics = await response.json();
+                    
+                    // Update document verwerking metrics
+                    document.getElementById('total-docs').textContent = metrics.processing.total_documents;
+                    document.getElementById('successful-docs').textContent = metrics.processing.successful_documents;
+                    document.getElementById('failed-docs').textContent = metrics.processing.failed_documents;
+                    document.getElementById('success-rate').textContent = metrics.processing.success_rate_percent + '%';
+                    document.getElementById('avg-time').textContent = metrics.processing.average_processing_time + 's';
+                    
+                    // Update Ollama metrics
+                    document.getElementById('total-ollama').textContent = metrics.ollama.total_requests;
+                    document.getElementById('successful-ollama').textContent = metrics.ollama.successful_requests;
+                    document.getElementById('failed-ollama').textContent = metrics.ollama.failed_requests;
+                    document.getElementById('ollama-success-rate').textContent = metrics.ollama.success_rate_percent + '%';
+                    document.getElementById('ollama-avg-time').textContent = metrics.ollama.average_response_time + 's';
+                    
+                    // Update document types
+                    document.getElementById('cv-count').textContent = metrics.processing.document_types.cv;
+                    document.getElementById('invoice-count').textContent = metrics.processing.document_types.invoice;
+                    document.getElementById('unknown-count').textContent = metrics.processing.document_types.unknown;
+                    
+                    // Update performance metrics
+                    document.getElementById('p95-processing').textContent = metrics.processing.p95_processing_time + 's';
+                    document.getElementById('p99-processing').textContent = metrics.processing.p99_processing_time + 's';
+                    document.getElementById('p95-ollama').textContent = metrics.ollama.p95_response_time + 's';
+                    
+                    // Update timestamp
+                    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+                    
+                }} catch (error) {{
+                    console.error('Fout bij ophalen metrics:', error);
+                }}
+            }}
+            
+            function startRealTimeUpdates() {{
+                // Stop bestaande interval
+                if (updateInterval) {{
+                    clearInterval(updateInterval);
+                }}
+                
+                // Start real-time updates elke 5 seconden
+                updateInterval = setInterval(updateMetricsRealTime, 5000);
+                
+                // Eerste update direct
+                updateMetricsRealTime();
+                
+                document.getElementById('real-time-btn').textContent = '⏹️ Stop Real-time';
+                document.getElementById('real-time-btn').onclick = stopRealTimeUpdates;
+            }}
+            
+            function stopRealTimeUpdates() {{
+                if (updateInterval) {{
+                    clearInterval(updateInterval);
+                    updateInterval = null;
+                }}
+                
+                document.getElementById('real-time-btn').textContent = '🔄 Start Real-time';
+                document.getElementById('real-time-btn').onclick = startRealTimeUpdates;
+            }}
+            
+            // Start real-time updates automatisch
+            startRealTimeUpdates();
         </script>
     </head>
     <body>
@@ -248,7 +366,7 @@ async def dashboard_home():
             </div>
             
             <div class="timestamp">
-                Laatste update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                Laatste update: <span id="last-update">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</span>
             </div>
         </div>
     </body>
@@ -300,87 +418,41 @@ async def health_check():
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             },
-            status_code=503
+            status_code=500
         )
 
 
 @app.get("/metrics")
 async def get_metrics():
-    """Haal alle metrics op in JSON formaat."""
+    """JSON endpoint voor metrics data."""
     try:
         metrics = metrics_collector.get_comprehensive_metrics()
         return JSONResponse(content=metrics)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fout bij ophalen van metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/metrics/prometheus")
 async def get_prometheus_metrics():
-    """Haal metrics op in Prometheus formaat."""
+    """Prometheus format metrics endpoint."""
     try:
         prometheus_metrics = metrics_collector.export_metrics("prometheus")
         return prometheus_metrics
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fout bij exporteren van Prometheus metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/metrics/processing")
-async def get_processing_metrics():
-    """Haal alleen processing metrics op."""
-    try:
-        metrics = metrics_collector.get_comprehensive_metrics()
-        return JSONResponse(content=metrics['processing'])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fout bij ophalen van processing metrics: {e}")
-
-
-@app.get("/metrics/ollama")
-async def get_ollama_metrics():
-    """Haal alleen Ollama metrics op."""
-    try:
-        metrics = metrics_collector.get_comprehensive_metrics()
-        return JSONResponse(content=metrics['ollama'])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fout bij ophalen van Ollama metrics: {e}")
-
-
-@app.get("/metrics/system")
-async def get_system_metrics():
-    """Haal alleen systeem metrics op."""
-    try:
-        metrics = metrics_collector.get_comprehensive_metrics()
-        return JSONResponse(content=metrics['system'])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fout bij ophalen van systeem metrics: {e}")
-
-
-@app.post("/metrics/reset")
-async def reset_metrics():
-    """Reset alle metrics (alleen voor development/testing)."""
-    try:
-        # Reset metrics collector
-        global metrics_collector
-        from .metrics import MetricsCollector
-        metrics_collector = MetricsCollector()
-        
-        return JSONResponse(content={
-            "message": "Metrics gereset",
-            "timestamp": datetime.now().isoformat()
-        })
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fout bij resetten van metrics: {e}")
-
-
-def start_dashboard(host: str = "0.0.0.0", port: int = 8000):
-    """Start de monitoring dashboard server."""
-    print(f"🚀 Monitoring dashboard starten op http://{host}:{port}")
-    print(f"📊 Dashboard: http://{host}:{port}/")
-    print(f"🔍 Health check: http://{host}:{port}/health")
-    print(f"📈 Metrics: http://{host}:{port}/metrics")
-    print(f"📊 Prometheus: http://{host}:{port}/metrics/prometheus")
+def run_dashboard(host: str = "0.0.0.0", port: int = 8000):
+    """Start de monitoring dashboard."""
+    print("🚀 Starting MCP Invoice Processor Monitoring Dashboard...")
+    print(f"🌐 Dashboard beschikbaar op: http://{host}:{port}")
+    print(f"📊 Metrics API: http://{host}:{port}/metrics")
+    print(f"🔍 Health Check: http://{host}:{port}/health")
+    print(f"📈 Prometheus: http://{host}:{port}/metrics/prometheus")
+    print("⏹️  Druk Ctrl+C om te stoppen")
     
     uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
-    start_dashboard()
+    run_dashboard()

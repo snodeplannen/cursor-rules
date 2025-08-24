@@ -8,6 +8,7 @@ import asyncio
 import base64
 import json
 import sys
+import pytest
 from pathlib import Path
 
 # Voeg de src directory toe aan het Python pad
@@ -20,6 +21,8 @@ except ImportError:
     sys.exit(1)
 
 
+@pytest.mark.asyncio
+@pytest.mark.mcp
 async def test_mcp_connection():
     """Test de verbinding met de MCP server."""
     print("🔌 Testen van MCP verbinding...")
@@ -53,9 +56,17 @@ async def test_mcp_connection():
         return None
 
 
-async def test_document_processing(client):
+@pytest.mark.asyncio
+@pytest.mark.mcp
+async def test_document_processing():
     """Test documentverwerking met een voorbeeld PDF."""
     print("\n📄 Testen van documentverwerking...")
+    
+    # Eerst verbinding maken
+    client = await test_mcp_connection()
+    if not client:
+        pytest.skip("MCP verbinding mislukt")
+        return
     
     # Maak een eenvoudige test PDF content (dit is geen echte PDF, alleen voor testen)
     test_content = "Dit is een test CV document met ervaring en opleiding informatie."

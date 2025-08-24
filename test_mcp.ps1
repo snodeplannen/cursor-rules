@@ -25,7 +25,7 @@ Write-Host "✅ Projectstructuur gecontroleerd" -ForegroundColor Green
 Write-Host "🔌 Testen van server start..." -ForegroundColor Yellow
 try {
     # Test of de server module kan worden geïmporteerd
-    $importTest = uv run python -c "import src.mcp_invoice_processor.main; print('✅ MCP server module succesvol geïmporteerd')" 2>$null
+    $null = uv run python -c "import src.mcp_invoice_processor.main; print('✅ MCP server module succesvol geïmporteerd')" 2>$null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ MCP server module werkt correct" -ForegroundColor Green
     } else {
@@ -73,7 +73,7 @@ try {
 # Test de FastMCP CLI
 Write-Host "🛠️  Testen van FastMCP CLI..." -ForegroundColor Yellow
 try {
-    $fastmcpHelp = uv run fastmcp --help 2>$null
+    $null = uv run fastmcp --help 2>$null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ FastMCP CLI werkt" -ForegroundColor Green
     } else {
@@ -86,7 +86,7 @@ try {
 # Test de dependencies
 Write-Host "📦 Testen van dependencies..." -ForegroundColor Yellow
 try {
-    $importTest = uv run python -c "import fastmcp, ollama, pydantic; print('✅ Alle dependencies geïmporteerd')" 2>$null
+    $null = uv run python -c "import fastmcp, ollama, pydantic; print('✅ Alle dependencies geïmporteerd')" 2>$null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Dependencies werken correct" -ForegroundColor Green
     } else {

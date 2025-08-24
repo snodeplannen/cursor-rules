@@ -1,7 +1,7 @@
 """
 Configuratiebeheer voor de MCP Invoice Processor.
 """
-from pydantic import SecretStr
+# SecretStr not currently used but available for API keys
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

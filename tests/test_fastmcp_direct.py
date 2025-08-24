@@ -6,6 +6,7 @@ Directe test van FastMCP server functies zonder de MCP protocol overhead.
 import asyncio
 import sys
 import os
+import pytest
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -27,6 +28,8 @@ class MockContext:
         print(f"📊 Progress: {current}/{total}")
 
 
+@pytest.mark.asyncio
+@pytest.mark.ollama
 async def test_document_processing():
     """Test document verwerking direct."""
     

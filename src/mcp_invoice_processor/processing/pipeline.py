@@ -3,7 +3,7 @@ Hoofdpijplijn voor documentverwerking en data-extractie.
 """
 import logging
 import time
-from typing import Union
+from typing import Union, Type
 from pydantic import ValidationError
 import ollama
 
@@ -37,8 +37,9 @@ async def extract_structured_data(
     """
     # Start timing voor Ollama request
     start_time = time.time()
-    success = False
     error_type = None
+    # Bepaal het target model en prompt op basis van documenttype
+    target_model: Type[Union[CVData, InvoiceData]]
     if doc_type == DocumentType.CV:
         # Specifieke prompt voor CV extractie
         prompt = f"""
@@ -69,7 +70,7 @@ async def extract_structured_data(
         BELANGRIJK: Gebruik EXACT deze veldnamen in je JSON output:
         
         Basis informatie:
-        - invoice_id (voor unieke identificatie)
+        - invoice_id (voor unieke identificatie, gebruik factuurnummer of genereer een unieke ID)
         - invoice_number (voor factuurnummer)
         - invoice_date (voor factuurdatum)
         - due_date (voor vervaldatum)
@@ -103,7 +104,20 @@ async def extract_structured_data(
         - notes (voor opmerkingen)
         - reference (voor referentie/ordernummer)
         
-        Zorg ervoor dat alle verplichte velden aanwezig zijn. Als een veld niet gevonden kan worden, gebruik dan een lege string, 0.0, of lege lijst.
+        Zorg ervoor dat alle verplichte velden aanwezig zijn. 
+        
+        KRITIEK VOOR NUMERIEKE VELDEN:
+        - quantity, unit_price, line_total, vat_rate, vat_amount, subtotal, total_amount
+        - Gebruik ALTIJD 0.0 als standaardwaarde, NOOIT lege strings ('')
+        - Als een waarde niet gevonden kan worden, gebruik dan 0.0
+        
+        VOOR TEKSTVELDEN:
+        - Gebruik lege strings ('') als standaardwaarde
+        - Als een waarde niet gevonden kan worden, gebruik dan ''
+        
+        VOOR LIJSTEN:
+        - Gebruik lege lijsten ([]) als standaardwaarde
+        - Als geen items gevonden kunnen worden, gebruik dan []
         
         Tekst:
         {text}
@@ -135,7 +149,7 @@ async def extract_structured_data(
         await ctx.info(f"Ollama response ontvangen: {len(response_content)} karakters")
         logger.info(f"Ollama response: {response_content[:200]}...")
         
-        success = True
+        # Success tracking for metrics
         result = target_model.model_validate_json(response_content)
         
         # Record metrics voor succesvolle request
@@ -156,9 +170,9 @@ async def extract_structured_data(
         # Probeer de response te repareren door veldnamen te mappen
         try:
             if doc_type == DocumentType.CV:
-                result = await _repair_cv_data(response_content, ctx)
-                if result:
-                    success = True
+                repair_result = await _repair_cv_data(response_content, ctx)
+                if repair_result:
+                    # Metrics tracking voor gerepareerde data
                     # Record metrics voor gerepareerde request
                     response_time = time.time() - start_time
                     metrics_collector.record_ollama_request(
@@ -166,7 +180,7 @@ async def extract_structured_data(
                         response_time=response_time,
                         success=True
                     )
-                return result
+                return repair_result
         except Exception as repair_error:
             await ctx.error(f"Reparatie van CV data mislukt: {repair_error}")
         
@@ -349,7 +363,7 @@ async def process_pdf_document(
                     # Type cast voor factuur data
                     invoice_results = [result for result in partial_results if isinstance(result, InvoiceData)]
                     if invoice_results:
-                        final_data: Union[CVData, InvoiceData] = merge_partial_invoice_data(invoice_results)
+                        final_data = merge_partial_invoice_data(invoice_results)
                     else:
                         # Record metrics voor mislukte verwerking
                         processing_time = time.time() - start_time
@@ -368,7 +382,7 @@ async def process_pdf_document(
                         )
                 else:
                     # Voor onbekende documenttypes, gebruik het eerste resultaat
-                    final_data: Union[CVData, InvoiceData] = partial_results[0]
+                    final_data = partial_results[0]
 
                 await ctx.info("Verwerking voltooid")
                 

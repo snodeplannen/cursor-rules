@@ -161,6 +161,37 @@ docker run -p 8080:8080 \
 2. Accepteer de "Reopen in Container" prompt
 3. De ontwikkelomgeving wordt automatisch opgezet
 
+## 📊 Monitoring en Observability
+
+De applicatie bevat uitgebreide monitoring en metrics collectie:
+
+### Monitoring Dashboard
+```bash
+# Start de monitoring dashboard
+uv run python -m src.mcp_invoice_processor.monitoring.dashboard
+
+# Dashboard beschikbaar op: http://localhost:8000
+```
+
+### Metrics Endpoints
+- **`/`** - Real-time monitoring dashboard met auto-refresh
+- **`/health`** - Health check endpoint met service status
+- **`/metrics`** - JSON metrics voor externe monitoring
+- **`/metrics/prometheus`** - Prometheus-compatible metrics export
+
+### Metrics Categorieën
+- **Document Processing**: Totaal verwerkte documenten, succes rates, verwerkingstijden, document types
+- **Ollama Integration**: LLM request metrics, response tijden, model usage, error rates
+- **System Metrics**: Uptime, memory/CPU usage, actieve verbindingen
+
+### Test Metrics Generator
+```bash
+# Genereer test metrics voor dashboard
+uv run python tests/test_metrics_generation.py
+
+# Kies optie 2 voor continue real-time updates
+```
+
 ## 🧪 Testen
 
 ### Unit Tests
@@ -178,7 +209,7 @@ uv run pytest tests/test_pipeline.py
 ### MCP Server Tests
 ```bash
 # Test met Python client
-uv run python test_mcp_client.py
+uv run python tests/test_mcp_client.py
 
 # Test met shell script (Linux/macOS)
 ./test_mcp.sh
@@ -234,9 +265,15 @@ mcp-invoice-processor/
 │   ├── __init__.py
 │   ├── conftest.py        # Gedeelde fixtures en configuratie
 │   ├── test_pipeline.py   # Unit tests voor verwerkingspijplijn
+│   ├── test_monitoring.py # Unit tests voor metrics en monitoring
 │   ├── test_fastmcp_client.py # FastMCP client tests
 │   ├── test_fastmcp_cli.py    # FastMCP CLI tests
+│   ├── test_fastmcp_server.py # Direct FastMCP server tests
+│   ├── test_fastmcp_direct.py # Direct core logic tests
 │   ├── test_mcp_client.py     # MCP library tests
+│   ├── test_ollama_integration.py # Ollama integratie tests
+│   ├── test_real_documents.py # Tests met echte documenten
+│   ├── test_metrics_generation.py # Metrics test data generator
 │   ├── run_tests.py       # Test runner script
 │   └── README.md          # Test documentatie
 ├── Dockerfile             # Productie container
@@ -436,9 +473,12 @@ Dit project is gelicentieerd onder de MIT License - zie het [LICENSE](LICENSE) b
 ```
 
 ### Test Scripts
-- `test_mcp_client.py` - Python test client voor MCP server
+- `tests/test_mcp_client.py` - Python test client voor MCP server
 - `test_mcp.sh` - Shell test script (Linux/macOS)
 - `test_mcp.ps1` - PowerShell test script (Windows)
+- `tests/test_fastmcp_server.py` - Direct FastMCP server tests
+- `tests/test_real_documents.py` - Tests met echte document bestanden
+- `tests/test_metrics_generation.py` - Metrics test data generator
 
 ## 🙏 Dankbetuigingen
 

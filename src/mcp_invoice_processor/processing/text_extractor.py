@@ -1,8 +1,8 @@
 """
 Tekstextractie module voor PDF documenten.
 """
-import fitz  # PyMuPDF
 
+import fitz  # PyMuPDF 
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """

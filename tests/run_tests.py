@@ -9,7 +9,7 @@ Dit script voert alle tests uit en genereert rapporten.
 import subprocess
 import sys
 import time
-from pathlib import Path
+# Path not used in current implementation
 
 
 def run_command(command, description):
@@ -101,7 +101,7 @@ def main():
     # Genereer test rapport
     print("\n📊 Genereren van test rapport...")
     report_result = run_command(
-        ["uv", "run", "pytest", "tests/", "--tb=short", "--durations=10", 
+        ["uv", "run", "pytest", "tests/", "--tb=short", "--durations=90", 
          "--junitxml=tests/results.xml", "--html=tests/report.html", "--self-contained-html"],
         "Test rapport genereren"
     )
@@ -130,7 +130,7 @@ def main():
         print(f"\n⚠️  {failed_tests} test categorie(ën) gefaald")
         sys.exit(1)
     else:
-        print(f"\n🎉 Alle tests geslaagd!")
+        print("\n🎉 Alle tests geslaagd!")
         sys.exit(0)
 
 

@@ -3,10 +3,10 @@ Tests voor de verwerkingspijplijn.
 """
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import base64
+# base64 not used in current tests
 
 from src.mcp_invoice_processor.processing.pipeline import process_pdf_document, extract_structured_data
-from src.mcp_invoice_processor.processing.models import ProcessingResult, CVData, WorkExperience, Education, InvoiceData, InvoiceLineItem
+from src.mcp_invoice_processor.processing.models import CVData, WorkExperience, InvoiceData, InvoiceLineItem
 from src.mcp_invoice_processor.processing.classification import DocumentType
 
 

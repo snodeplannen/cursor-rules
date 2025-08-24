@@ -1,0 +1,28 @@
+FACTUUR
+
+Factuurnummer: INV-001
+Factuurdatum: 15-03-2025
+Vervaldatum: 15-04-2025
+
+Leverancier:
+ABC Company BV
+Hoofdstraat 123
+1234 AB Amsterdam
+BTW-nummer: NL123456789B01
+
+Klant:
+XYZ Bedrijf
+Kantoorweg 45
+5678 CD Rotterdam
+BTW-nummer: NL987654321A01
+
+Producten:
+1. Webdesign diensten - 10 uur x €75,00 = €750,00
+2. Hosting maart 2025 - 1 maand x €25,00 = €25,00
+
+Subtotaal: €775,00
+BTW (21%): €162,75
+Totaal: €937,75
+
+Betalingsvoorwaarden: 30 dagen
+Betalingsmethode: Bankoverschrijving

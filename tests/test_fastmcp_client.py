@@ -2,7 +2,7 @@
 Tests voor FastMCP client integratie in STDIO mode.
 Deze tests controleren of de MCP server correct werkt via de FastMCP client.
 """
-import pytest
+# pytest not used in this minimal test
 
 
 def test_mcp_server_availability():

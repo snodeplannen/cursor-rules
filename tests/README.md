@@ -6,14 +6,24 @@ Deze directory bevat alle tests voor de MCP Invoice Processor, inclusief unit te
 
 ### Core Tests
 - **`test_pipeline.py`** - Unit tests voor de verwerkingspijplijn
+- **`test_monitoring.py`** - Unit tests voor metrics en monitoring
 - **`conftest.py`** - Gedeelde fixtures en configuratie
 
-### FastMCP Client Tests
+### FastMCP Tests
 - **`test_fastmcp_client.py`** - Tests voor FastMCP client integratie in STDIO mode
 - **`test_fastmcp_cli.py`** - Tests voor FastMCP CLI functionaliteit
+- **`test_fastmcp_server.py`** - Direct FastMCP server tests
+- **`test_fastmcp_direct.py`** - Direct core logic tests
 
 ### MCP Library Tests
 - **`test_mcp_client.py`** - Tests voor MCP library integratie in STDIO mode
+
+### Integration Tests
+- **`test_ollama_integration.py`** - Ollama integratie tests met echte LLM
+- **`test_real_documents.py`** - Tests met echte document bestanden
+
+### Utility Tests
+- **`test_metrics_generation.py`** - Metrics test data generator voor dashboard
 
 ### Test Runner
 - **`run_tests.py`** - Script om alle tests uit te voeren en rapporten te genereren

@@ -2,10 +2,7 @@
 Pydantic modellen voor document data extractie.
 """
 from pydantic import BaseModel, Field
-from typing import List, Optional, Union, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .models import InvoiceLineItem
+from typing import List, Optional, Union
 
 
 class WorkExperience(BaseModel):

@@ -3,6 +3,7 @@ Gedeelde fixtures en configuratie voor tests.
 """
 import pytest
 import sys
+import importlib.util
 from pathlib import Path
 
 # Voeg de src directory toe aan het Python pad
@@ -102,8 +103,8 @@ def tests_directory(project_root):
 def fastmcp_available():
     """Of FastMCP beschikbaar is."""
     try:
-        import fastmcp
-        return True
+        fastmcp_spec = importlib.util.find_spec("fastmcp")
+        return fastmcp_spec is not None
     except ImportError:
         return False
 
@@ -113,8 +114,8 @@ def fastmcp_available():
 def mcp_available():
     """Of MCP library beschikbaar is."""
     try:
-        import mcp
-        return True
+        mcp_spec = importlib.util.find_spec("mcp")
+        return mcp_spec is not None
     except ImportError:
         return False
 
@@ -124,8 +125,8 @@ def mcp_available():
 def ollama_available():
     """Of Ollama library beschikbaar is."""
     try:
-        import ollama
-        return True
+        ollama_spec = importlib.util.find_spec("ollama")
+        return ollama_spec is not None
     except ImportError:
         return False
 
