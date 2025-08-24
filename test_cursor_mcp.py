@@ -1,16 +1,18 @@
+import subprocess
+import json
+import time
+import sys
+import os
+from typing import Any, Dict, List, Optional, Union
+
 #!/usr/bin/env python3
 """
 Test script om te controleren of de MCP configuratie voor Cursor correct werkt.
 Dit simuleert hoe Cursor de MCP server zou starten.
 """
 
-import subprocess
-import json
-import time
-import sys
-import os
 
-def test_mcp_server_startup():
+def test_mcp_server_startup() -> None:
     """Test of de MCP server correct start volgens de mcp.json configuratie."""
     
     print("🚀 Testen MCP Server Startup voor Cursor")
@@ -70,7 +72,7 @@ def test_mcp_server_startup():
         print(f"❌ Fout bij server startup: {e}")
         return False
 
-def test_mcp_configuration():
+def test_mcp_configuration() -> None:
     """Test of de MCP configuratie correct is geformatteerd."""
     
     print("\n🔧 Testen MCP Configuratie Validiteit")
@@ -132,7 +134,7 @@ def test_mcp_configuration():
         print(f"❌ Onverwachte fout: {e}")
         return False
 
-def test_cursor_integration():
+def test_cursor_integration() -> None:
     """Test of de configuratie geschikt is voor Cursor integratie."""
     
     print("\n🎯 Testen Cursor Integratie")
@@ -171,7 +173,7 @@ def test_cursor_integration():
         print(f"❌ Fout bij Cursor integratie test: {e}")
         return False
 
-def main():
+def main() -> None:
     """Hoofdfunctie."""
     
     print("🧪 MCP Configuratie Test voor Cursor")

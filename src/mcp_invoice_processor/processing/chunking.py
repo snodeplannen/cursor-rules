@@ -8,6 +8,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 class ChunkingMethod(Enum):
     """Enum voor chunking methoden."""
     RECURSIVE = "recursive"
+    SMART = "smart"
     # Toekomstige methoden zoals FIXED of SEMANTIC kunnen hier worden toegevoegd
 
 
@@ -37,6 +38,15 @@ def chunk_text(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             length_function=len,
+        )
+        return splitter.split_text(text)
+    elif method == ChunkingMethod.SMART:
+        # SMART methode: probeer op natuurlijke grenzen te splitsen
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            length_function=len,
+            separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""]
         )
         return splitter.split_text(text)
     else:

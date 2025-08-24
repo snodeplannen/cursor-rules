@@ -6,7 +6,6 @@ authors = [{ name = "Uw Naam", email = "uw.email@example.com" }]
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "fastmcp>=2.2.1",
     "ollama>=0.2.1",
     "pydantic>=2.7.1",
     "pydantic-settings>=2.2.1",
@@ -19,6 +18,7 @@ dependencies = [
     "mcp[cli]>=1.13.1",
     "fastapi>=0.116.1",
     "uvicorn>=0.35.0",
+    "fastmcp<2.11.0",
 ]
 
 [project.optional-dependencies]
@@ -37,10 +37,55 @@ requires = ["uv-build"]
 build-backend = "uv_build"
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.ruff.lint]
+extend-ignore = ["ANN401"]  # Ignore missing type stubs for external modules
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
+addopts = "--asyncio-mode=auto"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Allow untyped defs for now
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false  # Allow untyped decorators for now
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+# Module resolution
+explicit_package_bases = true
+namespace_packages = true
+
+# Ignore missing type stubs for external modules
+ignore_missing_imports = true
+
+# Add source directory to Python path
+mypy_path = ["src"]
+
+# Per-module options
+[[tool.mypy.overrides]]
+module = "mcp_invoice_processor.*"
+ignore_missing_imports = false
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_missing_imports = true
+disallow_untyped_defs = false
 
 [dependency-groups]
 dev = [
@@ -52,4 +97,5 @@ dev = [
     "pytest-mock>=3.14.1",
     "python-json-logger>=3.3.0",
     "requests>=2.32.5",
+    "types-requests>=2.32.4.20250809",
 ]

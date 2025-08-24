@@ -1,12 +1,12 @@
 """
-Metrics module voor monitoring en observability van de MCP Invoice Processor.
+Metrics collector voor de MCP Invoice Processor.
+Verzamelt performance en usage statistieken.
 """
 import time
-import asyncio
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any, Deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from collections import defaultdict, deque
+from collections import deque
 import json
 import logging
 
@@ -31,15 +31,15 @@ class ProcessingMetrics:
     error_counts: Dict[str, int] = field(default_factory=dict)
     
     # Performance tracking
-    processing_times: deque = field(default_factory=lambda: deque(maxlen=100))
+    processing_times: Deque[float] = field(default_factory=lambda: deque(maxlen=100))
     
-    def update_processing_time(self, processing_time: float):
+    def update_processing_time(self, processing_time: float) -> None:
         """Update processing time metrics."""
         self.total_processing_time += processing_time
         self.processing_times.append(processing_time)
         self.average_processing_time = self.total_processing_time / self.total_documents_processed
     
-    def record_success(self, doc_type: str, processing_time: float):
+    def record_success(self, doc_type: str, processing_time: float) -> None:
         """Record successful document processing."""
         self.total_documents_processed += 1
         self.successful_documents += 1
@@ -52,7 +52,7 @@ class ProcessingMetrics:
         else:
             self.unknown_documents += 1
     
-    def record_failure(self, doc_type: str, error_type: str, processing_time: float):
+    def record_failure(self, doc_type: str, error_type: str, processing_time: float) -> None:
         """Record failed document processing."""
         self.total_documents_processed += 1
         self.failed_documents += 1
@@ -94,7 +94,7 @@ class OllamaMetrics:
     average_response_time: float = 0.0
     
     # Response time tracking
-    response_times: deque = field(default_factory=lambda: deque(maxlen=100))
+    response_times: Deque[float] = field(default_factory=lambda: deque(maxlen=100))
     
     # Model usage tracking
     model_usage: Dict[str, int] = field(default_factory=dict)
@@ -102,7 +102,7 @@ class OllamaMetrics:
     # Error tracking
     error_counts: Dict[str, int] = field(default_factory=dict)
     
-    def record_request(self, model: str, response_time: float, success: bool, error_type: Optional[str] = None):
+    def record_request(self, model: str, response_time: float, success: bool, error_type: Optional[str] = None) -> None:
         """Record Ollama request metrics."""
         self.total_requests += 1
         self.total_response_time += response_time
@@ -149,7 +149,7 @@ class SystemMetrics:
     active_connections: int = 0
     total_connections: int = 0
     
-    def update_uptime(self):
+    def update_uptime(self) -> None:
         """Update uptime."""
         self.uptime = datetime.now() - self.start_time
     
@@ -165,7 +165,7 @@ class SystemMetrics:
 class MetricsCollector:
     """Hoofdklasse voor het verzamelen en beheren van alle metrics."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.processing = ProcessingMetrics()
         self.ollama = OllamaMetrics()
         self.system = SystemMetrics()
@@ -174,11 +174,11 @@ class MetricsCollector:
         self._start_times: Dict[str, float] = {}
         
         # Historical data for trends
-        self._hourly_metrics: deque = field(default_factory=lambda: deque(maxlen=24))
+        self._hourly_metrics: Deque[Dict[str, Any]] = field(default_factory=lambda: deque(maxlen=24))
         
         logger.info("Metrics collector geïnitialiseerd")
     
-    def start_timer(self, operation: str):
+    def start_timer(self, operation: str) -> None:
         """Start timing an operation."""
         self._start_times[operation] = time.time()
     
@@ -191,7 +191,7 @@ class MetricsCollector:
         del self._start_times[operation]
         return duration
     
-    def record_document_processing(self, doc_type: str, success: bool, processing_time: float, error_type: Optional[str] = None):
+    def record_document_processing(self, doc_type: str, success: bool, processing_time: float, error_type: Optional[str] = None) -> None:
         """Record document processing metrics."""
         if success:
             self.processing.record_success(doc_type, processing_time)
@@ -200,13 +200,13 @@ class MetricsCollector:
         
         logger.debug(f"Document processing recorded: {doc_type}, success: {success}, time: {processing_time:.2f}s")
     
-    def record_ollama_request(self, model: str, response_time: float, success: bool, error_type: Optional[str] = None):
+    def record_ollama_request(self, model: str, response_time: float, success: bool, error_type: Optional[str] = None) -> None:
         """Record Ollama request metrics."""
         self.ollama.record_request(model, response_time, success, error_type)
         
         logger.debug(f"Ollama request recorded: {model}, success: {success}, time: {response_time:.2f}s")
     
-    def update_system_metrics(self):
+    def update_system_metrics(self) -> None:
         """Update system metrics."""
         self.system.update_uptime()
         # In een echte implementatie zouden we hier system calls maken
@@ -271,51 +271,51 @@ class MetricsCollector:
         lines = []
         
         # System metrics
-        lines.append(f"# HELP mcp_uptime_seconds System uptime in seconds")
-        lines.append(f"# TYPE mcp_uptime_seconds gauge")
+        lines.append("# HELP mcp_uptime_seconds System uptime in seconds")
+        lines.append("# TYPE mcp_uptime_seconds gauge")
         lines.append(f"mcp_uptime_seconds {self.system.uptime.total_seconds()}")
         
-        lines.append(f"# HELP mcp_memory_usage_mb Memory usage in MB")
-        lines.append(f"# TYPE mcp_memory_usage_mb gauge")
+        lines.append("# HELP mcp_memory_usage_mb Memory usage in MB")
+        lines.append("# TYPE mcp_memory_usage_mb gauge")
         lines.append(f"mcp_memory_usage_mb {self.system.memory_usage_mb}")
         
-        lines.append(f"# HELP mcp_cpu_usage_percent CPU usage percentage")
-        lines.append(f"# TYPE mcp_cpu_usage_percent gauge")
+        lines.append("# HELP mcp_cpu_usage_percent CPU usage percentage")
+        lines.append("# TYPE mcp_cpu_usage_percent gauge")
         lines.append(f"mcp_cpu_usage_percent {self.system.cpu_usage_percent}")
         
         # Processing metrics
-        lines.append(f"# HELP mcp_documents_total Total documents processed")
-        lines.append(f"# TYPE mcp_documents_total counter")
+        lines.append("# HELP mcp_documents_total Total documents processed")
+        lines.append("# TYPE mcp_documents_total counter")
         lines.append(f"mcp_documents_total {self.processing.total_documents_processed}")
         
-        lines.append(f"# HELP mcp_documents_successful Successful documents processed")
-        lines.append(f"# TYPE mcp_documents_successful counter")
+        lines.append("# HELP mcp_documents_successful Successful documents processed")
+        lines.append("# TYPE mcp_documents_successful counter")
         lines.append(f"mcp_documents_successful {self.processing.successful_documents}")
         
-        lines.append(f"# HELP mcp_documents_failed Failed documents processed")
-        lines.append(f"# TYPE mcp_documents_failed counter")
+        lines.append("# HELP mcp_documents_failed Failed documents processed")
+        lines.append("# TYPE mcp_documents_failed counter")
         lines.append(f"mcp_documents_failed {self.processing.failed_documents}")
         
-        lines.append(f"# HELP mcp_processing_time_seconds Document processing time")
-        lines.append(f"# TYPE mcp_processing_time_seconds histogram")
-        lines.append(f"mcp_processing_time_seconds_bucket{'{le=\"0.1\"}'} {len([t for t in self.processing.processing_times if t <= 0.1])}")
-        lines.append(f"mcp_processing_time_seconds_bucket{'{le=\"0.5\"}'} {len([t for t in self.processing.processing_times if t <= 0.5])}")
-        lines.append(f"mcp_processing_time_seconds_bucket{'{le=\"1.0\"}'} {len([t for t in self.processing.processing_times if t <= 1.0])}")
-        lines.append(f"mcp_processing_time_seconds_bucket{'{le=\"5.0\"}'} {len([t for t in self.processing.processing_times if t <= 5.0])}")
-        lines.append(f"mcp_processing_time_seconds_bucket{'{le=\"+Inf\"}'} {len(self.processing.processing_times)}")
+        lines.append("# HELP mcp_processing_time_seconds Document processing time")
+        lines.append("# TYPE mcp_processing_time_seconds histogram")
+        lines.append("mcp_processing_time_seconds_bucket{le=\"0.1\"} " + str(len([t for t in self.processing.processing_times if t <= 0.1])))
+        lines.append("mcp_processing_time_seconds_bucket{le=\"0.5\"} " + str(len([t for t in self.processing.processing_times if t <= 0.5])))
+        lines.append("mcp_processing_time_seconds_bucket{le=\"1.0\"} " + str(len([t for t in self.processing.processing_times if t <= 1.0])))
+        lines.append("mcp_processing_time_seconds_bucket{le=\"5.0\"} " + str(len([t for t in self.processing.processing_times if t <= 5.0])))
+        lines.append("mcp_processing_time_seconds_bucket{le=\"+Inf\"} " + str(len(self.processing.processing_times)))
         
         # Ollama metrics
-        lines.append(f"# HELP mcp_ollama_requests_total Total Ollama requests")
-        lines.append(f"# TYPE mcp_ollama_requests_total counter")
+        lines.append("# HELP mcp_ollama_requests_total Total Ollama requests")
+        lines.append("# TYPE mcp_ollama_requests_total counter")
         lines.append(f"mcp_ollama_requests_total {self.ollama.total_requests}")
         
-        lines.append(f"# HELP mcp_ollama_response_time_seconds Ollama response time")
-        lines.append(f"# TYPE mcp_ollama_response_time_seconds histogram")
-        lines.append(f"mcp_ollama_response_time_seconds_bucket{'{le=\"1.0\"}'} {len([t for t in self.ollama.response_times if t <= 1.0])}")
-        lines.append(f"mcp_ollama_response_time_seconds_bucket{'{le=\"5.0\"}'} {len([t for t in self.ollama.response_times if t <= 5.0])}")
-        lines.append(f"mcp_ollama_response_time_seconds_bucket{'{le=\"10.0\"}'} {len([t for t in self.ollama.response_times if t <= 10.0])}")
-        lines.append(f"mcp_ollama_response_time_seconds_bucket{'{le=\"30.0\"}'} {len([t for t in self.ollama.response_times if t <= 30.0])}")
-        lines.append(f"mcp_ollama_response_time_seconds_bucket{'{le=\"+Inf\"}'} {len(self.ollama.response_times)}")
+        lines.append("# HELP mcp_ollama_response_time_seconds Ollama response time")
+        lines.append("# TYPE mcp_ollama_response_time_seconds histogram")
+        lines.append("mcp_ollama_response_time_seconds_bucket{le=\"1.0\"} " + str(len([t for t in self.ollama.response_times if t <= 1.0])))
+        lines.append("mcp_ollama_response_time_seconds_bucket{le=\"5.0\"} " + str(len([t for t in self.ollama.response_times if t <= 5.0])))
+        lines.append("mcp_ollama_response_time_seconds_bucket{le=\"10.0\"} " + str(len([t for t in self.ollama.response_times if t <= 10.0])))
+        lines.append("mcp_ollama_response_time_seconds_bucket{le=\"30.0\"} " + str(len([t for t in self.ollama.response_times if t <= 30.0])))
+        lines.append("mcp_ollama_response_time_seconds_bucket{le=\"+Inf\"} " + str(len(self.ollama.response_times)))
         
         return "\n".join(lines)
 

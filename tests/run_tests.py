@@ -1,3 +1,8 @@
+import subprocess
+import sys
+import time
+from typing import Any, Dict, List, Optional, Union
+
 #!/usr/bin/env python3
 """
 Test Runner voor MCP Invoice Processor
@@ -6,13 +11,10 @@ Test Runner voor MCP Invoice Processor
 Dit script voert alle tests uit en genereert rapporten.
 """
 
-import subprocess
-import sys
-import time
 # Path not used in current implementation
 
 
-def run_command(command, description):
+def run_command(command: list[str], description: str) -> bool:
     """Voer een commando uit en toon resultaat."""
     print(f"🔄 {description}...")
     print(f"   Commando: {' '.join(command)}")
@@ -37,7 +39,7 @@ def run_command(command, description):
         return False
 
 
-def main():
+def main() -> None:
     """Hoofdfunctie voor test uitvoering."""
     print("🚀 MCP Invoice Processor Test Runner")
     print("=" * 50)

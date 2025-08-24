@@ -1,43 +1,44 @@
-#!/usr/bin/env python3
-"""
-Directe test van de pipeline zonder MCP context.
-"""
 import asyncio
 import sys
 import os
+from mcp_invoice_processor.processing.classification import classify_document, DocumentType
+from mcp_invoice_processor.processing.pipeline import extract_structured_data
+from typing import Any, Dict, List, Optional, Union
+
+"""
+Directe test van de pipeline zonder MCP context.
+"""
 
 # Voeg src directory toe aan Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.mcp_invoice_processor.processing.classification import classify_document, DocumentType
-from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
 
 
 class MockContext:
     """Mock context voor testing."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.info_calls = []
         self.error_calls = []
         self.warning_calls = []
     
-    async def info(self, message: str):
+    async def info(self, message: str) -> None:
         """Mock info methode."""
         self.info_calls.append(message)
         print(f"INFO: {message}")
     
-    async def error(self, message: str):
+    async def error(self, message: str) -> None:
         """Mock error methode."""
         self.error_calls.append(message)
         print(f"ERROR: {message}")
     
-    async def warning(self, message: str):
+    async def warning(self, message: str) -> None:
         """Mock warning methode."""
         self.warning_calls.append(message)
         print(f"WARNING: {message}")
 
 
-async def test_document_processing():
+async def test_document_processing() -> None:
     """Test document verwerking."""
     print("=== Document Verwerking Test ===")
     

@@ -1,17 +1,19 @@
-"""
-Gedeelde fixtures en configuratie voor tests.
-"""
 import pytest
 import sys
 import importlib.util
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+"""
+Gedeelde fixtures en configuratie voor tests.
+"""
 
 # Voeg de src directory toe aan het Python pad
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 @pytest.fixture(scope="session")
-def sample_cv_text():
+def sample_cv_text() -> str:
     """Voorbeeld CV tekst voor testing."""
     return """
     Curriculum Vitae
@@ -38,7 +40,7 @@ def sample_cv_text():
 
 
 @pytest.fixture(scope="session")
-def sample_invoice_text():
+def sample_invoice_text() -> str:
     """Voorbeeld factuur tekst voor testing."""
     return """
     FACTUUR
@@ -55,7 +57,7 @@ def sample_invoice_text():
 
 
 @pytest.fixture(scope="session")
-def uv_command():
+def uv_command() -> list[str]:
     """UV command voor het starten van de MCP server."""
     return [
         "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
@@ -64,43 +66,43 @@ def uv_command():
         "run",
         "python",
         "-m",
-        "src.mcp_invoice_processor.main"
+        "mcp_invoice_processor.main"
     ]
 
 
 @pytest.fixture(scope="session")
-def project_root():
+def project_root() -> Path:
     """Project root directory."""
     return Path(__file__).parent.parent
 
 
 @pytest.fixture(scope="session")
-def src_directory(project_root):
+def src_directory(project_root: Path) -> Path:
     """Source directory."""
     return project_root / "src"
 
 
 @pytest.fixture(scope="session")
-def mcp_package_directory(src_directory):
+def mcp_package_directory(src_directory: Path) -> Path:
     """MCP invoice processor package directory."""
     return src_directory / "mcp_invoice_processor"
 
 
 @pytest.fixture(scope="session")
-def processing_directory(mcp_package_directory):
+def processing_directory(mcp_package_directory: Path) -> Path:
     """Processing package directory."""
     return mcp_package_directory / "processing"
 
 
 @pytest.fixture(scope="session")
-def tests_directory(project_root):
+def tests_directory(project_root: Path) -> Path:
     """Tests directory."""
     return project_root / "tests"
 
 
 # Controleer of FastMCP beschikbaar is
 @pytest.fixture(scope="session")
-def fastmcp_available():
+def fastmcp_available() -> bool:
     """Of FastMCP beschikbaar is."""
     try:
         fastmcp_spec = importlib.util.find_spec("fastmcp")
@@ -111,7 +113,7 @@ def fastmcp_available():
 
 # Controleer of MCP library beschikbaar is
 @pytest.fixture(scope="session")
-def mcp_available():
+def mcp_available() -> bool:
     """Of MCP library beschikbaar is."""
     try:
         mcp_spec = importlib.util.find_spec("mcp")
@@ -122,7 +124,7 @@ def mcp_available():
 
 # Controleer of Ollama beschikbaar is
 @pytest.fixture(scope="session")
-def ollama_available():
+def ollama_available() -> bool:
     """Of Ollama library beschikbaar is."""
     try:
         ollama_spec = importlib.util.find_spec("ollama")
@@ -132,7 +134,7 @@ def ollama_available():
 
 
 @pytest.fixture(scope="session")
-def mock_ollama_response():
+def mock_ollama_response() -> dict[str, Any]:
     """Mock Ollama response voor testing."""
     return {
         "model": "llama3",
@@ -150,7 +152,7 @@ def mock_ollama_response():
 
 
 @pytest.fixture(scope="session")
-def mock_cv_data():
+def mock_cv_data() -> dict[str, Any]:
     """Mock CV data voor testing."""
     return {
         "name": "Jan Jansen",
@@ -185,7 +187,7 @@ def mock_cv_data():
 
 
 @pytest.fixture(scope="session")
-def mock_invoice_data():
+def mock_invoice_data() -> dict[str, Any]:
     """Mock factuur data voor testing."""
     return {
         "invoice_number": "INV-2024-001",
@@ -206,7 +208,7 @@ def mock_invoice_data():
 
 
 @pytest.fixture(scope="session")
-def mock_processing_result():
+def mock_processing_result() -> dict[str, Any]:
     """Mock processing result voor testing."""
     return {
         "document_type": "cv",
@@ -221,7 +223,7 @@ def mock_processing_result():
 
 
 @pytest.fixture(scope="session")
-def mock_error_result():
+def mock_error_result() -> dict[str, Any]:
     """Mock error result voor testing."""
     return {
         "document_type": "unknown",
@@ -232,7 +234,7 @@ def mock_error_result():
 
 
 # Test markers voor verschillende test types
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     """Configureer pytest markers."""
     config.addinivalue_line(
         "markers", "fastmcp: mark test as requiring FastMCP"
@@ -258,21 +260,21 @@ def pytest_configure(config):
 
 
 @pytest.fixture
-def mock_context():
+def mock_context() -> Any:
     """Mock context voor MCP server testing."""
     class MockContext:
-        def __init__(self):
-            self.error_calls = []
-            self.warning_calls = []
-            self.info_calls = []
+        def __init__(self) -> None:
+            self.error_calls: list[str] = []
+            self.warning_calls: list[str] = []
+            self.info_calls: list[str] = []
         
-        async def error(self, message):
+        async def error(self, message: str) -> None:
             self.error_calls.append(message)
         
-        async def warning(self, message):
+        async def warning(self, message: str) -> None:
             self.warning_calls.append(message)
         
-        async def info(self, message):
+        async def info(self, message: str) -> None:
             self.info_calls.append(message)
     
     return MockContext()

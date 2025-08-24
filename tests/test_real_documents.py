@@ -1,16 +1,19 @@
+import asyncio
+import time
+from pathlib import Path
+import logging
+from mcp_invoice_processor.processing.classification import classify_document
+from mcp_invoice_processor.processing.models import InvoiceData, CVData
+from typing import Any, Dict, List, Optional, Union
+
 #!/usr/bin/env python3
 """
 Test script voor het verwerken van echte documenten via de FastMCP server.
 Dit script simuleert een echte Ollama chatsessie met document verwerking.
 """
 
-import asyncio
-import time
-from pathlib import Path
-import logging
 
 # Import de juiste functies uit de pipeline
-from src.mcp_invoice_processor.processing.classification import classify_document
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -20,10 +23,10 @@ logger = logging.getLogger(__name__)
 class DocumentProcessingTester:
     """Tester klasse voor document verwerking via FastMCP."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.test_documents_dir = Path("test_documents")
         
-    async def test_invoice_processing(self):
+    async def test_invoice_processing(self) -> bool:
         """Test factuur verwerking."""
         print("🧾 Testen van factuur verwerking...")
         
@@ -46,17 +49,17 @@ class DocumentProcessingTester:
             
             # Verwerk het document (simuleer PDF processing)
             # Voor tekst bestanden gebruiken we de classificatie en extractie direct
-            from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
+            from mcp_invoice_processor.processing.pipeline import extract_structured_data
             
             # Mock context voor FastMCP met async methoden
             class MockContext:
-                async def info(self, msg): 
+                async def info(self, msg: str) -> None: 
                     logger.info(f"📋 {msg}")
                     print(f"ℹ️  {msg}")
-                async def error(self, msg): 
+                async def error(self, msg: str) -> None: 
                     logger.error(f"❌ {msg}")
                     print(f"❌ {msg}")
-                async def report_progress(self, current, total): 
+                async def report_progress(self, current: int, total: int) -> None: 
                     logger.info(f"Progress: {current}/{total}")
                     pass
             
@@ -79,7 +82,8 @@ class DocumentProcessingTester:
                 print(f"📊 Document type: {doc_type}")
                 print("📋 Geëxtraheerde data:")
                 
-                if hasattr(result, 'invoice_id'):
+                # Type checking voor veilige attribuut toegang
+                if isinstance(result, InvoiceData):
                     print(f"   - Factuur ID: {result.invoice_id}")
                     print(f"   - Factuurnummer: {result.invoice_number}")
                     print(f"   - Bedrag: €{result.total_amount}")
@@ -100,7 +104,7 @@ class DocumentProcessingTester:
             traceback.print_exc()
             return False
     
-    async def test_cv_processing(self):
+    async def test_cv_processing(self) -> bool:
         """Test CV verwerking."""
         print("\n👤 Testen van CV verwerking...")
         
@@ -123,20 +127,20 @@ class DocumentProcessingTester:
             
             # Mock context voor FastMCP met async methoden
             class MockContext:
-                async def info(self, msg): 
+                async def info(self, msg: str) -> None: 
                     logger.info(f"📋 {msg}")
                     print(f"ℹ️  {msg}")
-                async def error(self, msg): 
+                async def error(self, msg: str) -> None: 
                     logger.error(f"❌ {msg}")
                     print(f"❌ {msg}")
-                async def report_progress(self, current, total): 
+                async def report_progress(self, current: int, total: int) -> None: 
                     logger.info(f"Progress: {current}/{total}")
                     pass
             
             ctx = MockContext()
             
             # Extraheer gestructureerde data met timeout
-            from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
+            from mcp_invoice_processor.processing.pipeline import extract_structured_data
             try:
                 result = await asyncio.wait_for(
                     extract_structured_data(text_content, doc_type, ctx),
@@ -153,7 +157,8 @@ class DocumentProcessingTester:
                 print(f"📊 Document type: {doc_type}")
                 print("📋 Geëxtraheerde data:")
                 
-                if hasattr(result, 'full_name'):
+                # Type checking voor veilige attribuut toegang
+                if isinstance(result, CVData):
                     print(f"   - Naam: {result.full_name}")
                     print(f"   - E-mail: {result.email}")
                     print(f"   - Telefoon: {result.phone_number}")
@@ -176,7 +181,7 @@ class DocumentProcessingTester:
             traceback.print_exc()
             return False
     
-    async def test_ollama_integration(self):
+    async def test_ollama_integration(self) -> bool:
         """Test Ollama integratie direct."""
         print("\n🤖 Testen van Ollama integratie...")
         
@@ -203,7 +208,7 @@ class DocumentProcessingTester:
             traceback.print_exc()
             return False
     
-    async def run_comprehensive_test(self):
+    async def run_comprehensive_test(self) -> bool:
         """Voer alle tests uit."""
         print("🚀 Starten van uitgebreide document verwerking test...")
         print("=" * 60)
@@ -237,7 +242,7 @@ class DocumentProcessingTester:
         return passed_tests == total_tests
 
 
-async def main():
+async def main() -> None:
     """Hoofdfunctie."""
     tester = DocumentProcessingTester()
     

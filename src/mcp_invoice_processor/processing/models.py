@@ -3,6 +3,14 @@ Pydantic modellen voor document data extractie.
 """
 from pydantic import BaseModel, Field
 from typing import List, Optional, Union
+from enum import Enum
+
+
+class DocumentType(str, Enum):
+    """Document type enumeratie."""
+    INVOICE = "invoice"
+    CV = "cv"
+    UNKNOWN = "unknown"
 
 
 class WorkExperience(BaseModel):
@@ -79,7 +87,7 @@ class InvoiceLineItem(BaseModel):
 
 class ProcessingResult(BaseModel):
     """Resultaat van documentverwerking."""
-    document_type: str = Field(description="Type gedetecteerd document.")
+    document_type: DocumentType = Field(description="Type gedetecteerd document.")
     data: Union[CVData, InvoiceData, None] = Field(description="Geëxtraheerde gestructureerde data.")
     status: str = Field(description="Status van de verwerking.")
     error_message: Optional[str] = Field(None, description="Foutmelding indien verwerking mislukt.")

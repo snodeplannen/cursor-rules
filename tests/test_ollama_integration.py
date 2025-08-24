@@ -1,22 +1,19 @@
+import pytest
+import subprocess
+import time
+from typing import Any, Dict, List, Optional, Union
+
 """
 Echte integratie tests voor Ollama met de MCP Invoice Processor.
 Deze tests testen de volledige functionaliteit met echte Ollama communicatie.
 """
-import pytest
-import asyncio
-import base64
-import json
-import subprocess
-import time
-from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 
 class TestOllamaRealIntegration:
     """Echte integratie tests met Ollama."""
     
     @pytest.fixture(scope="class")
-    def ollama_available(self):
+    def ollama_available(self) -> bool:
         """Controleer of Ollama beschikbaar is."""
         try:
             import requests
@@ -30,13 +27,13 @@ class TestOllamaRealIntegration:
             return False
     
     @pytest.fixture(scope="class")
-    def mcp_server_process(self):
+    def mcp_server_process(self) -> Any:
         """Start de MCP server als subprocess."""
         process = None
         try:
             # Start de MCP server
             process = subprocess.Popen(
-                ["uv", "run", "python", "-m", "src.mcp_invoice_processor.main"],
+                ["uv", "run", "python", "-m", "mcp_invoice_processor.main"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -54,7 +51,7 @@ class TestOllamaRealIntegration:
                 process.terminate()
                 process.wait(timeout=5)
     
-    def test_ollama_connection(self, ollama_available):
+    def test_ollama_connection(self, ollama_available: bool) -> None:
         """Test of we verbinding kunnen maken met Ollama."""
         if not ollama_available:
             pytest.skip("Ollama niet beschikbaar of geen llama model")
@@ -77,7 +74,7 @@ class TestOllamaRealIntegration:
         except Exception as e:
             pytest.fail(f"Kan geen verbinding maken met Ollama: {e}")
     
-    def test_ollama_model_response(self, ollama_available):
+    def test_ollama_model_response(self, ollama_available: bool) -> None:
         """Test of Ollama daadwerkelijk kan antwoorden."""
         if not ollama_available:
             pytest.skip("Ollama niet beschikbaar of geen llama model")
@@ -107,27 +104,26 @@ class TestOllamaRealIntegration:
             pytest.fail(f"Ollama chat test mislukt: {e}")
     
     @pytest.mark.asyncio
-    async def test_mcp_server_with_ollama(self, ollama_available):
+    async def test_mcp_server_with_ollama(self, ollama_available: bool) -> None:
         """Test de MCP server integratie met Ollama."""
         if not ollama_available:
             pytest.skip("Ollama niet beschikbaar of geen llama model")
         
         # Test of de MCP server module kan worden geïmporteerd
         try:
-            from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
-            from src.mcp_invoice_processor.processing.classification import DocumentType
-            from src.mcp_invoice_processor.processing.models import CVData
+            from mcp_invoice_processor.processing.pipeline import extract_structured_data
+            from mcp_invoice_processor.processing.models import CVData, DocumentType
             
             # Mock context voor testing
             class MockContext:
-                def __init__(self):
-                    self.error_calls = []
-                    self.info_calls = []
+                def __init__(self) -> None:
+                    self.error_calls: list[str] = []
+                    self.info_calls: list[str] = []
                 
-                async def error(self, message):
+                async def error(self, message: str) -> None:
                     self.error_calls.append(message)
                 
-                async def info(self, message):
+                async def info(self, message: str) -> None:
                     self.info_calls.append(message)
             
             mock_context = MockContext()
@@ -158,7 +154,7 @@ class TestOllamaRealIntegration:
             result = await extract_structured_data(cv_text, DocumentType.CV, mock_context)
             
             if result is not None:
-                print(f"✅ CV extractie succesvol!")
+                print("✅ CV extractie succesvol!")
                 print(f"   Naam: {result.full_name}")
                 print(f"   Email: {result.email}")
                 print(f"   Vaardigheden: {result.skills}")
@@ -183,7 +179,7 @@ class TestOllamaRealIntegration:
             print(f"❌ MCP server test mislukt: {e}")
             pytest.fail(f"MCP server test mislukt: {e}")
     
-    def test_ollama_model_availability(self, ollama_available):
+    def test_ollama_model_availability(self, ollama_available: bool) -> None:
         """Test welke modellen beschikbaar zijn en hun status."""
         if not ollama_available:
             pytest.skip("Ollama niet beschikbaar")
@@ -200,7 +196,7 @@ class TestOllamaRealIntegration:
             print(f"\n📊 Beschikbare Ollama modellen ({len(models)}):")
             
             # Groepeer modellen per familie
-            model_families = {}
+            model_families: dict[str, list] = {}
             for model in models:
                 family = model.get("family", "unknown")
                 if family not in model_families:
@@ -234,7 +230,7 @@ class TestOllamaRealIntegration:
 class TestOllamaPerformance:
     """Performance tests voor Ollama."""
     
-    def test_ollama_response_time(self, ollama_available):
+    def test_ollama_response_time(self, ollama_available: bool) -> None:
         """Test de response tijd van Ollama."""
         if not ollama_available:
             pytest.skip("Ollama niet beschikbaar")

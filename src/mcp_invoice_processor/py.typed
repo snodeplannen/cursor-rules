@@ -1,0 +1,2 @@
+# Marker file indicating this package supports type checking
+# This file tells mypy and other type checkers that this package has type annotations

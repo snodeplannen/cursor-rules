@@ -1,15 +1,17 @@
+import sys
+import os
+import asyncio
+from typing import Any, Dict, List, Optional, Union
+
 #!/usr/bin/env python3
 """
 Test script om PDF verwerking direct te testen.
 """
-import sys
-import os
-import asyncio
 
 # Voeg src directory toe aan Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-async def test_pdf_processing():
+async def test_pdf_processing() -> None:
     """Test PDF verwerking direct."""
     try:
         print("🧪 Test PDF Verwerking...")
@@ -23,10 +25,10 @@ async def test_pdf_processing():
         print(f"✅ PDF bestand gevonden: {pdf_path}")
         
         # Import modules
-        from src.mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
-        from src.mcp_invoice_processor.processing.classification import classify_document
-        from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
-        from src.mcp_invoice_processor.processing.models import DocumentType
+        from mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
+        from mcp_invoice_processor.processing.classification import classify_document
+        from mcp_invoice_processor.processing.pipeline import extract_structured_data
+        from mcp_invoice_processor.processing.models import DocumentType
         
         print("✅ Modules geïmporteerd")
         
@@ -49,9 +51,9 @@ async def test_pdf_processing():
         
         # Mock context voor logging
         class MockContext:
-            async def info(self, msg):
+            async def info(self, msg) -> None:
                 print(f"   INFO: {msg}")
-            async def error(self, msg):
+            async def error(self, msg) -> None:
                 print(f"   ERROR: {msg}")
         
         ctx = MockContext()
@@ -82,7 +84,7 @@ async def test_pdf_processing():
         traceback.print_exc()
         return False
 
-def main():
+def main() -> None:
     """Main functie om async test uit te voeren."""
     try:
         # Maak nieuwe event loop voor de test

@@ -1,46 +1,47 @@
-#!/usr/bin/env python3
-"""
-Test script voor alle MCP Invoice Processor commando's.
-"""
 import asyncio
 import sys
 import os
 import json
+from mcp_invoice_processor.processing.classification import classify_document, DocumentType
+from mcp_invoice_processor.processing.pipeline import extract_structured_data
+from mcp_invoice_processor.monitoring.metrics import metrics_collector
+from mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
+from typing import Any, Dict, List, Optional, Union
+
+"""
+Test script voor alle MCP Invoice Processor commando's.
+"""
 
 # Voeg src directory toe aan Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.mcp_invoice_processor.processing.classification import classify_document, DocumentType
-from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
-from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
-from src.mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
 
 
 class MockContext:
     """Mock context voor testing."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.info_calls = []
         self.error_calls = []
         self.warning_calls = []
     
-    async def info(self, message: str):
+    async def info(self, message: str) -> None:
         """Mock info methode."""
         self.info_calls.append(message)
         print(f"INFO: {message}")
     
-    async def error(self, message: str):
+    async def error(self, message: str) -> None:
         """Mock error methode."""
         self.error_calls.append(message)
         print(f"ERROR: {message}")
     
-    async def warning(self, message: str):
+    async def warning(self, message: str) -> None:
         """Mock warning methode."""
         self.warning_calls.append(message)
         print(f"WARNING: {message}")
 
 
-async def test_all_commands():
+async def test_all_commands() -> None:
     """Test alle MCP commando's."""
     print("=== MCP Invoice Processor - Alle Commando's Test ===\n")
     
@@ -146,12 +147,12 @@ Totaal: €121,00"""
         
         # Haal metrics op
         metrics = metrics_collector.get_comprehensive_metrics()
-        print(f"   ✅ Metrics opgehaald!")
-        print(f"   Documenten verwerkt: {metrics['processing']['total_documents']}")
-        print(f"   Ollama requests: {metrics['ollama']['total_requests']}")
-        print(f"   Succes percentage: {metrics['processing']['success_rate_percent']:.1f}%")
+        print("   ✅ Metrics opgehaald!")
+        print("   Documenten verwerkt: {metrics['processing']['total_documents']}")
+        print("   Ollama requests: {metrics['ollama']['total_requests']}")
+        print("   Succes percentage: {metrics['processing']['success_rate_percent']:.1f}%")
     except Exception as e:
-        print(f"   ❌ Metrics fout: {e}")
+        print("   ❌ Metrics fout: {e}")
     
     print()
     
@@ -170,7 +171,7 @@ Totaal: €121,00"""
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             models = loop.run_until_complete(client.list())
-            print(f"   ✅ Ollama beschikbaar!")
+            print("   ✅ Ollama beschikbaar!")
             print(f"   Beschikbare modellen: {len(models['models'])}")
             for model in models['models']:
                 print(f"     - {model['name']}")
@@ -178,10 +179,10 @@ Totaal: €121,00"""
         except Exception as e:
             print(f"   ⚠️ Ollama niet beschikbaar: {e}")
         
-        print(f"   ✅ MCP Server status: Actief")
-        print(f"   ✅ Document classificatie: Werkend")
-        print(f"   ✅ Tekst extractie: Werkend")
-        print(f"   ✅ Metrics verzameling: Werkend")
+        print("   ✅ MCP Server status: Actief")
+        print("   ✅ Document classificatie: Werkend")
+        print("   ✅ Tekst extractie: Werkend")
+        print("   ✅ Metrics verzameling: Werkend")
         
     except Exception as e:
         print(f"   ❌ Health check fout: {e}")

@@ -1,17 +1,19 @@
+import sys
+import os
+from mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
+from mcp_invoice_processor.processing.classification import classify_document, DocumentType
+from typing import Any, Dict, List, Optional, Union
+
 #!/usr/bin/env python3
 """
 Debug script om Amazon factuur tekst te bekijken en classificatie te verbeteren.
 """
-import sys
-import os
 
 # Voeg src directory toe aan Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
-from src.mcp_invoice_processor.processing.classification import classify_document, DocumentType
 
-def debug_amazon_invoice():
+def debug_amazon_invoice() -> None:
     """Debug Amazon factuur classificatie."""
     print("=== Amazon Factuur Debug ===")
     

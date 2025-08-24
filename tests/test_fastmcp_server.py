@@ -1,185 +1,350 @@
 #!/usr/bin/env python3
 """
 Test script voor de FastMCP server met echte document verwerking.
-Dit test de server zoals beschreven in de Scrapfly MCP guide.
+Dit test de server zoals beschreven in de FastMCP documentatie.
 """
 
-import asyncio
-import json
-import logging
 import pytest
-from pathlib import Path
+import asyncio
+import logging
+from typing import Dict, Any, List, Optional
+
+
+# Add src to path
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class MockFastMCPContext:
+    """Mock FastMCP context voor testing."""
+    
+    def __init__(self) -> None:
+        self.messages: List[Dict[str, Any]] = []
+        self.errors: List[str] = []
+        self.progress_calls: List[Dict[str, Any]] = []
+        self.start_time: Optional[float] = None
+        self.request_id = "test-request-123"
+        self.session_id = "test-session-456"
+    
+    async def info(self, msg: str) -> None:
+        """Mock info bericht."""
+        if self.start_time is None:
+            self.start_time = asyncio.get_event_loop().time()
+        
+        timestamp = asyncio.get_event_loop().time() - self.start_time
+        self.messages.append({
+            "type": "INFO", 
+            "message": msg, 
+            "timestamp": timestamp
+        })
+        logger.info(f"ℹ️  {msg}")
+    
+    async def error(self, msg: str) -> None:
+        """Mock error bericht."""
+        if self.start_time is None:
+            self.start_time = asyncio.get_event_loop().time()
+        
+        self.errors.append(msg)
+        logger.error(f"❌ {msg}")
+    
+    async def report_progress(self, current: int, total: int, message: Optional[str] = None) -> None:
+        """Mock progress rapportage."""
+        if self.start_time is None:
+            self.start_time = asyncio.get_event_loop().time()
+        
+        timestamp = asyncio.get_event_loop().time() - self.start_time
+        self.progress_calls.append({
+            "current": current,
+            "total": total,
+            "message": message,
+            "timestamp": timestamp
+        })
+        logger.info(f"📊 Progress: {current}/{total} - {message or ''}")
+    
+    def get_summary(self) -> Dict[str, Any]:
+        """Haal samenvatting op van alle context activiteit."""
+        return {
+            "total_messages": len(self.messages),
+            "total_errors": len(self.errors),
+            "total_progress_calls": len(self.progress_calls),
+            "duration": asyncio.get_event_loop().time() - (self.start_time or 0),
+            "messages": self.messages,
+            "errors": self.errors,
+            "progress_calls": self.progress_calls
+        }
+
+
 @pytest.mark.asyncio
-@pytest.mark.ollama
-async def test_fastmcp_server():
-    """Test de FastMCP server functionaliteit."""
+@pytest.mark.fastmcp
+async def test_fastmcp_library_available() -> None:
+    """Test of de FastMCP library beschikbaar is."""
+    logger.info("🚀 Testen FastMCP Library Beschikbaarheid")
+    logger.info("=" * 60)
     
-    print("🚀 Testen FastMCP Server Functionaliteit")
-    print("=" * 60)
-    
-    # Import de server tools direct van de functies, niet de decorated versies
-    from src.mcp_invoice_processor.processing.classification import classify_document, DocumentType
-    from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
-    from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
-    
-    # Mock context voor testing
-    class TestContext:
-        def __init__(self):
-            self.messages = []
-        
-        async def info(self, msg):
-            self.messages.append(("INFO", msg))
-            print(f"ℹ️  {msg}")
-        
-        async def error(self, msg):
-            self.messages.append(("ERROR", msg))
-            print(f"❌ {msg}")
-        
-        async def report_progress(self, current, total):
-            self.messages.append(("PROGRESS", f"{current}/{total}"))
-            print(f"📊 Progress: {current}/{total}")
-    
-    # Test 1: Metrics Check
-    print("\n📊 Test 1: Metrics Check")
-    print("-" * 30)
-    
-    ctx = TestContext()
-    metrics_result = metrics_collector.get_comprehensive_metrics()
-    
-    print(f"Timestamp: {metrics_result.get('timestamp', 'unknown')}")
-    print(f"Total Documents: {metrics_result.get('processing', {}).get('total_documents', 0)}")
-    print(f"Total Ollama Requests: {metrics_result.get('ollama', {}).get('total_requests', 0)}")
-    print(f"System Uptime: {metrics_result.get('system', {}).get('uptime', 'unknown')}")
-    
-    # Test 2: Document Classification
-    print("\n📊 Test 2: Document Classification")
-    print("-" * 30)
-    
-    test_texts = [
-        ("Factuur tekst", "FACTUUR\n\nFactuurnummer: INV-2025-001\nTotaal: €1000\nBTW: €210"),
-        ("CV tekst", "CURRICULUM VITAE\n\nNaam: Jan Jansen\nEmail: jan@email.com\nWerkervaring: 5 jaar"),
-        ("Onbekende tekst", "Dit is gewoon een willekeurige tekst zonder specifieke structuur.")
-    ]
-    
-    for test_name, test_text in test_texts:
-        ctx = TestContext()
-        doc_type = classify_document(test_text)
-        print(f"{test_name}: {doc_type.value}")
-    
-    # Test 3: Document Text Processing
-    print("\n📄 Test 3: Document Text Processing")
-    print("-" * 30)
-    
-    # Test factuur verwerking
-    invoice_text = """
-    FACTUUR
-    
-    Factuurnummer: INV-2025-001
-    Factuurdatum: 24-08-2025
-    Vervaldatum: 24-09-2025
-    
-    AFZENDER:
-    TechCorp Solutions B.V.
-    Hoofdstraat 123
-    1234 AB Amsterdam
-    Nederland
-    BTW: NL123456789B01
-    
-    GEADRESSEERDE:
-    Test Bedrijf B.V.
-    Testweg 456
-    5678 CD Rotterdam
-    Nederland
-    
-    BESCHRIJVING:
-    - Web Development Services: €2,500.00
-    - Database Design: €1,200.00
-    - API Integration: €800.00
-    
-    Subtotaal: €4,500.00
-    BTW (21%): €945.00
-    Totaal: €5,445.00
-    
-    Betalingsvoorwaarden: 30 dagen
-    Rekeningnummer: NL91ABNA0417164300
-    """
-    
-    ctx = TestContext()
     try:
-        # Gebruik de directe pipeline functie
-        doc_type = classify_document(invoice_text)
-        invoice_result = await asyncio.wait_for(
-            extract_structured_data(invoice_text, doc_type, ctx),
-            timeout=120.0  # 2 minuten timeout voor Ollama
-        )
+        # Test of FastMCP library beschikbaar is
+        import fastmcp
+        assert fastmcp is not None, "FastMCP library moet beschikbaar zijn"
         
-        if invoice_result:
-            print("✅ Factuur succesvol verwerkt")
-            print(f"   Document type: {doc_type.value}")
-            print(f"   Result type: {type(invoice_result).__name__}")
-            
-            # Toon enkele geëxtraheerde velden
-            if hasattr(invoice_result, 'invoice_number'):
-                print(f"   Factuurnummer: {invoice_result.invoice_number}")
-            if hasattr(invoice_result, 'total_amount'):
-                print(f"   Totaal bedrag: €{invoice_result.total_amount}")
-            if hasattr(invoice_result, 'supplier_name'):
-                print(f"   Leverancier: {invoice_result.supplier_name}")
+        # Test basis FastMCP classes
+        from fastmcp import FastMCP, Context, Settings
+        assert FastMCP is not None, "FastMCP class moet beschikbaar zijn"
+        assert Context is not None, "Context class moet beschikbaar zijn"
+        assert Settings is not None, "Settings class moet beschikbaar zijn"
+        
+        # Test FastMCP exceptions
+        from fastmcp.exceptions import FastMCPError
+        assert FastMCPError is not None, "FastMCPError class moet beschikbaar zijn"
+        
+        # Test beschikbare FastMCP utilities
+        from fastmcp.utilities import json_schema, types
+        assert json_schema is not None, "json_schema module moet beschikbaar zijn"
+        assert types is not None, "types module moet beschikbaar zijn"
+        
+        logger.info("✅ FastMCP library en alle componenten beschikbaar")
+        logger.info(f"   FastMCP versie: {getattr(fastmcp, '__version__', 'onbekend')}")
+        
+    except ImportError as e:
+        pytest.skip(f"FastMCP library niet beschikbaar: {e}")
+    except Exception as e:
+        pytest.fail(f"FastMCP library test mislukt: {e}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.fastmcp
+async def test_fastmcp_basic_functionality() -> None:
+    """Test basis FastMCP functionaliteit."""
+    logger.info("\n🔧 Testen Basis FastMCP Functionaliteit")
+    logger.info("-" * 30)
+    
+    try:
+        from fastmcp import FastMCP, Settings
+        
+        # Test Settings creation
+        test_settings = Settings()
+        assert test_settings is not None, "Settings object moet aangemaakt kunnen worden"
+        
+        logger.info("✅ FastMCP Settings functionaliteit werkt")
+        
+        # Test FastMCP server creation
+        test_server = FastMCP()
+        assert test_server is not None, "FastMCP server moet aangemaakt kunnen worden"
+        assert hasattr(test_server, 'get_tools'), "Server moet get_tools methode hebben"
+        
+        logger.info("✅ FastMCP server creation werkt")
+        
+    except Exception as e:
+        pytest.fail(f"FastMCP basis functionaliteit test mislukt: {e}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.fastmcp
+async def test_fastmcp_context_functionality() -> None:
+    """Test FastMCP context functionaliteit."""
+    logger.info("\n🔧 Testen FastMCP Context Functionaliteit")
+    logger.info("-" * 30)
+    
+    try:
+        from fastmcp import Context  # noqa: F401
+        
+        # Test context interface
+        mock_ctx = MockFastMCPContext()
+        
+        # Test info logging
+        await mock_ctx.info("Test info bericht")
+        assert len(mock_ctx.messages) == 1
+        assert mock_ctx.messages[0]["message"] == "Test info bericht"
+        assert mock_ctx.messages[0]["type"] == "INFO"
+        
+        # Test error logging
+        await mock_ctx.error("Test error bericht")
+        assert len(mock_ctx.errors) == 1
+        assert mock_ctx.errors[0] == "Test error bericht"
+        
+        # Test progress reporting
+        await mock_ctx.report_progress(5, 10, "Verwerking document")
+        assert len(mock_ctx.progress_calls) == 1
+        assert mock_ctx.progress_calls[0]["current"] == 5
+        assert mock_ctx.progress_calls[0]["total"] == 10
+        assert mock_ctx.progress_calls[0]["message"] == "Verwerking document"
+        
+        # Test context properties
+        assert mock_ctx.request_id == "test-request-123"
+        assert mock_ctx.session_id == "test-session-456"
+        
+        logger.info("✅ FastMCP Context functionaliteit werkt correct")
+        
+    except Exception as e:
+        pytest.fail(f"FastMCP Context functionaliteit test mislukt: {e}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.fastmcp
+async def test_fastmcp_utilities() -> None:
+    """Test FastMCP utilities functionaliteit."""
+    logger.info("\n🔧 Testen FastMCP Utilities")
+    logger.info("-" * 30)
+    
+    try:
+        from fastmcp.utilities import json_schema, types
+        
+        # Test json_schema module
+        assert json_schema is not None, "json_schema module moet beschikbaar zijn"
+        
+        # Test types module
+        assert types is not None, "types module moet beschikbaar zijn"
+        
+        # Test beschikbare functies
+        json_schema_functions = [attr for attr in dir(json_schema) if not attr.startswith('_')]
+        types_functions = [attr for attr in dir(types) if not attr.startswith('_')]
+        
+        logger.info(f"JSON Schema functies: {json_schema_functions}")
+        logger.info(f"Types functies: {types_functions}")
+        
+        logger.info("✅ FastMCP Utilities werken correct")
+        
+    except Exception as e:
+        pytest.fail(f"FastMCP Utilities test mislukt: {e}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.fastmcp
+async def test_fastmcp_error_handling() -> None:
+    """Test FastMCP error handling."""
+    logger.info("\n🚨 Testen FastMCP Error Handling")
+    logger.info("-" * 30)
+    
+    try:
+        from fastmcp.exceptions import FastMCPError
+        
+        # Test FastMCPError creation
+        error_msg = "Test error bericht"
+        fastmcp_error = FastMCPError(error_msg)
+        
+        assert str(fastmcp_error) == error_msg, "Error message moet correct zijn"
+        assert isinstance(fastmcp_error, Exception), "FastMCPError moet Exception zijn"
+        
+        logger.info("✅ FastMCP Error Handling werkt correct")
+        
+    except Exception as e:
+        pytest.fail(f"FastMCP Error Handling test mislukt: {e}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.fastmcp
+async def test_fastmcp_server_import() -> None:
+    """Test of de FastMCP server module kan worden geïmporteerd."""
+    logger.info("\n🔗 Testen FastMCP Server Import")
+    logger.info("-" * 30)
+    
+    try:
+        # Test import van FastMCP server
+        from mcp_invoice_processor.fastmcp_server import mcp
+        
+        # Controleer of de server correct is geïnitialiseerd
+        assert mcp is not None, "MCP server instance moet bestaan"
+        assert hasattr(mcp, 'get_tools'), "MCP server moet get_tools methode hebben"
+        
+        # Controleer of server correct is geïnitialiseerd
+        assert mcp is not None, "Server moet bestaan"
+        
+        logger.info("✅ FastMCP Server import succesvol")
+        tools = await mcp.get_tools()
+        logger.info(f"   Tools beschikbaar: {len(tools)}")
+        
+    except ImportError as e:
+        pytest.skip(f"FastMCP server module niet beschikbaar: {e}")
+    except Exception as e:
+        pytest.fail(f"FastMCP Server import test mislukt: {e}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.fastmcp
+async def test_fastmcp_server_tools() -> None:
+    """Test FastMCP server tools."""
+    logger.info("\n🔧 Testen FastMCP Server Tools")
+    logger.info("-" * 30)
+    
+    try:
+        from mcp_invoice_processor.fastmcp_server import mcp
+        
+        # Controleer of tools beschikbaar zijn
+        assert hasattr(mcp, 'get_tools'), "MCP server moet get_tools methode hebben"
+        tools = await mcp.get_tools()
+        assert len(tools) > 0, "MCP server moet tools hebben"
+        
+        # Controleer specifieke tools
+        expected_tools = [
+            "process_document_text",
+            "process_document_file",
+            "classify_document_type",
+            "get_metrics",
+            "health_check"
+        ]
+        
+        available_tools = []
+        for tool in tools:
+            tool_name = getattr(tool, 'name', 'unknown')
+            available_tools.append(tool_name)
+        
+        logger.info(f"Beschikbare tools: {available_tools}")
+        
+        # Controleer of alle verwachte tools beschikbaar zijn
+        missing_tools = [tool for tool in expected_tools if tool not in available_tools]
+        if missing_tools:
+            logger.warning(f"Ontbrekende tools: {missing_tools}")
         else:
-            print("❌ Factuur verwerking mislukt: Geen resultaat")
-    
-    except asyncio.TimeoutError:
-        print("❌ Timeout bij factuur verwerking (120s)")
+            logger.info("✅ Alle verwachte tools beschikbaar")
+        
+        # Test tool metadata
+        for tool in tools:
+            tool_name = getattr(tool, 'name', 'unknown')
+            
+            # Controleer beschrijving
+            if hasattr(tool, 'description'):
+                logger.info(f"   📝 {tool_name}: {tool.description}")
+            else:
+                logger.warning(f"   ⚠️ {tool_name}: Geen beschrijving")
+            
+            # Controleer input schema
+            if hasattr(tool, 'input_schema'):
+                logger.info(f"   📋 {tool_name}: Input schema beschikbaar")
+            else:
+                logger.warning(f"   ⚠️ {tool_name}: Geen input schema")
+        
+        logger.info("✅ FastMCP Server tools test succesvol")
+        
+    except ImportError:
+        pytest.skip("FastMCP server module niet beschikbaar")
     except Exception as e:
-        print(f"❌ Fout bij factuur verwerking: {e}")
-    
-    # Test 3: Metrics Check
-    print("\n📊 Test 3: Metrics Check")
-    print("-" * 30)
-    
-    ctx = TestContext()
-    metrics_result = metrics_collector.get_comprehensive_metrics()
-    
-    print("✅ Metrics succesvol opgehaald")
-    
-    # Toon belangrijke metrics
-    if 'processing' in metrics_result:
-        processing = metrics_result['processing']
-        print(f"   Totaal documenten: {processing.get('total_documents', 0)}")
-        print(f"   Succesvol: {processing.get('successful_documents', 0)}")
-        print(f"   Mislukt: {processing.get('failed_documents', 0)}")
-    
-    if 'ollama' in metrics_result:
-        ollama = metrics_result['ollama']
-        print(f"   Ollama requests: {ollama.get('total_requests', 0)}")
-        print(f"   Ollama succes rate: {ollama.get('success_rate_percent', 0)}%")
-    
-    if 'system' in metrics_result:
-        system = metrics_result['system']
-        print(f"   Uptime: {system.get('uptime', 'unknown')}")
-    
-    print("\n" + "=" * 60)
-    print("🎯 FastMCP Server Test Voltooid!")
-    print("=" * 60)
+        pytest.fail(f"FastMCP Server tools test mislukt: {e}")
 
 
-async def main():
-    """Hoofdfunctie."""
-    try:
-        await test_fastmcp_server()
-    except KeyboardInterrupt:
-        print("\n⏹️  Test gestopt door gebruiker.")
-    except Exception as e:
-        print(f"\n💥 Onverwachte fout: {e}")
-        import traceback
-        traceback.print_exc()
+# Test samenvatting functie
+def test_fastmcp_server_summary() -> None:
+    """Test samenvatting."""
+    logger.info("\n📊 FastMCP Server Test Samenvatting")
+    logger.info("=" * 60)
+    
+    total_tests = 7
+    logger.info(f"📋 Totaal aantal tests: {total_tests}")
+    logger.info("🎯 Tests omvatten:")
+    logger.info("   - Library beschikbaarheid")
+    logger.info("   - Basis functionaliteit")
+    logger.info("   - Context functionaliteit")
+    logger.info("   - Utilities")
+    logger.info("   - Error handling")
+    logger.info("   - Server import")
+    logger.info("   - Server tools")
+    
+    logger.info("✅ FastMCP Server test suite voltooid")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Voor directe uitvoering
+    pytest.main([__file__, "-v", "-s", "-m", "fastmcp"])

@@ -9,9 +9,10 @@ import uvicorn
 from datetime import datetime, timedelta
 from .metrics import metrics_collector
 import random
+from typing import Dict, Any
 
 
-def generate_demo_metrics():
+def generate_demo_metrics() -> None:
     """Genereer demo metrics voor de dashboard."""
     # Reset metrics voor schone start
     metrics_collector.processing = metrics_collector.processing.__class__()
@@ -83,7 +84,7 @@ app.add_middleware(
 
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard_home():
+async def dashboard_home() -> HTMLResponse:
     """Hoofddashboard met overzicht van alle metrics."""
     metrics = metrics_collector.get_comprehensive_metrics()
     
@@ -99,360 +100,340 @@ async def dashboard_home():
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 margin: 0;
                 padding: 20px;
-                background-color: #f5f5f5;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                color: #333;
             }}
             .container {{
-                max-width: 1200px;
+                max-width: 1400px;
                 margin: 0 auto;
+                background: white;
+                border-radius: 15px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                overflow: hidden;
             }}
             .header {{
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
                 color: white;
                 padding: 30px;
-                border-radius: 10px;
-                margin-bottom: 30px;
                 text-align: center;
+            }}
+            .header h1 {{
+                margin: 0;
+                font-size: 2.5em;
+                font-weight: 300;
+            }}
+            .header p {{
+                margin: 10px 0 0 0;
+                opacity: 0.9;
+                font-size: 1.1em;
             }}
             .metrics-grid {{
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
                 gap: 20px;
-                margin-bottom: 30px;
+                padding: 30px;
             }}
             .metric-card {{
-                background: white;
-                padding: 20px;
+                background: #f8f9fa;
                 border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                padding: 25px;
+                border-left: 5px solid #3498db;
+                transition: transform 0.2s, box-shadow 0.2s;
             }}
-            .metric-title {{
-                font-size: 18px;
-                font-weight: bold;
-                color: #333;
-                margin-bottom: 15px;
-                border-bottom: 2px solid #667eea;
-                padding-bottom: 10px;
+            .metric-card:hover {{
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            }}
+            .metric-card h3 {{
+                margin: 0 0 15px 0;
+                color: #2c3e50;
+                font-size: 1.3em;
             }}
             .metric-value {{
-                font-size: 24px;
+                font-size: 2em;
                 font-weight: bold;
-                color: #667eea;
-                margin-bottom: 10px;
+                color: #3498db;
+                margin: 10px 0;
             }}
-            .metric-detail {{
-                display: flex;
-                justify-content: space-between;
-                margin: 5px 0;
-                font-size: 14px;
-                color: #666;
+            .metric-label {{
+                color: #7f8c8d;
+                font-size: 0.9em;
+                text-transform: uppercase;
+                letter-spacing: 1px;
             }}
-            .status-success {{
-                color: #28a745;
+            .status-indicator {{
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                margin-right: 8px;
             }}
-            .status-warning {{
-                color: #ffc107;
-            }}
-            .status-error {{
-                color: #dc3545;
-            }}
+            .status-healthy {{ background-color: #27ae60; }}
+            .status-warning {{ background-color: #f39c12; }}
+            .status-error {{ background-color: #e74c3c; }}
             .refresh-btn {{
-                background: #667eea;
+                background: #3498db;
                 color: white;
                 border: none;
-                padding: 10px 20px;
-                border-radius: 5px;
+                padding: 12px 24px;
+                border-radius: 25px;
                 cursor: pointer;
-                font-size: 16px;
-                margin-bottom: 20px;
+                font-size: 1em;
+                transition: background 0.3s;
+                margin: 20px;
             }}
             .refresh-btn:hover {{
-                background: #5a6fd8;
+                background: #2980b9;
             }}
-            .timestamp {{
+            .chart-container {{
+                background: white;
+                border-radius: 10px;
+                padding: 20px;
+                margin: 20px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }}
+            .footer {{
+                background: #ecf0f1;
+                padding: 20px;
                 text-align: center;
-                color: #666;
-                font-size: 14px;
-                margin-top: 20px;
+                color: #7f8c8d;
+                font-size: 0.9em;
             }}
         </style>
-        <script>
-            // Real-time metrics updates
-            let updateInterval;
-            
-            function refreshMetrics() {{
-                location.reload();
-            }}
-            
-            async function updateMetricsRealTime() {{
-                try {{
-                    const response = await fetch('/metrics');
-                    const metrics = await response.json();
-                    
-                    // Update document verwerking metrics
-                    document.getElementById('total-docs').textContent = metrics.processing.total_documents;
-                    document.getElementById('successful-docs').textContent = metrics.processing.successful_documents;
-                    document.getElementById('failed-docs').textContent = metrics.processing.failed_documents;
-                    document.getElementById('success-rate').textContent = metrics.processing.success_rate_percent + '%';
-                    document.getElementById('avg-time').textContent = metrics.processing.average_processing_time + 's';
-                    
-                    // Update Ollama metrics
-                    document.getElementById('total-ollama').textContent = metrics.ollama.total_requests;
-                    document.getElementById('successful-ollama').textContent = metrics.ollama.successful_requests;
-                    document.getElementById('failed-ollama').textContent = metrics.ollama.failed_requests;
-                    document.getElementById('ollama-success-rate').textContent = metrics.ollama.success_rate_percent + '%';
-                    document.getElementById('ollama-avg-time').textContent = metrics.ollama.average_response_time + 's';
-                    
-                    // Update document types
-                    document.getElementById('cv-count').textContent = metrics.processing.document_types.cv;
-                    document.getElementById('invoice-count').textContent = metrics.processing.document_types.invoice;
-                    document.getElementById('unknown-count').textContent = metrics.processing.document_types.unknown;
-                    
-                    // Update performance metrics
-                    document.getElementById('p95-processing').textContent = metrics.processing.p95_processing_time + 's';
-                    document.getElementById('p99-processing').textContent = metrics.processing.p99_processing_time + 's';
-                    document.getElementById('p95-ollama').textContent = metrics.ollama.p95_response_time + 's';
-                    
-                    // Update timestamp
-                    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-                    
-                }} catch (error) {{
-                    console.error('Fout bij ophalen metrics:', error);
-                }}
-            }}
-            
-            function startRealTimeUpdates() {{
-                // Stop bestaande interval
-                if (updateInterval) {{
-                    clearInterval(updateInterval);
-                }}
-                
-                // Start real-time updates elke 5 seconden
-                updateInterval = setInterval(updateMetricsRealTime, 5000);
-                
-                // Eerste update direct
-                updateMetricsRealTime();
-                
-                document.getElementById('real-time-btn').textContent = '⏹️ Stop Real-time';
-                document.getElementById('real-time-btn').onclick = stopRealTimeUpdates;
-            }}
-            
-            function stopRealTimeUpdates() {{
-                if (updateInterval) {{
-                    clearInterval(updateInterval);
-                    updateInterval = null;
-                }}
-                
-                document.getElementById('real-time-btn').textContent = '🔄 Start Real-time';
-                document.getElementById('real-time-btn').onclick = startRealTimeUpdates;
-            }}
-            
-            // Start real-time updates automatisch
-            startRealTimeUpdates();
-        </script>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <h1>🚀 MCP Invoice Processor Monitoring</h1>
-                <p>Real-time monitoring van documentverwerking en Ollama integratie</p>
+                <h1>📊 MCP Invoice Processor Monitoring</h1>
+                <p>Real-time monitoring van documentverwerking en systeem status</p>
+                <p>Laatste update: {metrics['timestamp']}</p>
             </div>
             
-            <button class="refresh-btn" onclick="refreshMetrics()">🔄 Vernieuwen</button>
-            <button id="real-time-btn" class="refresh-btn" style="margin-left: 10px; background: #28a745;" onclick="startRealTimeUpdates()">🔄 Start Real-time</button>
+            <div style="text-align: center;">
+                <button class="refresh-btn" onclick="location.reload()">🔄 Vernieuwen</button>
+            </div>
             
             <div class="metrics-grid">
                 <!-- Systeem Status -->
                 <div class="metric-card">
-                    <div class="metric-title">🖥️ Systeem Status</div>
+                    <h3>🖥️ Systeem Status</h3>
                     <div class="metric-value">{metrics['system']['uptime']}</div>
-                    <div class="metric-detail">
-                        <span>Memory:</span>
-                        <span>{metrics['system']['memory_usage_mb']} MB</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>CPU:</span>
-                        <span>{metrics['system']['cpu_usage_percent']}%</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>Actieve verbindingen:</span>
-                        <span>{metrics['system']['active_connections']}</span>
+                    <div class="metric-label">Uptime</div>
+                    <div style="margin-top: 15px;">
+                        <div><span class="status-indicator status-healthy"></span>Memory: {metrics['system']['memory_usage_mb']:.1f} MB</div>
+                        <div><span class="status-indicator status-healthy"></span>CPU: {metrics['system']['cpu_usage_percent']:.1f}%</div>
+                        <div><span class="status-indicator status-healthy"></span>Actieve verbindingen: {metrics['system']['active_connections']}</div>
                     </div>
                 </div>
                 
                 <!-- Document Verwerking -->
                 <div class="metric-card">
-                    <div class="metric-title">📄 Document Verwerking</div>
-                    <div class="metric-value" id="total-docs">{metrics['processing']['total_documents']}</div>
-                    <div class="metric-detail">
-                        <span>Succesvol:</span>
-                        <span class="status-success" id="successful-docs">{metrics['processing']['successful_documents']}</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>Mislukt:</span>
-                        <span class="status-error" id="failed-docs">{metrics['processing']['failed_documents']}</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>Succes percentage:</span>
-                        <span class="status-success" id="success-rate">{metrics['processing']['success_rate_percent']}%</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>Gemiddelde tijd:</span>
-                        <span id="avg-time">{metrics['processing']['average_processing_time']}s</span>
-                    </div>
-                </div>
-                
-                <!-- Ollama Integratie -->
-                <div class="metric-card">
-                    <div class="metric-title">🤖 Ollama Integratie</div>
-                    <div class="metric-value" id="total-ollama">{metrics['ollama']['total_requests']}</div>
-                    <div class="metric-detail">
-                        <span>Succesvol:</span>
-                        <span class="status-success" id="successful-ollama">{metrics['ollama']['successful_requests']}</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>Mislukt:</span>
-                        <span class="status-error" id="failed-ollama">{metrics['ollama']['failed_requests']}</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>Succes percentage:</span>
-                        <span class="status-success" id="ollama-success-rate">{metrics['ollama']['success_rate_percent']}%</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>Gemiddelde tijd:</span>
-                        <span id="ollama-avg-time">{metrics['ollama']['average_response_time']}s</span>
+                    <h3>📄 Document Verwerking</h3>
+                    <div class="metric-value">{metrics['processing']['total_documents']}</div>
+                    <div class="metric-label">Totaal Verwerkt</div>
+                    <div style="margin-top: 15px;">
+                        <div>✅ Succesvol: {metrics['processing']['successful_documents']}</div>
+                        <div>❌ Gefaald: {metrics['processing']['failed_documents']}</div>
+                        <div>📊 Succes Rate: {metrics['processing']['success_rate_percent']:.1f}%</div>
+                        <div>⏱️ Gem. tijd: {metrics['processing']['average_processing_time']:.2f}s</div>
                     </div>
                 </div>
                 
                 <!-- Document Types -->
                 <div class="metric-card">
-                    <div class="metric-title">📋 Document Types</div>
-                    <div class="metric-detail">
-                        <span>CV's:</span>
-                        <span id="cv-count">{metrics['processing']['document_types']['cv']}</span>
+                    <h3>📋 Document Types</h3>
+                    <div style="margin-top: 15px;">
+                        <div>📝 CV's: {metrics['processing']['document_types']['cv']}</div>
+                        <div>🧾 Facturen: {metrics['processing']['document_types']['invoice']}</div>
+                        <div>❓ Onbekend: {metrics['processing']['document_types']['unknown']}</div>
                     </div>
-                    <div class="metric-detail">
-                        <span>Facturen:</span>
-                        <span id="invoice-count">{metrics['processing']['document_types']['invoice']}</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>Onbekend:</span>
-                        <span id="unknown-count">{metrics['processing']['document_types']['unknown']}</span>
+                </div>
+                
+                <!-- Ollama Integratie -->
+                <div class="metric-card">
+                    <h3>🤖 Ollama Integratie</h3>
+                    <div class="metric-value">{metrics['ollama']['total_requests']}</div>
+                    <div class="metric-label">Totaal Requests</div>
+                    <div style="margin-top: 15px;">
+                        <div>✅ Succesvol: {metrics['ollama']['successful_requests']}</div>
+                        <div>❌ Gefaald: {metrics['ollama']['failed_requests']}</div>
+                        <div>📊 Succes Rate: {metrics['ollama']['success_rate_percent']:.1f}%</div>
+                        <div>⏱️ Gem. response: {metrics['ollama']['average_response_time']:.2f}s</div>
                     </div>
                 </div>
                 
                 <!-- Performance Metrics -->
                 <div class="metric-card">
-                    <div class="metric-title">⚡ Performance Metrics</div>
-                    <div class="metric-detail">
-                        <span>P95 Processing:</span>
-                        <span id="p95-processing">{metrics['processing']['p95_processing_time']}s</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>P99 Processing:</span>
-                        <span id="p99-processing">{metrics['processing']['p99_processing_time']}s</span>
-                    </div>
-                    <div class="metric-detail">
-                        <span>P95 Ollama:</span>
-                        <span id="p95-ollama">{metrics['ollama']['p95_response_time']}s</span>
+                    <h3>⚡ Performance</h3>
+                    <div style="margin-top: 15px;">
+                        <div>📈 P95 Processing: {metrics['processing']['p95_processing_time']:.2f}s</div>
+                        <div>📈 P99 Processing: {metrics['processing']['p99_processing_time']:.2f}s</div>
+                        <div>📈 P95 Response: {metrics['ollama']['p95_response_time']:.2f}s</div>
                     </div>
                 </div>
                 
                 <!-- Error Breakdown -->
                 <div class="metric-card">
-                    <div class="metric-title">⚠️ Error Breakdown</div>
-                    {''.join([f'<div class="metric-detail"><span>{error_type}:</span><span class="status-error">{count}</span></div>' for error_type, count in metrics['processing']['error_breakdown'].items()])}
-                    {''.join([f'<div class="metric-detail"><span>{error_type}:</span><span class="status-error">{count}</span></div>' for error_type, count in metrics['ollama']['error_breakdown'].items()])}
+                    <h3>🚨 Error Breakdown</h3>
+                    <div style="margin-top: 15px;">
+                        <div style="color: #e74c3c; font-weight: bold;">Processing Errors:</div>
+                        {''.join([f'<div>• {error}: {count}</div>' for error, count in metrics['processing']['error_breakdown'].items()])}
+                        <div style="margin-top: 10px; color: #e74c3c; font-weight: bold;">Ollama Errors:</div>
+                        {''.join([f'<div>• {error}: {count}</div>' for error, count in metrics['ollama']['error_breakdown'].items()])}
+                    </div>
                 </div>
             </div>
             
-            <div class="timestamp">
-                Laatste update: <span id="last-update">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</span>
+            <div class="footer">
+                <p>MCP Invoice Processor v1.0.0 | Monitoring Dashboard</p>
+                <p>Gegenereerd op {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             </div>
         </div>
+        
+        <script>
+            // Auto-refresh elke 30 seconden
+            setInterval(() => {{
+                location.reload();
+            }}, 30000);
+        </script>
     </body>
     </html>
     """
     
-    return html_content
+    return HTMLResponse(content=html_content)
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint voor monitoring tools."""
-    try:
-        metrics = metrics_collector.get_comprehensive_metrics()
-        
-        # Bepaal overall health status
-        processing_success_rate = metrics['processing']['success_rate_percent']
-        ollama_success_rate = metrics['ollama']['success_rate_percent']
-        
-        if processing_success_rate >= 95 and ollama_success_rate >= 95:
-            status = "healthy"
-            status_code = 200
-        elif processing_success_rate >= 80 and ollama_success_rate >= 80:
-            status = "degraded"
-            status_code = 200
-        else:
-            status = "unhealthy"
-            status_code = 503
-        
-        health_data = {
-            "status": status,
-            "timestamp": datetime.now().isoformat(),
-            "uptime": metrics['system']['uptime'],
-            "processing_success_rate": processing_success_rate,
-            "ollama_success_rate": ollama_success_rate,
-            "total_documents": metrics['processing']['total_documents'],
-            "total_ollama_requests": metrics['ollama']['total_requests']
-        }
-        
-        return JSONResponse(
-            content=health_data,
-            status_code=status_code
-        )
-        
-    except Exception as e:
-        return JSONResponse(
-            content={
-                "status": "unhealthy",
-                "error": str(e),
-                "timestamp": datetime.now().isoformat()
-            },
-            status_code=500
-        )
-
-
-@app.get("/metrics")
-async def get_metrics():
-    """JSON endpoint voor metrics data."""
+@app.get("/metrics", response_class=JSONResponse)
+async def get_metrics() -> JSONResponse:
+    """API endpoint voor het ophalen van alle metrics in JSON formaat."""
     try:
         metrics = metrics_collector.get_comprehensive_metrics()
         return JSONResponse(content=metrics)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Fout bij ophalen metrics: {str(e)}")
 
 
 @app.get("/metrics/prometheus")
-async def get_prometheus_metrics():
-    """Prometheus format metrics endpoint."""
+async def get_prometheus_metrics() -> str:
+    """API endpoint voor Prometheus metrics."""
     try:
-        prometheus_metrics = metrics_collector.export_metrics("prometheus")
-        return prometheus_metrics
+        return metrics_collector.export_metrics("prometheus")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Fout bij exporteren Prometheus metrics: {str(e)}")
 
 
-def run_dashboard(host: str = "0.0.0.0", port: int = 8000):
-    """Start de monitoring dashboard."""
-    print("🚀 Starting MCP Invoice Processor Monitoring Dashboard...")
-    print(f"🌐 Dashboard beschikbaar op: http://{host}:{port}")
-    print(f"📊 Metrics API: http://{host}:{port}/metrics")
-    print(f"🔍 Health Check: http://{host}:{port}/health")
-    print(f"📈 Prometheus: http://{host}:{port}/metrics/prometheus")
-    print("⏹️  Druk Ctrl+C om te stoppen")
-    
-    uvicorn.run(app, host=host, port=port)
+@app.get("/health")
+async def health_check() -> Dict[str, Any]:
+    """Health check endpoint."""
+    try:
+        # Basis health check
+        uptime = metrics_collector.system.uptime.total_seconds()
+        memory_usage = metrics_collector.system.memory_usage_mb
+        cpu_usage = metrics_collector.system.cpu_usage_percent
+        
+        # Bepaal status
+        status = "healthy"
+        if uptime < 60:  # Minder dan 1 minuut uptime
+            status = "starting"
+        elif memory_usage > 1000:  # Meer dan 1GB memory
+            status = "warning"
+        elif cpu_usage > 80:  # Meer dan 80% CPU
+            status = "warning"
+        
+        return {
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "uptime_seconds": uptime,
+            "memory_usage_mb": memory_usage,
+            "cpu_usage_percent": cpu_usage,
+            "version": "1.0.0"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e),
+            "version": "1.0.0"
+        }
+
+
+@app.get("/health/detailed")
+async def detailed_health_check() -> Dict[str, Any]:
+    """Gedetailleerde health check met alle componenten."""
+    try:
+        # Component health checks
+        components: Dict[str, Dict[str, Any]] = {
+            "system": {
+                "status": "healthy",
+                "uptime": metrics_collector.system.get_uptime_formatted(),
+                "memory_usage_mb": metrics_collector.system.memory_usage_mb,
+                "cpu_usage_percent": metrics_collector.system.cpu_usage_percent
+            },
+            "processing": {
+                "status": "healthy" if metrics_collector.processing.total_documents_processed > 0 else "no_data",
+                "total_documents": metrics_collector.processing.total_documents_processed,
+                "success_rate": metrics_collector.processing.get_success_rate()
+            },
+            "ollama": {
+                "status": "healthy" if metrics_collector.ollama.total_requests > 0 else "no_data",
+                "total_requests": metrics_collector.ollama.total_requests,
+                "success_rate": metrics_collector.ollama.get_success_rate()
+            }
+        }
+        
+        # Overall status
+        overall_status = "healthy"
+        component_values = list(components.values())
+        if any(comp["status"] == "error" for comp in component_values):
+            overall_status = "error"
+        elif any(comp["status"] == "warning" for comp in component_values):
+            overall_status = "warning"
+        
+        return {
+            "status": overall_status,
+            "timestamp": datetime.now().isoformat(),
+            "components": components,
+            "version": "1.0.0"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e),
+            "version": "1.0.0"
+        }
+
+
+@app.post("/demo/reset")
+async def reset_demo_metrics() -> Dict[str, str]:
+    """Reset demo metrics en genereer nieuwe."""
+    try:
+        generate_demo_metrics()
+        return {"message": "Demo metrics gereset en nieuwe gegenereerd"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fout bij resetten demo metrics: {str(e)}")
+
+
+@app.get("/demo/status")
+async def get_demo_status() -> Dict[str, Any]:
+    """Status van demo metrics."""
+    return {
+        "demo_active": True,
+        "last_generated": datetime.now().isoformat(),
+        "note": "Demo metrics worden automatisch gegenereerd bij startup en kunnen handmatig gereset worden"
+    }
 
 
 if __name__ == "__main__":
-    run_dashboard()
+    print("🚀 Starting MCP Invoice Processor Monitoring Dashboard...")
+    print("📊 Dashboard beschikbaar op: http://localhost:8000")
+    print("🔍 API endpoints:")
+    print("   - GET  /metrics - JSON metrics")
+    print("   - GET  /metrics/prometheus - Prometheus format")
+    print("   - GET  /health - Health check")
+    print("   - GET  /health/detailed - Gedetailleerde health check")
+    print("   - POST /demo/reset - Reset demo metrics")
+    print("   - GET  /demo/status - Demo status")
+    
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

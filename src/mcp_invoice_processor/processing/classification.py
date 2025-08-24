@@ -1,14 +1,7 @@
 """
 Document classificatie module.
 """
-from enum import Enum
-
-
-class DocumentType(Enum):
-    """Enum voor documenttypen."""
-    CV = "cv"
-    INVOICE = "invoice"
-    UNKNOWN = "unknown"
+from .models import DocumentType
 
 
 # Trefwoorden voor CV classificatie

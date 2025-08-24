@@ -1,19 +1,20 @@
+import asyncio
+import random
+from datetime import timedelta
+from mcp_invoice_processor.monitoring.metrics import metrics_collector
+from typing import Any, Dict, List, Optional, Union
+
 #!/usr/bin/env python3
 """
 Test script om de metrics collector bij te werken met test data.
 Dit zorgt ervoor dat de monitoring dashboard real-time metrics toont.
 """
 
-import asyncio
-import time
-import random
-from datetime import datetime, timedelta
 
 # Import de metrics collector
-from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
 
 
-def generate_test_metrics():
+def generate_test_metrics() -> None:
     """Genereer test metrics om de dashboard te vullen."""
     print("🚀 Starten met genereren van test metrics...")
     
@@ -116,7 +117,7 @@ def generate_test_metrics():
     print("🌐 Open http://localhost:8000 om de resultaten te zien")
 
 
-async def continuous_metrics_update():
+async def continuous_metrics_update() -> None:
     """Continu bijwerken van metrics om real-time dashboard te simuleren."""
     print("🔄 Starten met continue metrics updates...")
     print("⏹️  Druk Ctrl+C om te stoppen")
@@ -164,7 +165,7 @@ async def continuous_metrics_update():
         print("\n⏹️  Gestopt door gebruiker")
 
 
-def main():
+def main() -> None:
     """Hoofdfunctie."""
     print("🧪 Test Metrics Generator voor MCP Invoice Processor")
     print("=" * 60)

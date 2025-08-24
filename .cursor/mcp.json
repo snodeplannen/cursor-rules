@@ -1,20 +1,16 @@
 {
   "mcpServers": {
     "mcp-invoice-processor": {
-      "command": "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
-      "args": [
-        "run",
-        "python",
-        "-m",
-        "src.mcp_invoice_processor.fastmcp_server"
-      ],
+      "command": "uv",
+      "args": ["run", "python", "-m", "src.mcp_invoice_processor.fastmcp_server"],
       "env": {
         "LOG_LEVEL": "DEBUG",
         "DEBUG_MCP": "true",
         "VERBOSE_LOGGING": "true",
-        "OLLAMA_HOST": "http://localhost:11434",
-        "OLLAMA_MODEL": "llama3:8b",
-        "OLLAMA_TIMEOUT": "120"
+        "OLLAMA_TIMEOUT": "30",
+        "PYTHONPATH": ".",
+        "PYTHONUNBUFFERED": "1",
+        "MCP_SERVER_NAME": "MCP Invoice Processor"
       }
     }
   }

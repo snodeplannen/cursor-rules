@@ -3,14 +3,14 @@ Hoofdpijplijn voor documentverwerking en data-extractie.
 """
 import logging
 import time
-from typing import Union, Type
+from typing import Union, Type, Any, List
 from pydantic import ValidationError
 import ollama
 
 from ..config import settings
 from ..monitoring.metrics import metrics_collector
-from .models import CVData, InvoiceData, ProcessingResult
-from .classification import DocumentType, classify_document
+from .models import CVData, InvoiceData, ProcessingResult, DocumentType
+from .classification import classify_document
 from .text_extractor import extract_text_from_pdf
 from .chunking import chunk_text, ChunkingMethod
 from .merging import merge_partial_cv_data, merge_partial_invoice_data
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 async def extract_structured_data(
     text: str,
     doc_type: DocumentType,
-    ctx
+    ctx: Any = None
 ) -> Union[CVData, InvoiceData, None]:
     """
     Extraheert gestructureerde data uit tekst met behulp van Ollama.
@@ -30,7 +30,7 @@ async def extract_structured_data(
     Args:
         text: De tekst om te verwerken
         doc_type: Het gedetecteerde documenttype
-        ctx: FastMCP context voor logging
+        ctx: FastMCP context voor logging (optioneel)
 
     Returns:
         Union[CVData, InvoiceData, None]: Geëxtraheerde data of None bij fout
@@ -38,393 +38,353 @@ async def extract_structured_data(
     # Start timing voor Ollama request
     start_time = time.time()
     error_type = None
+    
+    # Log start van extractie
+    if ctx:
+        try:
+            await ctx.info("🤖 Starten AI-gebaseerde data extractie...")
+        except Exception:
+            pass
+    
     # Bepaal het target model en prompt op basis van documenttype
     target_model: Type[Union[CVData, InvoiceData]]
     if doc_type == DocumentType.CV:
         # Specifieke prompt voor CV extractie
         prompt = f"""
-        Extraheer gestructureerde informatie uit de volgende CV-tekst.
+        Extract structured information from the following CV text.
+
+        IMPORTANT: Return ONLY valid JSON without any explanation text, comments, or markdown formatting.
+        Use EXACTLY these field names in your JSON output:
+        - full_name (for the full name)
+        - email (for email address)
+        - phone_number (for phone number)
+        - summary (for summary/objective)
+        - work_experience (list of work experiences, each with: job_title, company, start_date, end_date, description)
+        - education (list of education, each with: degree, institution, graduation_date)
+        - skills (list of skills as strings)
         
-        BELANGRIJK: Gebruik EXACT deze veldnamen in je JSON output:
-        - full_name (voor de volledige naam)
-        - email (voor e-mailadres)
-        - phone_number (voor telefoonnummer)
-        - summary (voor samenvatting/doelstelling)
-        - work_experience (lijst van werkervaringen, elk met: job_title, company, start_date, end_date, description)
-        - education (lijst van opleidingen, elk met: degree, institution, graduation_date)
-        - skills (lijst van vaardigheden als strings)
+        Ensure all required fields are present. If a field cannot be found, use empty string or empty list.
         
-        Zorg ervoor dat alle verplichte velden aanwezig zijn. Als een veld niet gevonden kan worden, gebruik dan een lege string of lege lijst.
-        
-        Tekst:
+        Text:
         {text}
         
-        Output moet een geldig JSON object zijn dat voldoet aan het schema.
+        Return ONLY the JSON object, no other text.
         """
         target_model = CVData
     elif doc_type == DocumentType.INVOICE:
         # Specifieke prompt voor factuur extractie
         prompt = f"""
-        Extraheer gestructureerde informatie uit de volgende factuur-tekst.
+        Extract structured information from the following invoice text.
+
+        IMPORTANT: Return ONLY valid JSON without any explanation text, comments, or markdown formatting.
+        Use EXACTLY these field names in your JSON output:
         
-        BELANGRIJK: Gebruik EXACT deze veldnamen in je JSON output:
+        Basic information:
+        - invoice_id (for unique identification, use invoice number or generate unique ID)
+        - invoice_number (for invoice number)
+        - invoice_date (for invoice date)
+        - due_date (for due date)
         
-        Basis informatie:
-        - invoice_id (voor unieke identificatie, gebruik factuurnummer of genereer een unieke ID)
-        - invoice_number (voor factuurnummer)
-        - invoice_date (voor factuurdatum)
-        - due_date (voor vervaldatum)
+        Company information:
+        - supplier_name (for supplier name)
+        - supplier_address (for supplier address)
+        - supplier_vat_number (for supplier VAT number)
+        - customer_name (for customer name)
+        - customer_address (for customer address)
+        - customer_vat_number (for customer VAT number)
         
-        Bedrijfsinformatie:
-        - supplier_name (voor naam leverancier)
-        - supplier_address (voor adres leverancier)
-        - supplier_vat_number (voor BTW-nummer leverancier)
-        - customer_name (voor naam klant)
-        - customer_address (voor adres klant)
-        - customer_vat_number (voor BTW-nummer klant)
+        Financial information:
+        - subtotal (for subtotal excluding VAT)
+        - vat_amount (for VAT amount)
+        - total_amount (for total including VAT)
+        - currency (for currency, default "EUR")
         
-        Financiële informatie:
-        - subtotal (voor subtotaal exclusief BTW)
-        - vat_amount (voor BTW-bedrag)
-        - total_amount (voor totaal inclusief BTW)
-        - currency (voor valuta, standaard "EUR")
+        Invoice lines (line_items):
+        - description (for product/service description)
+        - quantity (for quantity, must be a number, use 1 if not specified)
+        - unit_price (for unit price)
+        - unit (for unit: pieces, hours, etc.)
+        - line_total (for line total)
+        - vat_rate (for VAT rate percentage)
+        - vat_amount (for VAT amount per line)
         
-        Factuurregels (line_items):
-        - description (voor beschrijving product/dienst)
-        - quantity (voor aantal)
-        - unit_price (voor eenheidsprijs)
-        - unit (voor eenheid: stuks, uren, etc.)
-        - line_total (voor regeltotaal)
-        - vat_rate (voor BTW-tarief percentage)
-        - vat_amount (voor BTW-bedrag regel)
+        Payment information:
+        - payment_terms (for payment terms)
+        - payment_method (for payment method)
         
-        Extra informatie:
-        - payment_terms (voor betalingsvoorwaarden)
-        - payment_method (voor betalingsmethode)
-        - notes (voor opmerkingen)
-        - reference (voor referentie/ordernummer)
+        Extra information:
+        - notes (for notes)
+        - reference (for reference/order number)
         
-        Zorg ervoor dat alle verplichte velden aanwezig zijn. 
+        CRITICAL: All quantity fields must be numbers (not strings). Use 1 for single items, 0 for discounts/promotions.
+        Ensure all required fields are present. If a field cannot be found, use empty string or empty list.
         
-        KRITIEK VOOR NUMERIEKE VELDEN:
-        - quantity, unit_price, line_total, vat_rate, vat_amount, subtotal, total_amount
-        - Gebruik ALTIJD 0.0 als standaardwaarde, NOOIT lege strings ('')
-        - Als een waarde niet gevonden kan worden, gebruik dan 0.0
-        
-        VOOR TEKSTVELDEN:
-        - Gebruik lege strings ('') als standaardwaarde
-        - Als een waarde niet gevonden kan worden, gebruik dan ''
-        
-        VOOR LIJSTEN:
-        - Gebruik lege lijsten ([]) als standaardwaarde
-        - Als geen items gevonden kunnen worden, gebruik dan []
-        
-        Tekst:
+        Text:
         {text}
         
-        Output moet een geldig JSON object zijn dat voldoet aan het schema.
+        Return ONLY the JSON object, no other text.
         """
         target_model = InvoiceData
     else:
-        await ctx.error(f"Onbekend documenttype: {doc_type}")
+        logger.error(f"Onbekend documenttype: {doc_type}")
         return None
 
-    client = ollama.AsyncClient(
-        host=settings.ollama.HOST,
-        timeout=settings.ollama.TIMEOUT
-    )
-    schema = target_model.model_json_schema()
-
     try:
-        response = await client.chat(
+        # Log Ollama request start
+        if ctx:
+            try:
+                await ctx.info("🤖 Ollama AI model aanroepen...")
+            except Exception:
+                pass
+        
+        # Ollama request uitvoeren
+        response = ollama.chat(
             model=settings.ollama.MODEL,
-            messages=[{'role': 'user', 'content': prompt}],
-            format='json',
-            options={'json_schema': schema}
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            options={
+                "temperature": 0.1,  # Lage temperature voor consistente output
+                "num_predict": 2048,  # Maximum tokens voor response
+                "stop": ["```", "```json", "```\n", "\n\n\n"]  # Stop bij code blocks
+            }
         )
-
-        response_content = response['message']['content']
         
-        # Log de response voor debugging
-        await ctx.info(f"Ollama response ontvangen: {len(response_content)} karakters")
-        logger.info(f"Ollama response: {response_content[:200]}...")
+        # Response verwerken
+        response_content = response['message']['content'].strip()
         
-        # Success tracking for metrics
-        result = target_model.model_validate_json(response_content)
+        # Log response voor debugging
+        logger.debug(f"Ollama response: {response_content[:500]}...")
         
-        # Record metrics voor succesvolle request
-        response_time = time.time() - start_time
+        # JSON extractie uit response - verbeterde methode
+        json_str = None
+        
+        # Methode 1: Zoek naar JSON tussen ```json en ``` markers
+        if "```json" in response_content:
+            start_marker = "```json"
+            end_marker = "```"
+            start_idx = response_content.find(start_marker) + len(start_marker)
+            end_idx = response_content.find(end_marker, start_idx)
+            if start_idx != -1 and end_idx != -1:
+                json_str = response_content[start_idx:end_idx].strip()
+        
+        # Methode 2: Zoek naar JSON tussen ``` markers
+        elif "```" in response_content:
+            parts = response_content.split("```")
+            if len(parts) >= 3:
+                json_str = parts[1].strip()
+        
+        # Methode 3: Zoek naar JSON tussen { en }
+        if not json_str:
+            json_start = response_content.find('{')
+            json_end = response_content.rfind('}') + 1
+            
+            if json_start != -1 and json_end > json_start:
+                json_str = response_content[json_start:json_end]
+        
+        # Methode 4: Probeer de hele response als JSON
+        if not json_str:
+            json_str = response_content.strip()
+        
+        if not json_str:
+            logger.error("Geen JSON gevonden in Ollama response")
+            logger.error(f"Response content: {response_content}")
+            error_type = "json_parsing_error"
+            return None
+        
+        # JSON parsen en valideren
+        import json as json_module
+        try:
+            parsed_data = json_module.loads(json_str)
+        except json_module.JSONDecodeError as e:
+            logger.error(f"JSON parsing fout: {e}")
+            logger.error(f"JSON string: {json_str}")
+            logger.error(f"Response content: {response_content}")
+            error_type = "json_decode_error"
+            return None
+        
+        # Data valideren met Pydantic model
+        try:
+            validated_data = target_model(**parsed_data)
+        except ValidationError as e:
+            logger.error(f"Pydantic validatie fout: {e}")
+            logger.error(f"Parsed data: {parsed_data}")
+            error_type = "validation_error"
+            return None
+        
+        # Timing stoppen en metrics bijwerken
+        processing_time = time.time() - start_time
         metrics_collector.record_ollama_request(
             model=settings.ollama.MODEL,
-            response_time=response_time,
+            response_time=processing_time,
             success=True
         )
         
-        return result
-
-    except ValidationError as e:
-        error_type = "validation_error"
-        await ctx.error(f"Pydantic validatiefout: {e}")
-        logger.error(f"Validatiefout bij verwerking van {doc_type.value}: {e}")
+        # Log succes
+        if ctx:
+            try:
+                await ctx.info(f"✅ Gestructureerde data succesvol geëxtraheerd")
+            except Exception:
+                pass
         
-        # Probeer de response te repareren door veldnamen te mappen
+        logger.info(f"Succesvol gestructureerde data geëxtraheerd uit {doc_type.value} document")
+        return validated_data
+        
+    except Exception as e:
+        error_type = "ollama_error"
+        logger.error(f"Ollama request fout: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Full error: {str(e)}")
+    
+    # Timing stoppen en metrics bijwerken bij fout
+    processing_time = time.time() - start_time
+    metrics_collector.record_ollama_request(
+        model=settings.ollama.MODEL,
+        response_time=processing_time,
+        success=False,
+        error_type=error_type
+    )
+    
+    # Log fout
+    if ctx:
         try:
-            if doc_type == DocumentType.CV:
-                repair_result = await _repair_cv_data(response_content, ctx)
-                if repair_result:
-                    # Metrics tracking voor gerepareerde data
-                    # Record metrics voor gerepareerde request
-                    response_time = time.time() - start_time
-                    metrics_collector.record_ollama_request(
-                        model=settings.ollama.MODEL,
-                        response_time=response_time,
-                        success=True
-                    )
-                return repair_result
-        except Exception as repair_error:
-            await ctx.error(f"Reparatie van CV data mislukt: {repair_error}")
-        
-        # Record metrics voor mislukte request
-        response_time = time.time() - start_time
-        metrics_collector.record_ollama_request(
-            model=settings.ollama.MODEL,
-            response_time=response_time,
-            success=False,
-            error_type=error_type
-        )
-        
-        return None
-    except Exception as e:
-        error_type = "communication_error"
-        await ctx.error(f"Fout bij communicatie met Ollama: {e}")
-        logger.error(f"Ollama communicatiefout: {e}")
-        
-        # Record metrics voor mislukte request
-        response_time = time.time() - start_time
-        metrics_collector.record_ollama_request(
-            model=settings.ollama.MODEL,
-            response_time=response_time,
-            success=False,
-            error_type=error_type
-        )
-        
-        return None
+            await ctx.error("❌ Data extractie mislukt")
+        except Exception:
+            pass
+    
+    return None
 
 
-async def _repair_cv_data(response_content: str, ctx) -> Union[CVData, None]:
-    """
-    Probeert CV data te repareren door veldnamen te mappen.
-    """
-    try:
-        import json
-        
-        # Parse de JSON response
-        data = json.loads(response_content)
-        
-        # Map Nederlandse veldnamen naar Engelse veldnamen
-        field_mapping = {
-            'naam': 'full_name',
-            'email': 'email',
-            'telefoon': 'phone_number',
-            'samenvatting': 'summary',
-            'werkervaring': 'work_experience',
-            'opleiding': 'education',
-            'vaardigheden': 'skills',
-            'functie': 'job_title',
-            'bedrijf': 'company',
-            'startdatum': 'start_date',
-            'einddatum': 'end_date',
-            'beschrijving': 'description',
-            'graad': 'degree',
-            'instituut': 'institution',
-            'afstudeerdatum': 'graduation_date'
-        }
-        
-        # Repareer de data structuur
-        repaired_data = {}
-        
-        for old_key, new_key in field_mapping.items():
-            if old_key in data:
-                repaired_data[new_key] = data[old_key]
-            elif new_key in data:
-                repaired_data[new_key] = data[new_key]
-        
-        # Zorg ervoor dat alle verplichte velden aanwezig zijn
-        if 'full_name' not in repaired_data:
-            repaired_data['full_name'] = data.get('naam', 'Onbekend')
-        if 'summary' not in repaired_data:
-            repaired_data['summary'] = data.get('samenvatting', 'Geen samenvatting beschikbaar')
-        if 'work_experience' not in repaired_data:
-            repaired_data['work_experience'] = []
-        if 'education' not in repaired_data:
-            repaired_data['education'] = []
-        if 'skills' not in repaired_data:
-            repaired_data['skills'] = []
-        
-        await ctx.info("CV data gerepareerd door veldnamen te mappen")
-        logger.info(f"Gerepareerde CV data: {repaired_data}")
-        
-        return CVData(**repaired_data)
-        
-    except Exception as e:
-        await ctx.error(f"Fout bij repareren van CV data: {e}")
-        logger.error(f"CV data reparatie fout: {e}")
-        return None
-
-
-async def process_pdf_document(
-    pdf_bytes: bytes,
-    file_name: str,
-    ctx
+async def process_document_pdf(
+    pdf_path: str,
+    chunking_method: ChunkingMethod = ChunkingMethod.SMART,
+    max_chunk_size: int = 4000,
+    overlap: int = 200,
+    ctx: Any = None
 ) -> ProcessingResult:
     """
-    Verwerkt een PDF-document door de volledige pijplijn.
+    Verwerkt een PDF document door tekst te extraheren, te chunken en gestructureerde data te extraheren.
 
     Args:
-        pdf_bytes: De PDF als bytes
-        file_name: Naam van het bestand
+        pdf_path: Pad naar het PDF bestand
+        chunking_method: Methode voor tekst chunking
+        max_chunk_size: Maximale grootte per chunk
+        overlap: Overlap tussen chunks
         ctx: FastMCP context voor logging
 
     Returns:
         ProcessingResult: Resultaat van de verwerking
     """
-    # Start timing voor document verwerking
     start_time = time.time()
     
     try:
-        await ctx.info(f"Start verwerking van {file_name}")
-
-        # Stap 1: Tekstextractie
-        await ctx.info("Extraheren van tekst uit PDF...")
-        text = extract_text_from_pdf(pdf_bytes)
-        await ctx.info(f"Tekst geëxtraheerd: {len(text)} karakters")
-
-        # Stap 2: Documentclassificatie
-        await ctx.info("Classificeren van documenttype...")
-        doc_type = classify_document(text)
-        await ctx.info(f"Document geclassificeerd als: {doc_type.value}")
-
-        if doc_type == DocumentType.UNKNOWN:
-            # Record metrics voor mislukte verwerking
-            processing_time = time.time() - start_time
-            metrics_collector.record_document_processing(
-                doc_type="unknown",
-                success=False,
-                processing_time=processing_time,
-                error_type="unknown_document_type"
-            )
-            
+        # 1. Tekst extraheren uit PDF
+        logger.info(f"Tekst extraheren uit PDF: {pdf_path}")
+        # Lees het PDF bestand als bytes
+        with open(pdf_path, 'rb') as f:
+            pdf_bytes = f.read()
+        extracted_text = extract_text_from_pdf(pdf_bytes)
+        
+        if not extracted_text or len(extracted_text.strip()) < 50:
             return ProcessingResult(
-                document_type="unknown",
+                document_type=DocumentType.UNKNOWN,
                 data=None,
-                status="error",
-                error_message="Kon documenttype niet bepalen"
+                status="failed",
+                error_message="Onvoldoende tekst geëxtraheerd uit PDF"
             )
-
-        # Stap 3: Tekst chunking voor grote documenten
-        if len(text) > 2000:  # Drempel voor chunking
-            await ctx.info("Document is groot, toepassen van chunking...")
-            chunks = chunk_text(text, method=ChunkingMethod.RECURSIVE)
-            await ctx.info(f"Document opgedeeld in {len(chunks)} chunks")
-
-            # Verwerk elke chunk
-            partial_results = []
+        
+        # 2. Documenttype classificeren
+        logger.info("Documenttype classificeren")
+        doc_type = classify_document(extracted_text)
+        logger.info(f"Gedetecteerd documenttype: {doc_type.value}")
+        
+        # 3. Tekst chunken als deze te lang is
+        if len(extracted_text) > max_chunk_size:
+            logger.info(f"Tekst chunken (lengte: {len(extracted_text)} karakters)")
+            chunks = chunk_text(extracted_text, chunking_method, max_chunk_size, overlap)
+            logger.info(f"Tekst opgedeeld in {len(chunks)} chunks")
+            
+            # 4. Gestructureerde data extraheren uit chunks
+            partial_results: List[Union[CVData, InvoiceData]] = []
             for i, chunk in enumerate(chunks):
-                await ctx.info(f"Verwerken van chunk {i+1}/{len(chunks)}...")
-                result = await extract_structured_data(chunk, doc_type, ctx)
-                if result:
-                    partial_results.append(result)
-
-            # Samenvoegen en ontdubbelen van resultaten
+                logger.info(f"Chunk {i+1}/{len(chunks)} verwerken")
+                partial_data = await extract_structured_data(chunk, doc_type, ctx)
+                if partial_data:
+                    partial_results.append(partial_data)
+            
+            # 5. Partiële resultaten samenvoegen
+            merged_data: Union[CVData, InvoiceData, None] = None
             if partial_results:
-                await ctx.info("Samenvoegen van partiële resultaten...")
                 if doc_type == DocumentType.CV:
-                    # Type cast voor CV data
-                    cv_results = [result for result in partial_results if isinstance(result, CVData)]
+                    # Filter alleen CV data
+                    cv_results = [r for r in partial_results if isinstance(r, CVData)]
                     if cv_results:
-                        final_data: Union[CVData, InvoiceData] = merge_partial_cv_data(cv_results)
+                        merged_data = merge_partial_cv_data(cv_results)
                     else:
-                        # Record metrics voor mislukte verwerking
-                        processing_time = time.time() - start_time
-                        metrics_collector.record_document_processing(
-                            doc_type=doc_type.value,
-                            success=False,
-                            processing_time=processing_time,
-                            error_type="cv_extraction_failed"
-                        )
-                        
-                        return ProcessingResult(
-                            document_type=doc_type.value,
-                            data=None,
-                            status="error",
-                            error_message="Kon geen geldige CV data extraheren"
-                        )
+                        merged_data = None
                 elif doc_type == DocumentType.INVOICE:
-                    # Type cast voor factuur data
-                    invoice_results = [result for result in partial_results if isinstance(result, InvoiceData)]
+                    # Filter alleen Invoice data
+                    invoice_results = [r for r in partial_results if isinstance(r, InvoiceData)]
                     if invoice_results:
-                        final_data = merge_partial_invoice_data(invoice_results)
+                        merged_data = merge_partial_invoice_data(invoice_results)
                     else:
-                        # Record metrics voor mislukte verwerking
-                        processing_time = time.time() - start_time
-                        metrics_collector.record_document_processing(
-                            doc_type=doc_type.value,
-                            success=False,
-                            processing_time=processing_time,
-                            error_type="invoice_extraction_failed"
-                        )
-                        
-                        return ProcessingResult(
-                            document_type=doc_type.value,
-                            data=None,
-                            status="error",
-                            error_message="Kon geen geldige factuur data extraheren"
-                        )
+                        merged_data = None
                 else:
-                    # Voor onbekende documenttypes, gebruik het eerste resultaat
-                    final_data = partial_results[0]
-
-                await ctx.info("Verwerking voltooid")
+                    merged_data = partial_results[0]  # Gebruik eerste resultaat voor onbekende types
                 
-                # Record metrics voor succesvolle verwerking
-                processing_time = time.time() - start_time
-                metrics_collector.record_document_processing(
-                    doc_type=doc_type.value,
-                    success=True,
-                    processing_time=processing_time
-                )
-                
-                return ProcessingResult(
-                    document_type=doc_type.value,
-                    data=final_data,
-                    status="success",
-                    error_message=None
-                )
+                if merged_data:
+                    processing_time = time.time() - start_time
+                    metrics_collector.record_document_processing(
+                        doc_type=doc_type.value,
+                        success=True,
+                        processing_time=processing_time
+                    )
+                    
+                    return ProcessingResult(
+                        document_type=doc_type,
+                        data=merged_data,
+                        status="success",
+                        error_message=None
+                    )
+                else:
+                    processing_time = time.time() - start_time
+                    metrics_collector.record_document_processing(
+                        doc_type=doc_type.value,
+                        success=False,
+                        processing_time=processing_time,
+                        error_type="no_data_extracted"
+                    )
+                    
+                    return ProcessingResult(
+                        document_type=doc_type,
+                        data=None,
+                        status="failed",
+                        error_message="Geen gestructureerde data kunnen extraheren uit chunks"
+                    )
             else:
-                # Record metrics voor mislukte verwerking
                 processing_time = time.time() - start_time
                 metrics_collector.record_document_processing(
                     doc_type=doc_type.value,
                     success=False,
                     processing_time=processing_time,
-                    error_type="chunk_extraction_failed"
+                    error_type="no_data_extracted"
                 )
                 
                 return ProcessingResult(
-                    document_type=doc_type.value,
+                    document_type=doc_type,
                     data=None,
-                    status="error",
-                    error_message="Kon geen gestructureerde data extraheren uit chunks"
+                    status="failed",
+                    error_message="Geen gestructureerde data kunnen extraheren uit chunks"
                 )
         else:
-            # Voor kleine documenten, direct verwerken
-            await ctx.info("Direct verwerken van document...")
-            data = await extract_structured_data(text, doc_type, ctx)
-
-            if data:
-                await ctx.info("Verwerking voltooid")
-                
-                # Record metrics voor succesvolle verwerking
+            # Tekst is kort genoeg, direct verwerken
+            logger.info("Tekst is kort genoeg, direct verwerken")
+            extracted_data = await extract_structured_data(extracted_text, doc_type, ctx)
+            
+            if extracted_data:
                 processing_time = time.time() - start_time
                 metrics_collector.record_document_processing(
                     doc_type=doc_type.value,
@@ -433,13 +393,12 @@ async def process_pdf_document(
                 )
                 
                 return ProcessingResult(
-                    document_type=doc_type.value,
-                    data=data,
+                    document_type=doc_type,
+                    data=extracted_data,
                     status="success",
                     error_message=None
                 )
             else:
-                # Record metrics voor mislukte verwerking
                 processing_time = time.time() - start_time
                 metrics_collector.record_document_processing(
                     doc_type=doc_type.value,
@@ -449,29 +408,211 @@ async def process_pdf_document(
                 )
                 
                 return ProcessingResult(
-                    document_type=doc_type.value,
+                    document_type=doc_type,
                     data=None,
-                    status="error",
-                    error_message="Kon geen gestructureerde data extraheren"
+                    status="failed",
+                    error_message="Gestructureerde data extractie mislukt"
                 )
-
+                
     except Exception as e:
-        error_msg = f"Onverwachte fout bij verwerking van {file_name}: {e}"
-        await ctx.error(error_msg)
-        logger.error(error_msg, exc_info=True)
-        
-        # Record metrics voor mislukte verwerking
         processing_time = time.time() - start_time
+        error_msg = f"Onverwachte fout bij verwerken PDF: {str(e)}"
+        logger.error(error_msg)
+        
+        # Bepaal documenttype voor metrics
+        doc_type = DocumentType.UNKNOWN
+        try:
+            with open(pdf_path, 'rb') as f:
+                pdf_bytes = f.read()
+            extracted_text = extract_text_from_pdf(pdf_bytes)
+            if extracted_text:
+                doc_type = classify_document(extracted_text)
+        except Exception:
+            pass
+        
         metrics_collector.record_document_processing(
-            doc_type="unknown",
+            doc_type=doc_type.value,
             success=False,
             processing_time=processing_time,
             error_type="unexpected_error"
         )
         
         return ProcessingResult(
-            document_type="unknown",
+            document_type=DocumentType.UNKNOWN,
             data=None,
-            status="error",
-            error_message=str(e)
+            status="failed",
+            error_message=error_msg
         )
+
+
+async def process_document_text(
+    text: str,
+    ctx: Any = None
+) -> ProcessingResult:
+    """
+    Verwerkt documenttekst door deze te classificeren en gestructureerde data te extraheren.
+
+    Args:
+        text: De tekst om te verwerken
+        ctx: FastMCP context voor logging
+
+    Returns:
+        ProcessingResult: Resultaat van de verwerking
+    """
+    start_time = time.time()
+    
+    try:
+        # 1. Documenttype classificeren
+        logger.info("Documenttype classificeren")
+        doc_type = classify_document(text)
+        logger.info(f"Gedetecteerd documenttype: {doc_type.value}")
+        
+        # 2. Gestructureerde data extraheren
+        logger.info("Gestructureerde data extraheren")
+        extracted_data = await extract_structured_data(text, doc_type, ctx)
+        
+        if extracted_data:
+            processing_time = time.time() - start_time
+            metrics_collector.record_document_processing(
+                doc_type=doc_type.value,
+                success=True,
+                processing_time=processing_time
+            )
+            
+            return ProcessingResult(
+                document_type=doc_type,
+                data=extracted_data,
+                status="success",
+                error_message=None
+            )
+        else:
+            processing_time = time.time() - start_time
+            metrics_collector.record_document_processing(
+                doc_type=doc_type.value,
+                success=False,
+                processing_time=processing_time,
+                error_type="extraction_failed"
+            )
+            
+            return ProcessingResult(
+                document_type=doc_type,
+                data=None,
+                status="failed",
+                error_message="Gestructureerde data extractie mislukt"
+            )
+            
+    except Exception as e:
+        processing_time = time.time() - start_time
+        error_msg = f"Onverwachte fout bij verwerken tekst: {str(e)}"
+        logger.error(error_msg)
+        
+        metrics_collector.record_document_processing(
+            doc_type=DocumentType.UNKNOWN.value,
+            success=False,
+            processing_time=processing_time,
+            error_type="unexpected_error"
+        )
+        
+        return ProcessingResult(
+            document_type=DocumentType.UNKNOWN,
+            data=None,
+            status="failed",
+            error_message=error_msg
+        )
+
+
+async def process_document_file(
+    file_path: str,
+    chunking_method: ChunkingMethod = ChunkingMethod.SMART,
+    max_chunk_size: int = 4000,
+    overlap: int = 200,
+    ctx: Any = None
+) -> ProcessingResult:
+    """
+    Verwerkt een document bestand (PDF of tekst) door het juiste pad te kiezen.
+
+    Args:
+        file_path: Pad naar het bestand
+        chunking_method: Methode voor tekst chunking
+        max_chunk_size: Maximale grootte per chunk
+        overlap: Overlap tussen chunks
+        ctx: FastMCP context voor logging
+
+    Returns:
+        ProcessingResult: Resultaat van de verwerking
+    """
+    if file_path.lower().endswith('.pdf'):
+        return await process_document_pdf(file_path, chunking_method, max_chunk_size, overlap, ctx)
+    else:
+        # Voor tekst bestanden
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+            return await process_document_text(text, ctx)
+        except Exception as e:
+            error_msg = f"Fout bij lezen bestand {file_path}: {str(e)}"
+            logger.error(error_msg)
+            
+            return ProcessingResult(
+                document_type=DocumentType.UNKNOWN,
+                data=None,
+                status="failed",
+                error_message=error_msg
+            )
+
+
+async def batch_process_documents(
+    file_paths: List[str],
+    chunking_method: ChunkingMethod = ChunkingMethod.SMART,
+    max_chunk_size: int = 4000,
+    overlap: int = 200,
+    ctx: Any = None
+) -> List[ProcessingResult]:
+    """
+    Verwerkt meerdere documenten in batch.
+
+    Args:
+        file_paths: Lijst van bestandspaden
+        chunking_method: Methode voor tekst chunking
+        max_chunk_size: Maximale grootte per chunk
+        overlap: Overlap tussen chunks
+        ctx: FastMCP context voor logging
+
+    Returns:
+        List[ProcessingResult]: Lijst van verwerkingsresultaten
+    """
+    results = []
+    
+    for i, file_path in enumerate(file_paths):
+        logger.info(f"Verwerken document {i+1}/{len(file_paths)}: {file_path}")
+        
+        try:
+            result = await process_document_file(
+                file_path, chunking_method, max_chunk_size, overlap, ctx
+            )
+            results.append(result)
+            
+            if result.status == "success":
+                logger.info(f"✅ Document {i+1} succesvol verwerkt")
+            else:
+                logger.warning(f"⚠️ Document {i+1} verwerking mislukt: {result.error_message}")
+                
+        except Exception as e:
+            logger.error(f"❌ Onverwachte fout bij verwerken document {i+1}: {str(e)}")
+            
+            # Maak een fout resultaat
+            error_result = ProcessingResult(
+                document_type=DocumentType.UNKNOWN,
+                data=None,
+                status="failed",
+                error_message=f"Onverwachte fout: {str(e)}"
+            )
+            results.append(error_result)
+    
+    # Log samenvatting
+    successful = sum(1 for r in results if r.status == "success")
+    failed = len(results) - successful
+    
+    logger.info(f"Batch verwerking voltooid: {successful} succesvol, {failed} mislukt")
+    
+    return results

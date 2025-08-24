@@ -6,6 +6,7 @@ Maakt de MCP functionaliteit beschikbaar via HTTP endpoints.
 
 import asyncio
 import logging
+from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,7 +35,7 @@ app.add_middleware(
 )
 
 @app.get("/")
-async def root():
+async def root() -> Dict[str, Any]:
     """Root endpoint met server informatie."""
     return {
         "name": "MCP Invoice Processor HTTP Server",
@@ -48,7 +49,7 @@ async def root():
     }
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> Dict[str, Any]:
     """Health check endpoint."""
     try:
         return {
@@ -61,7 +62,7 @@ async def health_check():
         raise HTTPException(status_code=503, detail=f"Health check failed: {str(e)}")
 
 @app.get("/metrics")
-async def get_metrics():
+async def get_metrics() -> JSONResponse:
     """Haal alle metrics op in JSON formaat."""
     try:
         metrics = metrics_collector.get_comprehensive_metrics()
@@ -71,16 +72,16 @@ async def get_metrics():
         raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
 
 @app.get("/metrics/prometheus")
-async def get_prometheus_metrics():
+async def get_prometheus_metrics() -> PlainTextResponse:
     """Haal metrics op in Prometheus formaat."""
     try:
-        prometheus_metrics = metrics_collector.get_prometheus_metrics()
+        prometheus_metrics = metrics_collector.export_metrics("prometheus")
         return PlainTextResponse(content=prometheus_metrics)
     except Exception as e:
         logger.error(f"Failed to get Prometheus metrics: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get Prometheus metrics: {str(e)}")
 
-def run_http_server(host: str = "0.0.0.0", port: int = 8080):
+def run_http_server(host: str = "0.0.0.0", port: int = 8080) -> None:
     """Start de HTTP server."""
     logger.info(f"Starting HTTP server on {host}:{port}")
     

@@ -15,11 +15,11 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
-from src.mcp_invoice_processor.processing.classification import classify_document, DocumentType
-from src.mcp_invoice_processor.processing.models import CVData, InvoiceData
-from src.mcp_invoice_processor.config import settings
-from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
+from mcp_invoice_processor.processing.pipeline import extract_structured_data
+from mcp_invoice_processor.processing.classification import classify_document, DocumentType
+from mcp_invoice_processor.processing.models import CVData, InvoiceData
+from mcp_invoice_processor.config import settings
+from mcp_invoice_processor.monitoring.metrics import metrics_collector
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -132,7 +132,7 @@ async def process_document_file(file_path: str, ctx: Context) -> Dict[str, Any]:
                 text_content = f.read()
         elif file_path_obj.suffix.lower() == '.pdf':
             # Voor PDF bestanden gebruik de PDF text extractor
-            from src.mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
+            from mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
             with open(file_path_obj, 'rb') as f:
                 text_content = extract_text_from_pdf(f.read())
         else:
@@ -339,8 +339,8 @@ def run_server():
     logger.info(f"📊 Ollama host: {settings.ollama.HOST}")
     logger.info(f"🤖 Ollama model: {settings.ollama.MODEL}")
     
-    # Run the server
-    mcp.run(transport="stdio")
+    # Run the server op STDIO transport (originele werkende versie)
+    mcp.run()
 
 
 if __name__ == "__main__":

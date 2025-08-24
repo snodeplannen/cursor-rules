@@ -1,16 +1,18 @@
+import sys
+import os
+from mcp_invoice_processor.monitoring.metrics import metrics_collector
+from typing import Any, Dict, List, Optional, Union
+
 #!/usr/bin/env python3
 """
 Direct script om metrics op te halen van de MCP Invoice Processor.
 """
-import sys
-import os
 
 # Voeg src directory toe aan Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
 
-def main():
+def main() -> None:
     """Haal alle metrics op en toon ze."""
     print("📊 MCP Invoice Processor Metrics")
     print("=" * 50)

@@ -1,20 +1,21 @@
+import pytest
+import time
+from unittest.mock import patch
+from datetime import datetime, timedelta
+from mcp_invoice_processor.monitoring.metrics import (
+    MetricsCollector, ProcessingMetrics, OllamaMetrics, SystemMetrics
+)
+from typing import Any, Dict, List, Optional, Union
+
 """
 Tests voor monitoring en metrics functionaliteit.
 """
-import pytest
-import time
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta
-
-from src.mcp_invoice_processor.monitoring.metrics import (
-    MetricsCollector, ProcessingMetrics, OllamaMetrics, SystemMetrics
-)
 
 
 class TestProcessingMetrics:
     """Test ProcessingMetrics class."""
     
-    def test_initial_state(self):
+    def test_initial_state(self) -> None:
         """Test initiële staat van ProcessingMetrics."""
         print("\n🧪 Test: ProcessingMetrics initial state")
         print("Input: Nieuwe ProcessingMetrics instantie")
@@ -52,7 +53,7 @@ class TestProcessingMetrics:
         
         print("✅ Test passed: Alle initial values correct")
     
-    def test_record_success_cv(self):
+    def test_record_success_cv(self) -> None:
         """Test succesvolle CV verwerking recording."""
         print("\n🧪 Test: Record successful CV processing")
         print("Input: CV document met processing_time=2.5s")
@@ -89,7 +90,7 @@ class TestProcessingMetrics:
         
         print("✅ Test passed: CV success recording correct")
     
-    def test_record_success_invoice(self):
+    def test_record_success_invoice(self) -> None:
         """Test succesvolle factuur verwerking recording."""
         print("\n🧪 Test: Record successful invoice processing")
         print("Input: Invoice document met processing_time=1.8s")
@@ -126,7 +127,7 @@ class TestProcessingMetrics:
         
         print("✅ Test passed: Invoice success recording correct")
     
-    def test_record_failure(self):
+    def test_record_failure(self) -> None:
         """Test mislukte verwerking recording."""
         print("\n🧪 Test: Record failed processing")
         print("Input: CV document met error='validation_error' en processing_time=3.2s")
@@ -157,7 +158,7 @@ class TestProcessingMetrics:
         
         print("✅ Test passed: Failure recording correct")
     
-    def test_success_rate_calculation(self):
+    def test_success_rate_calculation(self) -> None:
         """Test succes percentage berekening."""
         print("\n🧪 Test: Success rate calculation")
         print("Input: 0 documenten, dan 2 succesvol + 1 mislukt")
@@ -185,7 +186,7 @@ class TestProcessingMetrics:
         
         print("✅ Test passed: Success rate calculation correct")
     
-    def test_percentile_calculation(self):
+    def test_percentile_calculation(self) -> None:
         """Test percentile berekening."""
         print("\n🧪 Test: Percentile calculation")
         print("Input: Processing times [1.0, 2.0, 3.0, 4.0, 5.0]")
@@ -195,8 +196,8 @@ class TestProcessingMetrics:
 
         # Voeg wat processing times toe
         test_times = [1.0, 2.0, 3.0, 4.0, 5.0]
-        for time in test_times:
-            metrics.record_success("cv", time)
+        for processing_time in test_times:
+            metrics.record_success("cv", processing_time)
         
         print(f"Added processing times: {test_times}")
         
@@ -224,7 +225,7 @@ class TestProcessingMetrics:
 class TestOllamaMetrics:
     """Test OllamaMetrics class."""
     
-    def test_initial_state(self):
+    def test_initial_state(self) -> None:
         """Test initiële staat van OllamaMetrics."""
         print("\n🧪 Test: OllamaMetrics initial state")
         print("Input: Nieuwe OllamaMetrics instantie")
@@ -255,7 +256,7 @@ class TestOllamaMetrics:
         
         print("✅ Test passed: OllamaMetrics initial state correct")
     
-    def test_record_successful_request(self):
+    def test_record_successful_request(self) -> None:
         """Test succesvolle request recording."""
         print("\n🧪 Test: Record successful Ollama request")
         print("Input: llama3:8b model, response_time=1.5s, success=True")
@@ -286,7 +287,7 @@ class TestOllamaMetrics:
         
         print("✅ Test passed: Successful request recording correct")
 
-    def test_record_failed_request(self):
+    def test_record_failed_request(self) -> None:
         """Test mislukte request recording."""
         print("\n🧪 Test: Record failed Ollama request")
         print("Input: llama3:8b model, response_time=2.0s, success=False, error='timeout'")
@@ -314,7 +315,7 @@ class TestOllamaMetrics:
         
         print("✅ Test passed: Failed request recording correct")
 
-    def test_success_rate_calculation(self):
+    def test_success_rate_calculation(self) -> None:
         """Test succes percentage berekening."""
         print("\n🧪 Test: Ollama success rate calculation")
         print("Input: 0 requests, dan 3 succesvol + 1 mislukt")
@@ -345,7 +346,7 @@ class TestOllamaMetrics:
 class TestSystemMetrics:
     """Test SystemMetrics class."""
     
-    def test_initial_state(self):
+    def test_initial_state(self) -> None:
         """Test initiële staat van SystemMetrics."""
         metrics = SystemMetrics()
         
@@ -356,18 +357,18 @@ class TestSystemMetrics:
         assert metrics.active_connections == 0
         assert metrics.total_connections == 0
     
-    def test_uptime_update(self):
+    def test_uptime_update(self) -> None:
         """Test uptime update."""
         metrics = SystemMetrics()
         
         # Simuleer tijd verstrijken
-        with patch('src.mcp_invoice_processor.monitoring.metrics.datetime') as mock_datetime:
+        with patch('mcp_invoice_processor.monitoring.metrics.datetime') as mock_datetime:
             mock_datetime.now.return_value = metrics.start_time + timedelta(hours=2, minutes=30)
             metrics.update_uptime()
             
             assert metrics.uptime == timedelta(hours=2, minutes=30)
     
-    def test_formatted_uptime(self):
+    def test_formatted_uptime(self) -> None:
         """Test geformatteerde uptime string."""
         metrics = SystemMetrics()
         metrics.uptime = timedelta(hours=5, minutes=42, seconds=18)
@@ -379,7 +380,7 @@ class TestSystemMetrics:
 class TestMetricsCollector:
     """Test MetricsCollector class."""
     
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test initialisatie van MetricsCollector."""
         collector = MetricsCollector()
         
@@ -388,7 +389,7 @@ class TestMetricsCollector:
         assert isinstance(collector.system, SystemMetrics)
         assert collector._start_times == {}
     
-    def test_timer_functionality(self):
+    def test_timer_functionality(self) -> None:
         """Test timer functionaliteit."""
         collector = MetricsCollector()
         
@@ -402,7 +403,7 @@ class TestMetricsCollector:
         assert duration > 0
         assert "test_operation" not in collector._start_times
     
-    def test_document_processing_recording(self):
+    def test_document_processing_recording(self) -> None:
         """Test document processing metrics recording."""
         collector = MetricsCollector()
         
@@ -416,7 +417,7 @@ class TestMetricsCollector:
         assert collector.processing.invoice_documents == 1
         assert collector.processing.error_counts["validation_error"] == 1
     
-    def test_ollama_request_recording(self):
+    def test_ollama_request_recording(self) -> None:
         """Test Ollama request metrics recording."""
         collector = MetricsCollector()
         
@@ -429,7 +430,7 @@ class TestMetricsCollector:
         assert collector.ollama.model_usage["llama3:8b"] == 2
         assert collector.ollama.error_counts["timeout"] == 1
     
-    def test_comprehensive_metrics(self):
+    def test_comprehensive_metrics(self) -> None:
         """Test comprehensive metrics export."""
         collector = MetricsCollector()
         
@@ -450,7 +451,7 @@ class TestMetricsCollector:
         assert metrics["ollama"]["total_requests"] == 1
         assert metrics["ollama"]["successful_requests"] == 1
     
-    def test_metrics_export_json(self):
+    def test_metrics_export_json(self) -> None:
         """Test metrics export in JSON formaat."""
         collector = MetricsCollector()
         collector.record_document_processing("cv", True, 2.0)
@@ -463,7 +464,7 @@ class TestMetricsCollector:
         assert "processing" in parsed
         assert parsed["processing"]["total_documents"] == 1
     
-    def test_metrics_export_prometheus(self):
+    def test_metrics_export_prometheus(self) -> None:
         """Test metrics export in Prometheus formaat."""
         collector = MetricsCollector()
         collector.record_document_processing("cv", True, 2.0)
@@ -476,7 +477,7 @@ class TestMetricsCollector:
         assert "mcp_documents_total" in prometheus_metrics
         assert "mcp_documents_successful" in prometheus_metrics
     
-    def test_invalid_export_format(self):
+    def test_invalid_export_format(self) -> None:
         """Test export met ongeldig formaat."""
         collector = MetricsCollector()
         
@@ -487,9 +488,9 @@ class TestMetricsCollector:
 class TestMetricsIntegration:
     """Test integratie van metrics in de pipeline."""
     
-    def test_metrics_collector_singleton(self):
+    def test_metrics_collector_singleton(self) -> None:
         """Test of metrics_collector een singleton is."""
-        from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
+        from mcp_invoice_processor.monitoring.metrics import metrics_collector
         
         # Controleer of het dezelfde instantie is
         collector1 = metrics_collector
@@ -497,9 +498,9 @@ class TestMetricsIntegration:
         
         assert collector1 is collector2
     
-    def test_metrics_persistence(self):
+    def test_metrics_persistence(self) -> None:
         """Test of metrics persistent blijven tussen calls."""
-        from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
+        from mcp_invoice_processor.monitoring.metrics import metrics_collector
         
         # Reset metrics
         original_total = metrics_collector.processing.total_documents_processed

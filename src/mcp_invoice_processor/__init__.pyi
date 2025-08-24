@@ -1,12 +1,7 @@
 """
-MCP Invoice Processor - Een FastMCP server voor het extraheren van gestructureerde data uit PDF-documenten.
+Type stubs voor mcp_invoice_processor
 """
 
-__version__ = "0.1.0"
-__author__ = "Uw Naam"
-__email__ = "uw.email@example.com"
-
-# Type exports voor betere type checking
 from .processing.models import (
     DocumentType,
     CVData,
@@ -18,6 +13,10 @@ from .processing.models import (
 )
 
 from .processing.classification import classify_document
+
+__version__: str
+__author__: str
+__email__: str
 
 __all__ = [
     "__version__",
