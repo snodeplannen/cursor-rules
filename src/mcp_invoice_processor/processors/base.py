@@ -142,7 +142,7 @@ class BaseDocumentProcessor(ABC):
             "annotations": Annotations(
                 readOnlyHint=True,  # Tools lezen documenten, wijzigen ze niet
                 idempotentHint=True  # Herhaald aanroepen heeft zelfde effect
-            ),
+            ),  # type: ignore[call-arg]
             "meta": {
                 "category": "document_processing",
                 "processor_type": self.document_type,
@@ -543,8 +543,8 @@ class BaseDocumentProcessor(ABC):
             stats["avg_processing_time"] = 0.0
         
         # Voeg metadata toe
-        stats["processor_type"] = self.document_type
-        stats["display_name"] = self.display_name
+        stats["processor_type"] = self.document_type  # type: ignore[assignment]
+        stats["display_name"] = self.display_name  # type: ignore[assignment]
         
         return stats
     

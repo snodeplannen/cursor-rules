@@ -79,7 +79,7 @@ async def test_mcp_server_direct():
         # Test alle attributen van het mcp object
         logger.info("\n🔍 Alle MCP Object Attributen:")
         for attr_name in dir(mcp):
-            if not attr_name.startswith('_'):
+            if not attr_name.startswith('_') and attr_name != 'settings':  # Skip deprecated settings
                 try:
                     attr_value = getattr(mcp, attr_name)
                     if not callable(attr_value):

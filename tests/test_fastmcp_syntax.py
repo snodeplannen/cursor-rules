@@ -77,10 +77,10 @@ async def test_fastmcp_basic():
         else:
             logger.info("   prompts: ❌ Niet gevonden")
         
-        # Test alle attributen
+        # Test alle attributen (skip deprecated settings)
         logger.info("\n🔍 Alle Server Attributen:")
         for attr_name in dir(server):
-            if not attr_name.startswith('_'):
+            if not attr_name.startswith('_') and attr_name != 'settings':  # Skip deprecated settings
                 try:
                     attr_value = getattr(server, attr_name)
                     if not callable(attr_value):

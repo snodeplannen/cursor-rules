@@ -355,7 +355,7 @@ async def health_check() -> Dict[str, Any]:
             cpu_usage = live_metrics['system']['cpu_usage_percent']
         else:
             # Fallback naar local metrics
-            uptime = metrics_collector.system.uptime.total_seconds()
+            uptime = int(metrics_collector.system.uptime.total_seconds())
             memory_usage = metrics_collector.system.memory_usage_mb
             cpu_usage = metrics_collector.system.cpu_usage_percent
         

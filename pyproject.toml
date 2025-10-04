@@ -18,8 +18,10 @@ dependencies = [
     "mcp[cli]>=1.13.1",
     "fastapi>=0.116.1",
     "uvicorn>=0.35.0",
-    "fastmcp<2.11.0",
+    "fastmcp>=2.12.4",
     "mypy>=1.18.2",
+    "mypy-extensions>=1.1.0",
+    "types-pyyaml>=6.0.12.20250915",
 ]
 
 [project.optional-dependencies]

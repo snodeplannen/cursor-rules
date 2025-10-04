@@ -1,72 +1,66 @@
 #!/usr/bin/env python3
 """
-Test script voor live metrics sharing tussen MCP server en dashboard.
+Test live metrics generation met v2.0 processors.
 """
 
-import sys
-import os
 import asyncio
-from pathlib import Path
+import time
+from typing import Dict, Any
 
-# Voeg src directory toe aan Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+from mcp_invoice_processor.monitoring.metrics import metrics_collector
+from mcp_invoice_processor.processors import get_registry
 
-async def test_live_metrics():
-    """Test live metrics sharing."""
-    try:
-        print("🧪 Test Live Metrics Sharing...")
+
+async def generate_test_metrics() -> None:
+    """Genereer test metrics voor dashboard met v2.0."""
+    print("🔄 Genereren test metrics...")
+    
+    registry = get_registry()
+    
+    # Simuleer document processing
+    for i in range(10):
+        doc_type = "invoice" if i % 2 == 0 else "cv"
+        success = i % 3 != 0  # 2/3 success rate
+        processing_time = 1.5 + (i * 0.3)
         
-        # Import metrics collector
-        from mcp_invoice_processor.monitoring.metrics import metrics_collector, METRICS_FILE
+        metrics_collector.record_document_processing(
+            doc_type=doc_type,
+            success=success,
+            processing_time=processing_time,
+            error_type=None if success else "test_error"
+        )
         
-        print(f"📁 Metrics bestand: {METRICS_FILE}")
-        
-        # Simuleer enkele document verwerking events
-        print("\n📄 Simuleer document verwerking...")
-        metrics_collector.record_document_processing("invoice", True, 2.5)
-        metrics_collector.record_document_processing("cv", True, 1.8)
-        metrics_collector.record_document_processing("invoice", False, 3.2, "timeout")
-        
-        # Simuleer Ollama requests
-        print("🤖 Simuleer Ollama requests...")
-        metrics_collector.record_ollama_request("llama3:8b", 1.5, True)
-        metrics_collector.record_ollama_request("llama3:8b", 2.1, True)
-        metrics_collector.record_ollama_request("llama3:8b", 3.5, False, "timeout")
-        
-        # Controleer of bestand is aangemaakt
-        if METRICS_FILE.exists():
-            print(f"\n✅ Metrics bestand aangemaakt: {METRICS_FILE}")
-            
-            # Lees bestand
-            import json
-            with open(METRICS_FILE, 'r') as f:
-                metrics = json.load(f)
-            
-            print("\n📊 Metrics samenvatting:")
-            print(f"   - Totaal documenten: {metrics['processing']['total_documents']}")
-            print(f"   - Succesvol: {metrics['processing']['successful_documents']}")
-            print(f"   - Gefaald: {metrics['processing']['failed_documents']}")
-            print(f"   - Succes rate: {metrics['processing']['success_rate_percent']}%")
-            print(f"   - Ollama requests: {metrics['ollama']['total_requests']}")
-            print(f"   - Ollama succes rate: {metrics['ollama']['success_rate_percent']}%")
-            
-            print("\n✅ Live metrics sharing werkt!")
-            print(f"📡 Start nu het dashboard om live data te zien:")
-            print(f"   $env:PYTHONPATH=\"src\"")
-            print(f"   python -m mcp_invoice_processor.monitoring.dashboard")
-            print(f"   Open: http://localhost:8000")
-            
-            return True
-        else:
-            print(f"\n❌ Metrics bestand niet aangemaakt: {METRICS_FILE}")
-            return False
-        
-    except Exception as e:
-        print(f"❌ Test gefaald: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+        # Processor statistics
+        processor = registry.get_processor(doc_type)
+        if processor:
+            processor.update_statistics(
+                success=success,
+                processing_time=processing_time,
+                confidence=85.0 + i,
+                completeness=90.0 if success else 50.0
+            )
+    
+    # Simuleer Ollama requests
+    for i in range(15):
+        metrics_collector.record_ollama_request(
+            model="llama3.2",
+            response_time=1.2 + (i * 0.2),
+            success=i % 4 != 0,  # 3/4 success rate
+            error_type=None if i % 4 != 0 else "timeout"
+        )
+    
+    # Print metrics
+    metrics = metrics_collector.get_comprehensive_metrics()
+    processor_stats = registry.get_all_statistics()
+    
+    print(f"\n📊 Metrics gegenereerd:")
+    print(f"   Documents: {metrics['processing']['total_documents']}")
+    print(f"   Ollama requests: {metrics['ollama']['total_requests']}")
+    print(f"   Processors: {processor_stats['total_processors']}")
+    print(f"   Global success rate: {processor_stats['global']['global_success_rate']:.1f}%")
+    
+    print("\n✅ Test metrics klaar!")
+
 
 if __name__ == "__main__":
-    asyncio.run(test_live_metrics())
-
+    asyncio.run(generate_test_metrics())

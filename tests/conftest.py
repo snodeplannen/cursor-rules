@@ -3,6 +3,9 @@ import sys
 import importlib.util
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from unittest.mock import MagicMock
+
+from fastmcp import Context, FastMCP
 
 """
 Gedeelde fixtures en configuratie voor tests.
@@ -262,23 +265,27 @@ def pytest_configure(config: Any) -> None:
 @pytest.fixture
 def mock_context() -> Any:
     """Mock context voor MCP server testing - compatible met v2.0 processors."""
-    class MockContext:
+    class MockContext(Context):
+        """Mock context voor MCP server testing - ECHT compatible met FastMCP Context."""
         def __init__(self) -> None:
+            # Maak een mock FastMCP instance
+            mock_fastmcp = MagicMock(spec=FastMCP)
+            super().__init__(mock_fastmcp)
             self.error_calls: list[str] = []
             self.warning_calls: list[str] = []
             self.info_calls: list[str] = []
             self.debug_calls: list[str] = []
         
-        async def error(self, message: str, extra: dict = None) -> None:
+        async def error(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
             self.error_calls.append(message)
         
-        async def warning(self, message: str, extra: dict = None) -> None:
+        async def warning(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
             self.warning_calls.append(message)
         
-        async def info(self, message: str, extra: dict = None) -> None:
+        async def info(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
             self.info_calls.append(message)
         
-        async def debug(self, message: str, extra: dict = None) -> None:
+        async def debug(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
             self.debug_calls.append(message)
         
         async def report_progress(self, progress: float, total: float = 100.0) -> None:

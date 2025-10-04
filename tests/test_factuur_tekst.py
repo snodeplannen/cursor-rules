@@ -5,17 +5,36 @@ Script om de factuurtekst "factuurn 6666" te verwerken met nieuwe v2.0 processor
 
 import asyncio
 import pytest
+from typing import Optional, Any, Mapping
+from unittest.mock import MagicMock
+
+from fastmcp import Context, FastMCP
 from mcp_invoice_processor.processors import get_registry
-from mcp_invoice_processor.processors.invoice import InvoiceProcessor
+from mcp_invoice_processor.processors.invoice.models import InvoiceData
 
 
-class MockContext:
-    """Mock context voor testing."""
-    async def info(self, msg, extra=None): print(f"INFO: {msg}")
-    async def debug(self, msg, extra=None): print(f"DEBUG: {msg}")
-    async def warning(self, msg, extra=None): print(f"WARN: {msg}")
-    async def error(self, msg, extra=None): print(f"ERROR: {msg}")
-    async def report_progress(self, progress, total=100): pass
+class MockContext(Context):
+    """Mock context voor testing die ECHT compatible is met FastMCP Context."""
+    
+    def __init__(self) -> None:
+        # Maak een mock FastMCP instance
+        mock_fastmcp = MagicMock(spec=FastMCP)
+        super().__init__(mock_fastmcp)
+    
+    async def info(self, message: str, logger_name: Optional[str] = None, extra: Optional[Mapping[str, Any]] = None) -> None:
+        print(f"INFO: {message}")
+    
+    async def debug(self, message: str, logger_name: Optional[str] = None, extra: Optional[Mapping[str, Any]] = None) -> None:
+        print(f"DEBUG: {message}")
+    
+    async def warning(self, message: str, logger_name: Optional[str] = None, extra: Optional[Mapping[str, Any]] = None) -> None:
+        print(f"WARN: {message}")
+    
+    async def error(self, message: str, logger_name: Optional[str] = None, extra: Optional[Mapping[str, Any]] = None) -> None:
+        print(f"ERROR: {message}")
+    
+    async def report_progress(self, progress: float, total: Optional[float] = None, message: Optional[str] = None) -> None:
+        pass
 
 
 @pytest.mark.asyncio
@@ -50,6 +69,8 @@ async def test_factuur_tekst():
             result = await processor.extract(test_text, ctx, method="hybrid")
             
             if result:
+                # Type narrowing voor mypy
+                assert isinstance(result, InvoiceData)
                 print("\n=== GEEXTRACHTE FACTUUR DATA ===")
                 print(f"Factuurnummer: {result.invoice_number}")
                 print(f"Factuur ID: {result.invoice_id}")
@@ -84,7 +105,7 @@ async def test_factuur_tekst():
                     print(f"⚠️ Issues: {', '.join(issues)}")
                 
                 print("\n=== SAMENVATTING ===")
-                print(f"✅ Factuur succesvol verwerkt!")
+                print("✅ Factuur succesvol verwerkt!")
                 print(f"📊 Totaal bedrag: €{result.total_amount}")
                 print(f"🏢 Klant: {result.customer_name}")
                 print(f"📦 Producten: {len(result.line_items)} regels")

@@ -8,40 +8,45 @@ import asyncio
 import sys
 import os
 import pytest
+from typing import List, Optional, Dict, Any
+from unittest.mock import MagicMock
 
+from fastmcp import Context, FastMCP
 from mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
 from mcp_invoice_processor.processors import get_registry
-from mcp_invoice_processor.processors.invoice import InvoiceProcessor
 
 # Voeg src directory toe aan Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 
-class MockContext:
-    """Mock context voor testing."""
+class MockContext(Context):
+    """Mock context voor testing die ECHT compatible is met FastMCP Context."""
     
     def __init__(self) -> None:
-        self.info_calls = []
-        self.error_calls = []
-        self.warning_calls = []
-        self.debug_calls = []
+        # Maak een mock FastMCP instance
+        mock_fastmcp = MagicMock(spec=FastMCP)
+        super().__init__(mock_fastmcp)
+        self.info_calls: List[str] = []
+        self.error_calls: List[str] = []
+        self.warning_calls: List[str] = []
+        self.debug_calls: List[str] = []
     
-    async def info(self, message: str, extra: dict = None) -> None:
+    async def info(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
         """Mock info methode."""
         self.info_calls.append(message)
         print(f"INFO: {message}")
     
-    async def error(self, message: str, extra: dict = None) -> None:
+    async def error(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
         """Mock error methode."""
         self.error_calls.append(message)
         print(f"ERROR: {message}")
     
-    async def warning(self, message: str, extra: dict = None) -> None:
+    async def warning(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
         """Mock warning methode."""
         self.warning_calls.append(message)
         print(f"WARNING: {message}")
     
-    async def debug(self, message: str, extra: dict = None) -> None:
+    async def debug(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
         """Mock debug methode."""
         self.debug_calls.append(message)
         print(f"DEBUG: {message}")
@@ -67,7 +72,6 @@ async def test_amazon_invoice() -> None:
     if not os.path.exists(pdf_file):
         print(f"❌ PDF bestand niet gevonden: {pdf_file}")
         pytest.skip(f"PDF bestand niet gevonden: {pdf_file}")
-        return
     
     try:
         # Stap 1: PDF inlezen
@@ -118,7 +122,7 @@ async def test_amazon_invoice() -> None:
                 
                 # Validatie
                 is_valid, completeness, issues = await processor.validate_extracted_data(result, ctx)
-                print(f"\n   Validatie:")
+                print("\n   Validatie:")
                 print(f"   - Valid: {is_valid}")
                 print(f"   - Completeness: {completeness:.1f}%")
                 if issues:
@@ -126,7 +130,7 @@ async def test_amazon_invoice() -> None:
                 
                 # Custom metrics
                 metrics = await processor.get_custom_metrics(result, ctx)
-                print(f"\n   Metrics:")
+                print("\n   Metrics:")
                 for key, value in metrics.items():
                     print(f"   - {key}: {value}")
                 
@@ -136,7 +140,7 @@ async def test_amazon_invoice() -> None:
             print("   ❌ Geen geschikte processor gevonden")
         
         # Context calls tonen
-        print(f"\n5. Context Calls:")
+        print("\n5. Context Calls:")
         print(f"   Info: {len(ctx.info_calls)}")
         print(f"   Debug: {len(ctx.debug_calls)}")
         print(f"   Warning: {len(ctx.warning_calls)}")

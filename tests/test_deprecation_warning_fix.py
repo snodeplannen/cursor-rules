@@ -103,6 +103,7 @@ def test_deprecation_warning_fix() -> bool:
         # Herstel stderr
         sys.stderr = original_stderr
         
+        assert True, "DeprecationWarning test completed successfully"
         return True
         
     except Exception as e:
@@ -112,7 +113,8 @@ def test_deprecation_warning_fix() -> bool:
         print(f"❌ DeprecationWarning test gefaald: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        
+        assert False, f"DeprecationWarning test failed: {e}"
 
 if __name__ == "__main__":
     try:

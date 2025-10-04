@@ -333,7 +333,8 @@ class CVProcessor(BaseDocumentProcessor):
         """Parse JSON met automatische reparatie van veelvoorkomende fouten."""
         
         try:
-            return json_module.loads(json_str)
+            parsed_data: Dict[str, Any] = json_module.loads(json_str)
+            return parsed_data
         except json_module.JSONDecodeError as e:
             logger.warning(f"JSON parsing fout: {e}, probeer reparatie...")
             
@@ -353,7 +354,8 @@ class CVProcessor(BaseDocumentProcessor):
             repaired_json = re.sub(r',\s*([}\]])', r'\1', repaired_json)
             
             try:
-                return json_module.loads(repaired_json)
+                repaired_parsed_data: Dict[str, Any] = json_module.loads(repaired_json)
+                return repaired_parsed_data
             except json_module.JSONDecodeError:
                 logger.error("JSON reparatie gefaald")
                 return None

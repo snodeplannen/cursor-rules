@@ -79,17 +79,17 @@ async def health_endpoint(request: Request) -> JSONResponse:
             def __init__(self):
                 self.messages = []
                 
-            async def info(self, message: str):
+            async def info(self, message: str) -> None:
                 self.messages.append(f"INFO: {message}")
                 logger.info(message)
                 
-            async def error(self, message: str):
+            async def error(self, message: str) -> None:
                 self.messages.append(f"ERROR: {message}")
                 logger.error(message)
         
         # Gebruik de gedeelde health_check tool
         ctx = SimpleContext()
-        health_result = await tools.health_check(ctx)
+        health_result = await tools.health_check(ctx)  # type: ignore[arg-type]
         
         if health_result.get("status") == "healthy":
             return JSONResponse(health_result)

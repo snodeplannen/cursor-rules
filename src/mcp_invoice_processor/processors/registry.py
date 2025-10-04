@@ -139,26 +139,25 @@ class ProcessorRegistry:
             return "unknown", 0.0, None
         
         # Zoek beste score
-        best_score = 0.0
-        best_processor = None
+        best_score: float = 0.0
+        best_processor: Optional[BaseDocumentProcessor] = None
         
-        for processor, score in zip(self._processors.values(), scores):
+        for processor, score_result in zip(self._processors.values(), scores):
             # Skip processors die een exception gaven
-            if isinstance(score, Exception):
+            if isinstance(score_result, Exception):
                 logger.error(
-                    f"Processor {processor.document_type} gaf fout: {score}",
-                    extra={"processor": processor.document_type}
+                    f"Processor {processor.document_type} gaf fout: {score_result}"
                 )
                 continue
             
+            # Type narrowing: score_result is nu float
+            if isinstance(score_result, float):
+                score = score_result
+            else:
+                continue  # Skip exceptions
+            
             if ctx:
-                await ctx.debug(
-                    f"{processor.display_name}: {score:.1f}% confidence",
-                    extra={
-                        "processor": processor.document_type,
-                        "confidence": score
-                    }
-                )
+                await ctx.debug(f"{processor.display_name}: {score:.1f}% confidence")
             
             if score > best_score:
                 best_score = score
@@ -205,7 +204,7 @@ class ProcessorRegistry:
         Returns:
             Dict: Aggregated statistics van alle processors
         """
-        all_stats = {
+        all_stats: Dict[str, Any] = {
             "total_processors": len(self._processors),
             "processor_types": self.get_processor_types(),
             "processors": {}
@@ -220,9 +219,9 @@ class ProcessorRegistry:
             processor_stats = processor.get_statistics()
             all_stats["processors"][doc_type] = processor_stats
             
-            total_processed += processor_stats["total_processed"]
-            total_successful += processor_stats["total_successful"]
-            total_failed += processor_stats["total_failed"]
+            total_processed += int(processor_stats.get("total_processed", 0))
+            total_successful += int(processor_stats.get("total_successful", 0))
+            total_failed += int(processor_stats.get("total_failed", 0))
         
         # Bereken globale statistieken
         all_stats["global"] = {
@@ -312,10 +311,7 @@ def register_processor_resources(mcp: FastMCP, processor: BaseDocumentProcessor)
         name=f"{display_name} Statistics",
         description=f"Processor statistics voor {display_name} documenten",
         mime_type="application/json",
-        annotations=Annotations(
-            readOnlyHint=True,
-            idempotentHint=True
-        ),
+        annotations=Annotations(),
         meta={
             "processor_type": doc_type,
             "resource_type": "statistics"
@@ -330,10 +326,7 @@ def register_processor_resources(mcp: FastMCP, processor: BaseDocumentProcessor)
         name=f"{display_name} Schema",
         description=f"JSON schema voor {display_name} data extractie",
         mime_type="application/json",
-        annotations=Annotations(
-            readOnlyHint=True,
-            idempotentHint=True
-        ),
+        annotations=Annotations(),
         meta={
             "processor_type": doc_type,
             "resource_type": "schema"
@@ -348,10 +341,7 @@ def register_processor_resources(mcp: FastMCP, processor: BaseDocumentProcessor)
         name=f"{display_name} Keywords",
         description=f"Classificatie keywords voor {display_name} detectie",
         mime_type="application/json",
-        annotations=Annotations(
-            readOnlyHint=True,
-            idempotentHint=True
-        ),
+        annotations=Annotations(),
         meta={
             "processor_type": doc_type,
             "resource_type": "keywords"
@@ -393,10 +383,7 @@ def register_all_processor_resources(mcp: FastMCP) -> None:
         name="All Processors Statistics",
         description="Gecombineerde statistics van alle document processors",
         mime_type="application/json",
-        annotations=Annotations(
-            readOnlyHint=True,
-            idempotentHint=True
-        ),
+        annotations=Annotations(),
         meta={
             "resource_type": "global_statistics"
         }

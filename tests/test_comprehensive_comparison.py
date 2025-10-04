@@ -6,7 +6,9 @@ Vergelijking van JSON schema vs prompt parsing mode met v2.0 processors.
 import asyncio
 import logging
 import pytest
+from unittest.mock import MagicMock
 
+from fastmcp import Context, FastMCP
 from mcp_invoice_processor.processors.invoice import InvoiceProcessor
 
 logging.basicConfig(level=logging.INFO)
@@ -48,7 +50,12 @@ Opmerkingen: Bedankt voor uw opdracht!
 """
 
 
-class MockContext:
+class MockContext(Context):
+    def __init__(self) -> None:
+        # Maak een mock FastMCP instance
+        mock_fastmcp = MagicMock(spec=FastMCP)
+        super().__init__(mock_fastmcp)
+    
     async def info(self, msg, extra=None): logger.info(msg)
     async def debug(self, msg, extra=None): logger.debug(msg)
     async def warning(self, msg, extra=None): logger.warning(msg)
@@ -82,18 +89,18 @@ async def test_json_vs_prompt_comparison():
     if result_json and result_prompt:
         # Validatie
         _, json_complete, _ = await processor.validate_extracted_data(result_json, ctx)
-        _, prompt_complete, _ = await processor.validate_extracted_data(result_prompt, ctx)
+        _, prompt_complete, _ = await processor.validate_extracted_data(result_prompt, ctx) 
         
-        print(f"\n📊 RESULTATEN:")
+        print("\n📊 RESULTATEN:")
         print(f"  JSON Schema   - {json_complete:.1f}% compleet")
         print(f"  Prompt Parsing - {prompt_complete:.1f}% compleet")
         
         if json_complete > prompt_complete:
-            print(f"  🏆 WINNAAR: JSON Schema")
+            print("  🏆 WINNAAR: JSON Schema")
         elif prompt_complete > json_complete:
-            print(f"  🏆 WINNAAR: Prompt Parsing")
+            print("  🏆 WINNAAR: Prompt Parsing")
         else:
-            print(f"  🤝 GELIJK")
+            print("  🤝 GELIJK")
     
     print()
 

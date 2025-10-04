@@ -349,7 +349,8 @@ class MetricsCollector:
         try:
             if METRICS_FILE.exists():
                 with open(METRICS_FILE, 'r') as f:
-                    return json.load(f)
+                    parsed_data: Dict[str, Any] = json.load(f)
+                    return parsed_data
             return None
         except Exception as e:
             logger.error(f"Fout bij laden metrics uit bestand: {e}")

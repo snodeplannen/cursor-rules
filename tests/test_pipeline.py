@@ -174,6 +174,10 @@ class TestMerging:
             vat_amount=21.0,
             total_amount=121.0,
             currency="EUR",
+            payment_terms="30 days",
+            payment_method="Bank transfer",
+            notes="Test invoice",
+            reference="REF-001",
             line_items=[
                 InvoiceLineItem(
                     description="Product 1",
@@ -181,7 +185,8 @@ class TestMerging:
                     unit_price=100.0,
                     line_total=100.0,
                     vat_rate=21.0,
-                    vat_amount=21.0
+                    vat_amount=21.0,
+                    unit="pcs"
                 )
             ]
         )
@@ -201,6 +206,10 @@ class TestMerging:
             vat_amount=10.5,
             total_amount=60.5,
             currency="EUR",
+            payment_terms="30 days",
+            payment_method="Bank transfer",
+            notes="Test invoice",
+            reference="REF-001",
             line_items=[
                 InvoiceLineItem(
                     description="Product 2",
@@ -208,7 +217,8 @@ class TestMerging:
                     unit_price=50.0,
                     line_total=50.0,
                     vat_rate=21.0,
-                    vat_amount=10.5
+                    vat_amount=10.5,
+                    unit="pcs"
                 )
             ]
         )
@@ -248,6 +258,10 @@ class TestValidation:
             vat_amount=21.0,
             total_amount=121.0,
             currency="EUR",
+            payment_terms="30 days",
+            payment_method="Bank transfer",
+            notes="Test invoice",
+            reference="REF-001",
             line_items=[
                 InvoiceLineItem(
                     description="Product",
@@ -255,7 +269,8 @@ class TestValidation:
                     unit_price=100.0,
                     line_total=100.0,
                     vat_rate=21.0,
-                    vat_amount=21.0
+                    vat_amount=21.0,
+                    unit="pcs"
                 )
             ]
         )
