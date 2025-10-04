@@ -5,13 +5,22 @@ Integreert MCP functionaliteit met HTTP custom routes voor monitoring.
 """
 
 import warnings
+import sys
+from pathlib import Path
+
+# Voeg src directory toe aan Python path voor standalone execution
+if __name__ == "__main__":
+    src_path = Path(__file__).parent.parent
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 
 from fastmcp import FastMCP
-from .monitoring.metrics import metrics_collector
-from .logging_config import setup_logging
-from . import tools
+from mcp_invoice_processor.monitoring.metrics import metrics_collector
+from mcp_invoice_processor.logging_config import setup_logging
+from mcp_invoice_processor import tools
 
 # Onderdruk warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -74,22 +83,8 @@ async def root(request: Request) -> JSONResponse:
 async def health_endpoint(request: Request) -> JSONResponse:
     """HTTP Health check endpoint."""
     try:
-        # Maak een eenvoudige context implementatie voor de health check tool
-        class SimpleContext:
-            def __init__(self):
-                self.messages = []
-                
-            async def info(self, message: str) -> None:
-                self.messages.append(f"INFO: {message}")
-                logger.info(message)
-                
-            async def error(self, message: str) -> None:
-                self.messages.append(f"ERROR: {message}")
-                logger.error(message)
-        
         # Gebruik de gedeelde health_check tool
-        ctx = SimpleContext()
-        health_result = await tools.health_check(ctx)  # type: ignore[arg-type]
+        health_result = await tools.health_check()
         
         if health_result.get("status") == "healthy":
             return JSONResponse(health_result)
@@ -126,36 +121,36 @@ async def prometheus_metrics_endpoint(request: Request) -> PlainTextResponse:
         logger.error(f"Failed to get Prometheus metrics: {e}")
         return PlainTextResponse(f"# ERROR: Failed to get metrics: {str(e)}")
 
-def run_http_server(host: str = "0.0.0.0", port: int = 8080) -> None:
+def run_http_server(host: str = "127.0.0.1", port: int = 8000) -> None:
     """Start de FastMCP HTTP server."""
     logger.info(f"🚀 Starting FastMCP HTTP server on {host}:{port}")
     logger.info("📊 Server biedt zowel MCP tools als HTTP monitoring endpoints")
     logger.info("🔧 Beschikbare MCP tools: process_document_text, process_document_file, classify_document_type, get_metrics, health_check")
     logger.info("🌐 HTTP endpoints: /, /health, /metrics, /metrics/prometheus, /mcp")
+    logger.info(f"🔗 MCP endpoint: http://{host}:{port}/mcp/")
     
     try:
-        # Start FastMCP server met HTTP transport
+        # Start FastMCP server met HTTP transport (volgens FastMCP docs)
         mcp.run(
             transport="http",
             host=host,
-            port=port,
-            log_level="info"
+            port=port
         )
     except Exception as e:
         logger.error(f"Fout bij starten FastMCP HTTP server: {e}", exc_info=True)
         raise
 
-async def run_http_server_async(host: str = "0.0.0.0", port: int = 8080) -> None:
+async def run_http_server_async(host: str = "127.0.0.1", port: int = 8000) -> None:
     """Start de FastMCP HTTP server asynchroon."""
     logger.info(f"🚀 Starting FastMCP HTTP server (async) on {host}:{port}")
+    logger.info(f"🔗 MCP endpoint: http://{host}:{port}/mcp/")
     
     try:
-        # Start FastMCP server asynchroon met HTTP transport
+        # Start FastMCP server asynchroon met HTTP transport (volgens FastMCP docs)
         await mcp.run_async(
             transport="http",
             host=host,
-            port=port,
-            log_level="info"
+            port=port
         )
     except Exception as e:
         logger.error(f"Fout bij starten FastMCP HTTP server (async): {e}", exc_info=True)
@@ -164,9 +159,9 @@ async def run_http_server_async(host: str = "0.0.0.0", port: int = 8080) -> None
 if __name__ == "__main__":
     import sys
     
-    # Parse command line arguments
-    host = "0.0.0.0"
-    port = 8080
+    # Parse command line arguments (volgens FastMCP docs: default 127.0.0.1:8000)
+    host = "127.0.0.1"
+    port = 8000
     
     if len(sys.argv) > 1:
         host = sys.argv[1]
