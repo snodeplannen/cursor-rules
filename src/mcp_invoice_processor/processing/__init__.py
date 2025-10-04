@@ -1,30 +1,40 @@
 """
-Processing module voor documentverwerking en data-extractie.
+Processing utilities module.
+
+Dit module bevat herbruikbare utilities voor document processing:
+- Text chunking (chunking.py)
+- PDF text extraction (text_extractor.py)
+- Legacy model re-exports (models.py) - DEPRECATED
+
+Voor document processing gebruik de nieuwe processors module:
+    from processors import InvoiceProcessor, CVProcessor, get_registry
 """
 
-# Export alle belangrijke types en functies
+# Herbruikbare utilities
+from .chunking import chunk_text, ChunkingMethod
+from .text_extractor import extract_text_from_pdf
+
+# Legacy exports voor backward compatibility - DEPRECATED
 from .models import (
     DocumentType,
     CVData,
+    WorkExperience,
+    Education,
     InvoiceData,
     InvoiceLineItem,
-    ProcessingResult,
-    WorkExperience,
-    Education
 )
 
-from .classification import classify_document
-from .pipeline import extract_structured_data, ExtractionMethod
-
 __all__ = [
+    # Utilities
+    "chunk_text",
+    "ChunkingMethod",
+    "extract_text_from_pdf",
+    
+    # Legacy exports - DEPRECATED
     "DocumentType",
     "CVData",
-    "InvoiceData", 
-    "InvoiceLineItem",
-    "ProcessingResult",
     "WorkExperience",
     "Education",
-    "classify_document",
-    "extract_structured_data",
-    "ExtractionMethod"
+    "InvoiceData",
+    "InvoiceLineItem",
 ]
