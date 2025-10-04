@@ -292,19 +292,12 @@ def mock_context() -> Any:
 def register_processors():
     """Auto-register processors voor alle tests."""
     try:
-        from mcp_invoice_processor.processors import register_processor, get_registry
-        from mcp_invoice_processor.processors.invoice import InvoiceProcessor
-        from mcp_invoice_processor.processors.cv import CVProcessor
-        
-        registry = get_registry()
-        
-        # Check of al geregistreerd
-        if not registry.get_processor("invoice"):
-            register_processor(InvoiceProcessor())
-        if not registry.get_processor("cv"):
-            register_processor(CVProcessor())
+        # Import tools.py which handles processor registration
+        # This ensures processors are registered via _init_processors()
+        import mcp_invoice_processor.tools
         
         yield
-    except ImportError:
+    except ImportError as e:
         # Processors module niet beschikbaar
+        print(f"Warning: Could not import processors: {e}")
         yield
