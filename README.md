@@ -120,7 +120,125 @@ curl http://localhost:11434/api/tags
 
 ---
 
-## 🚀 Gebruik
+## 🚀 Quick Start Scripts
+
+Na installatie kun je de servers eenvoudig starten via de geïnstalleerde scripts:
+
+### MCP Servers
+
+```bash
+# STDIO transport (voor Cursor Desktop integratie)
+uv run mcp-server
+
+# HTTP transport (voor web applicaties)
+uv run mcp-http-server
+
+# HTTP transport met custom monitoring routes
+uv run mcp-http-server-async
+```
+
+### MCP Client Demos
+
+```bash
+# Volledige client demo (alle transports)
+uv run mcp-client-demo
+
+# Eenvoudige HTTP client demo
+uv run mcp-http-client
+```
+
+### Development Scripts
+
+```bash
+# Voer alle tests uit
+uv run test-mcp
+```
+
+### Custom Configuratie
+
+```bash
+# HTTP server op custom host/port
+uv run python src/mcp_invoice_processor/fastmcp_http_server.py 0.0.0.0 9000
+
+# HTTP server met monitoring routes
+uv run python src/mcp_invoice_processor/http_server.py 127.0.0.1 8080
+```
+
+### Server Endpoints (HTTP Mode)
+
+- **MCP Tools**: `http://127.0.0.1:8000/mcp/`
+- **Health Check**: `http://127.0.0.1:8000/health`
+- **Metrics**: `http://127.0.0.1:8000/metrics`
+- **Prometheus Metrics**: `http://127.0.0.1:8000/metrics/prometheus`
+
+---
+
+## 🧪 MCP Client Demos
+
+Het project bevat uitgebreide client demos die laten zien hoe je de MCP server kunt gebruiken:
+
+### Volledige Client Demo
+
+De `example_mcp_client.py` demonstreert alle transport methodes:
+
+```bash
+# Start de volledige demo
+uv run mcp-client-demo
+```
+
+**Deze demo test:**
+- ✅ **Direct Tools**: Directe aanroep van tools zonder MCP protocol
+- ✅ **File Processing**: Verwerking van tekst bestanden
+- ✅ **HTTP Transport**: Client-server communicatie via HTTP
+- ✅ **STDIO Transport**: Client-server communicatie via stdin/stdout
+- ✅ **Health Checks**: Server status monitoring
+- ✅ **Metrics**: Performance metrics ophalen
+
+### Eenvoudige HTTP Client
+
+De `simple_http_client.py` toont een minimale HTTP client:
+
+```bash
+# Start de eenvoudige HTTP demo
+uv run mcp-http-client
+```
+
+**Deze demo test:**
+- ✅ **HTTP Connection**: Verbinding met HTTP server
+- ✅ **Health Check**: Server status controleren
+- ✅ **Document Processing**: Factuur verwerking
+- ✅ **Metrics**: Server statistieken
+
+### Client Voorbeelden
+
+**HTTP Client Code:**
+```python
+from fastmcp import Client
+
+async def test_client():
+    async with Client("http://127.0.0.1:8000/mcp") as client:
+        # Health check
+        health = await client.call_tool("health_check", {})
+        
+        # Document processing
+        result = await client.call_tool("process_document_text", {
+            "text": "FACTUUR\nFactuurnummer: INV-001\nTotaal: €100",
+            "extraction_method": "json_schema"
+        })
+```
+
+**Direct Tools Code:**
+```python
+from mcp_invoice_processor import tools
+
+async def test_direct():
+    # Direct tool usage
+    health = await tools.health_check()
+    result = await tools.process_document_text(text, "hybrid")
+    metrics = await tools.get_metrics()
+```
+
+---
 
 ### Via MCP Client (Cursor)
 
@@ -130,14 +248,26 @@ Configureer in Cursor settings (`mcp_config_cursor.json`):
 {
   "mcpServers": {
     "document-processor": {
-      "command": "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
+      "command": "uv",
       "args": [
-        "--directory",
-        "C:\\py_cursor-rules\\cursor_ratsenbergertest\\",
         "run",
-        "python",
-        "-m",
-        "mcp_invoice_processor"
+        "mcp-server"
+      ],
+      "cwd": "C:\\py_cursor-rules\\cursor_ratsenbergertest\\"
+    }
+  }
+}
+```
+
+**Of gebruik de nieuwe script:**
+```json
+{
+  "mcpServers": {
+    "document-processor": {
+      "command": "uv",
+      "args": [
+        "run",
+        "mcp-server"
       ]
     }
   }

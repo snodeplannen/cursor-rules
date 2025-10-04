@@ -4,14 +4,14 @@
 
 Moderne modulaire document processor met AI-powered extractie via FastMCP en Ollama.
 
-**Versie**: 2.0.0  
+**Versie**: 1.0.0  
 **Architecture**: Modular Processor System  
 **Transport**: STDIO (Cursor) / HTTP (API)  
 **AI Model**: Ollama LLM (default: llama3.2)
 
 ---
 
-## 🎯 Nieuwe Processor Architecture
+## 🎯 Processor Architecture
 
 ### Modulaire Processors
 
@@ -42,7 +42,7 @@ Centraal beheer met:
 
 Verwerk document tekst met automatische type detectie.
 
-**Nieuwe Features v2.0:**
+**Nieuwe Features v1.0:**
 - ✅ Async parallel classificatie
 - ✅ Realtime progress updates
 - ✅ Confidence scores
@@ -132,7 +132,7 @@ result = await process_document_file(
 
 Classificeer document type met confidence scores (v2.0 feature).
 
-**Nieuwe v2.0 Features:**
+**Nieuwe v1.0 Features:**
 - ✅ Parallel classification over alle processors
 - ✅ Numeric confidence scores (0-100)
 - ✅ Confidence levels (high/medium/low)
@@ -189,7 +189,7 @@ result = await classify_document_type(
 
 Comprehensive metrics van alle processors en system.
 
-**Nieuwe v2.0 Features:**
+**Nieuwe v1.0 Features:**
 - ✅ Per-processor statistics
 - ✅ Global aggregated statistics
 - ✅ Success rates per processor
@@ -267,7 +267,7 @@ print(f"Invoice processed: {metrics['processors']['processors']['invoice']['tota
 
 System health check met processor info.
 
-**Nieuwe v2.0 Features:**
+**Nieuwe v1.0 Features:**
 - ✅ Processor count en types
 - ✅ Per-processor statistics
 - ✅ Ollama model in use
@@ -307,7 +307,7 @@ if health['status'] == 'healthy':
 
 ---
 
-## 📊 MCP Resources (v2.0 Nieuw!)
+## 📊 MCP Resources (v1.0 Nieuw!)
 
 Processors exposen automatisch resources via MCP protocol.
 
@@ -415,7 +415,7 @@ result = await process_document_text(text, ctx, "prompt_parsing")
 Sequential: Invoice(0.1ms) + CV(0.1ms) = 0.2ms
 ```
 
-**Nieuwe Architecture** (v2.0):
+**Nieuwe Architecture** (v1.0):
 ```
 Parallel: max(Invoice, CV) = 0.1ms
 Speedup: 2× (schaalt met processors!)
@@ -534,7 +534,7 @@ print(f"Total docs: {global_stats['global']['total_documents_processed']}")
 
 ---
 
-## 🌟 v2.0 Nieuwe Features
+## 🌟 v1.0 Features
 
 ### 1. Parallel Classification
 Alle processors classificeren tegelijkertijd → sneller!
@@ -643,7 +643,7 @@ register_processor(ReceiptProcessor())
 
 ---
 
-## 🎊 Migration van v1.0 → v2.0
+## 🎊 Migration van v0.x → v1.0
 
 ### Breaking Changes
 
@@ -682,4 +682,4 @@ result = await processor.extract(text, ctx, "hybrid")
 
 ---
 
-**Document Processor v2.0** - Modular, Async, FastMCP Compliant ✅
+**Document Processor v1.0** - Modular, Async, FastMCP Compliant ✅

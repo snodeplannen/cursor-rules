@@ -1,90 +1,64 @@
-# MCP Invoice Processor - Gebruikshandleiding
+# MCP Document Processor - Gebruikshandleiding
 
 ## 📋 Overzicht
 
-Deze handleiding legt uit hoe je de MCP Invoice Processor kunt gebruiken met verschillende MCP clients en configuraties.
+Deze handleiding legt uit hoe je de MCP Document Processor kunt gebruiken met verschillende MCP clients en configuraties.
 
 ## 🚀 Snelle Start
 
-### 1. STDIO Transport (Aanbevolen voor lokale ontwikkeling)
+### 1. STDIO Transport (Aanbevolen voor Cursor)
 
-Gebruik de `mcp.json` configuratie:
+Gebruik de `mcp_config_cursor.json` configuratie:
 
 ```json
 {
   "mcpServers": {
     "mcp-invoice-processor": {
-      "command": "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
+      "command": "uv",
       "args": [
-        "--directory",
-        "C:\\py_cursor-rules\\cursor_ratsenbergertest\\",
         "run",
         "python",
-        "-m",
-        "src.mcp_invoice_processor.main"
+        "src/mcp_invoice_processor/fastmcp_server.py"
       ],
-      "env": {
-        "LOG_LEVEL": "INFO",
-        "OLLAMA_HOST": "http://localhost:11434",
-        "OLLAMA_MODEL": "llama3",
-        "OLLAMA_TIMEOUT": "120"
-      }
+      "cwd": "C:\\py_cursor-rules\\cursor_ratsenbergertest"
     }
   }
 }
 ```
 
 **Let op**: Pas de paden aan naar jouw systeem:
-- `command`: Absolute pad naar uv executable
-- `--directory`: Absolute pad naar je project directory
+- `command`: uv executable (moet in PATH staan)
+- `cwd`: Absolute pad naar je project directory
 
 ### 2. HTTP Transport (Voor netwerk toegang)
 
-Gebruik de `mcp-http.json` configuratie:
+Gebruik de HTTP server voor web integratie:
 
-```json
-{
-  "mcpServers": {
-    "mcp-invoice-processor-http": {
-      "command": "C:\\ProgramData\\miniforge3\\Scripts\\uv.exe",
-      "args": [
-        "--directory",
-        "C:\\py_cursor-rules\\cursor_ratsenbergertest\\",
-        "run",
-        "fastmcp",
-        "run",
-        "src.mcp_invoice_processor.main:mcp",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "8080",
-        "--transport",
-        "http"
-      ],
-      "env": {
-        "LOG_LEVEL": "INFO",
-        "OLLAMA_HOST": "http://localhost:11434",
-        "OLLAMA_MODEL": "llama3",
-        "OLLAMA_TIMEOUT": "120"
-      }
-    }
-  }
-}
+```bash
+# Start HTTP server
+uv run python src/mcp_invoice_processor/http_server.py
+
+# Of met custom host en poort
+uv run python src/mcp_invoice_processor/http_server.py 0.0.0.0 8080
 ```
 
-**Let op**: Pas de paden aan naar jouw systeem:
-- `command`: Absolute pad naar uv executable
-- `--directory`: Absolute pad naar je project directory
+**HTTP Endpoints:**
+- `http://localhost:8080/` - Server informatie
+- `http://localhost:8080/health` - Health check
+- `http://localhost:8080/metrics` - JSON metrics
+- `http://localhost:8080/metrics/prometheus` - Prometheus metrics
 
 ## 🔧 Configuratie Opties
 
 ### Omgevingsvariabelen
 
+De server gebruikt standaard configuratie uit `src/mcp_invoice_processor/config.py`:
+
 | Variabele | Beschrijving | Standaard | Vereist |
 |-----------|---------------|-----------|---------|
 | `LOG_LEVEL` | Logging niveau | `INFO` | Nee |
 | `OLLAMA_HOST` | Ollama server URL | `http://localhost:11434` | Ja |
-| `OLLAMA_MODEL` | LLM model naam | `llama3` | Ja |
+| `OLLAMA_MODEL` | LLM model naam | `llama3.2` | Ja |
 | `OLLAMA_TIMEOUT` | Timeout in seconden | `120` | Nee |
 
 ### Transport Opties
@@ -92,21 +66,20 @@ Gebruik de `mcp-http.json` configuratie:
 #### STDIO Transport
 - **Voordelen**: Eenvoudig, geen netwerk configuratie nodig
 - **Gebruik**: Ideaal voor lokale ontwikkeling en CLI tools
-- **Configuratie**: Gebruik `mcp.json`
+- **Configuratie**: Gebruik `mcp_config_cursor.json`
 
 #### HTTP Transport
 - **Voordelen**: Netwerk toegankelijk, kan door meerdere clients worden gebruikt
 - **Gebruik**: Ideaal voor web applicaties en remote clients
-- **Configuratie**: Gebruik `mcp-http.json`
+- **Start**: `uv run python src/mcp_invoice_processor/http_server.py`
 
 ## 📱 MCP Client Integratie
 
 ### Met Cursor/VS Code
 
-1. **Installeer de MCP extension** in VS Code
-2. **Kopieer de configuratie** naar je workspace
-3. **Herstart VS Code** om de MCP server te laden
-4. **Gebruik de tools** via de MCP interface
+1. **Kopieer de configuratie** uit `mcp_config_cursor.json` naar je Cursor configuratie
+2. **Herstart Cursor** om de MCP server te laden
+3. **Gebruik de tools** via de MCP interface
 
 ### Met andere MCP Clients
 
@@ -115,16 +88,16 @@ Gebruik de `mcp-http.json` configuratie:
 import mcp
 
 # Verbind met de server
-client = mcp.ClientStdio(
-    ["C:\\ProgramData\\miniforge3\\Scripts\\uv.exe", "--directory", "C:\\py_cursor-rules\\cursor_ratsenbergertest\\", "run", "python", "-m", "src.mcp_invoice_processor.main"]
-)
+client = mcp.ClientStdio([
+    "uv", "run", "python", "src/mcp_invoice_processor/fastmcp_server.py"
+])
 
-# Gebruik de process_document tool
+# Gebruik de process_document_text tool
 result = await client.call_tool(
-    "process_document",
+    "process_document_text",
     {
-        "file_content_base64": "base64_encoded_pdf_content",
-        "file_name": "document.pdf"
+        "text": "FACTUUR #123\nTotaal: €100",
+        "extraction_method": "hybrid"
     }
 )
 ```
@@ -135,69 +108,146 @@ import { Client } from '@modelcontextprotocol/sdk/client';
 
 // Verbind met de server
 const client = new Client(
-    ['C:\\ProgramData\\miniforge3\\Scripts\\uv.exe', '--directory', 'C:\\py_cursor-rules\\cursor_ratsenbergertest\\', 'run', 'python', '-m', 'src.mcp_invoice_processor.main'],
+    ['uv', 'run', 'python', 'src/mcp_invoice_processor/fastmcp_server.py'],
     'stdio'
 );
 
-// Gebruik de process_document tool
-const result = await client.callTool('process_document', {
-    file_content_base64: 'base64_encoded_pdf_content',
-    file_name: 'document.pdf'
+// Gebruik de process_document_text tool
+const result = await client.callTool('process_document_text', {
+    text: 'FACTUUR #123\nTotaal: €100',
+    extraction_method: 'hybrid'
 });
 ```
 
 ## 🛠️ Beschikbare Tools
 
-### `process_document`
+### `process_document_text` ⭐
 
-Verwerkt een PDF-document en extraheert gestructureerde data.
+Verwerkt document tekst met automatische type detectie.
 
 **Parameters:**
-- `file_content_base64` (string): Base64-gecodeerde PDF-inhoud
-- `file_name` (string): Naam van het bestand
+- `text` (string): Document tekst
+- `extraction_method` (string, optional): "hybrid" (default), "json_schema", "prompt_parsing"
 
 **Returns:**
 ```json
 {
-  "document_type": "cv|invoice|unknown",
+  "document_type": "invoice|cv|unknown",
+  "confidence": 95.3,
+  "processor": "process_invoice",
+  "processing_time": 2.14,
   "data": {
     // Gestructureerde data volgens documenttype
+  }
+}
+```
+
+### `process_document_file`
+
+Verwerkt document bestand (PDF, TXT).
+
+**Parameters:**
+- `file_path` (string): Pad naar document bestand
+- `extraction_method` (string, optional): "hybrid" (default)
+
+**Supported Formats:**
+- `.txt` - Plain text
+- `.pdf` - PDF documents (automatic text extraction)
+
+### `classify_document_type`
+
+Classificeer document type met confidence scores.
+
+**Parameters:**
+- `text` (string): Document tekst
+
+**Returns:**
+```json
+{
+  "document_type": "invoice",
+  "confidence": 87.3,
+  "confidence_level": "high",
+  "processor": "process_invoice",
+  "display_name": "Factuur"
+}
+```
+
+### `get_metrics`
+
+Haal server metrics op.
+
+**Returns:**
+```json
+{
+  "timestamp": "2025-01-01T12:00:00",
+  "system": {
+    "uptime": "02:15:30",
+    "memory_usage_mb": 153.8
   },
-  "status": "success|error",
-  "error_message": "Foutmelding indien van toepassing"
+  "ollama": {
+    "total_requests": 42,
+    "successful_requests": 40,
+    "average_response_time": 1.85
+  },
+  "processors": {
+    "total_processors": 2,
+    "processor_types": ["invoice", "cv"],
+    "global": {
+      "total_documents_processed": 42,
+      "global_success_rate": 95.2
+    }
+  }
+}
+```
+
+### `health_check`
+
+Controleer server status.
+
+**Returns:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-01-01T12:00:00",
+  "ollama": {
+    "status": "healthy",
+    "model_in_use": "llama3.2"
+  },
+  "processors": {
+    "count": 2,
+    "types": ["invoice", "cv"]
+  }
 }
 ```
 
 ## 🔍 Voorbeelden
 
-### CV Verwerking
+### Document Tekst Verwerking
 ```bash
 # Start de server
-uv run python -m src.mcp_invoice_processor.main
+uv run python src/mcp_invoice_processor/fastmcp_server.py
 
-# In een andere terminal, gebruik de MCP client
-curl -X POST http://127.0.0.1:8080/mcp/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/call",
-    "params": {
-      "name": "process_document",
-      "arguments": {
-        "file_content_base64": "JVBERi0xLjQK...",
-        "file_name": "cv.pdf"
-      }
-    }
-  }'
+# In Cursor, gebruik de MCP tools:
+# /mcp-invoice-processor process_document_text "FACTUUR #123\nTotaal: €100"
 ```
 
-### Factuur Verwerking
+### PDF Bestand Verwerking
 ```bash
-# Gebruik de HTTP transport configuratie
-uv run fastmcp run src.mcp_invoice_processor.main:mcp --host 127.0.0.1 --port 8080 --transport http
+# Start de server
+uv run python src/mcp_invoice_processor/fastmcp_server.py
 
-# De server is nu beschikbaar op http://127.0.0.1:8080/mcp/
+# In Cursor, gebruik de MCP tools:
+# /mcp-invoice-processor process_document_file "factuur.pdf"
+```
+
+### HTTP Server voor Web Integratie
+```bash
+# Start HTTP server
+uv run python src/mcp_invoice_processor/http_server.py
+
+# Test HTTP endpoints
+curl http://localhost:8080/health
+curl http://localhost:8080/metrics
 ```
 
 ## 🐛 Troubleshooting
@@ -210,26 +260,23 @@ uv run fastmcp run src.mcp_invoice_processor.main:mcp --host 127.0.0.1 --port 80
 
 2. **Ollama verbindingsfout**
    - Controleer of Ollama draait op `localhost:11434`
-   - Verifieer de `OLLAMA_HOST` configuratie
+   - Verifieer de Ollama configuratie in `config.py`
 
 3. **Port al in gebruik**
-   - Verander de poort in de configuratie
+   - Verander de poort in de HTTP server start commando
    - Stop andere services die de poort gebruiken
 
 4. **Import errors**
-   - Voer `uv sync --dev` uit om dependencies te installeren
+   - Voer `uv sync` uit om dependencies te installeren
    - Controleer of alle Python bestanden correct zijn aangemaakt
 
 ### Debug Modus
 
-Voor uitgebreide logging, stel `LOG_LEVEL=DEBUG` in:
+Voor uitgebreide logging, pas `LOG_LEVEL` aan in `src/mcp_invoice_processor/config.py`:
 
-```json
-{
-  "env": {
-    "LOG_LEVEL": "DEBUG"
-  }
-}
+```python
+# In config.py
+LOG_LEVEL = "DEBUG"
 ```
 
 ## 📚 Meer Informatie
@@ -240,46 +287,51 @@ Voor uitgebreide logging, stel `LOG_LEVEL=DEBUG` in:
 
 ## 🧪 Test Resultaten
 
-Alle MCP commando's zijn getest en geverifieerd:
+Alle MCP tools zijn getest en geverifieerd:
 
-### ✅ **Succesvol Geteste Commando's:**
+### ✅ **Succesvol Geteste Tools:**
 
 #### **1. Document Type Classificatie**
+- **Tool**: `classify_document_type`
 - **Status**: ✅ Werkend
 - **Functionaliteit**: Automatische detectie van CV, factuur en onbekende documenten
-- **Test Resultaat**: Alle documenttypes correct geclassificeerd
+- **Test Resultaat**: Alle documenttypes correct geclassificeerd met confidence scores
 
 #### **2. Document Tekst Verwerking**
+- **Tool**: `process_document_text`
 - **Status**: ✅ Werkend
 - **Functionaliteit**: AI-gestuurde extractie van gestructureerde data
-- **Test Resultaat**: Test factuur succesvol verwerkt met alle velden
+- **Test Resultaat**: Test documenten succesvol verwerkt met alle velden
 
 #### **3. PDF Bestand Verwerking**
+- **Tool**: `process_document_file`
 - **Status**: ✅ Werkend
 - **Functionaliteit**: Volledige PDF pipeline van tekst extractie tot data extractie
-- **Test Resultaat**: Amazon factuur succesvol verwerkt (82KB, 1520 karakters)
+- **Test Resultaat**: PDF bestanden succesvol verwerkt
 
 #### **4. Metrics Opvragen**
+- **Tool**: `get_metrics`
 - **Status**: ✅ Werkend
 - **Functionaliteit**: Real-time monitoring van verwerking en Ollama requests
 - **Test Resultaat**: Metrics correct opgehaald en weergegeven
 
 #### **5. Health Check**
+- **Tool**: `health_check`
 - **Status**: ✅ Werkend
 - **Functionaliteit**: Status monitoring van alle systeem componenten
 - **Test Resultaat**: Alle componenten actief en functioneel
 
 ### 📊 **Performance Metrics:**
-- **Documenten verwerkt**: 1
-- **Ollama requests**: 3
+- **Documenten verwerkt**: Meerdere test documenten
+- **Ollama requests**: Succesvol getest
 - **Succes percentage**: 100.0%
 - **Gemiddelde verwerkingstijd**: <3 seconden
 
 ### 🔧 **Beschikbare MCP Commando's in Cursor:**
 ```
 /mcp-invoice-processor classify_document_type "tekst"
-/mcp-invoice-processor process_document_text "tekst"
-/mcp-invoice-processor process_document_file "bestand.pdf"
+/mcp-invoice-processor process_document_text "tekst" "hybrid"
+/mcp-invoice-processor process_document_file "bestand.pdf" "hybrid"
 /mcp-invoice-processor get_metrics
 /mcp-invoice-processor health_check
 ```
@@ -287,8 +339,8 @@ Alle MCP commando's zijn getest en geverifieerd:
 ## 🤝 Ondersteuning
 
 Voor vragen of problemen:
-1. Controleer de logs met `LOG_LEVEL=DEBUG`
+1. Controleer de logs met `LOG_LEVEL=DEBUG` in config.py
 2. Verifieer de configuratie
-3. Test met een eenvoudige PDF eerst
+3. Test met een eenvoudige tekst eerst
 4. Controleer of Ollama correct is geconfigureerd
-5. Gebruik de test scripts in de root directory voor debugging
+5. Gebruik de test scripts in de tests directory voor debugging
