@@ -9,8 +9,12 @@ from datetime import datetime, timedelta
 from collections import deque
 import json
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Metrics bestand voor sharing tussen processen
+METRICS_FILE = Path("logs/metrics_live.json")
 
 
 @dataclass
@@ -199,12 +203,18 @@ class MetricsCollector:
             self.processing.record_failure(doc_type, error_type or "unknown", processing_time)
         
         logger.debug(f"Document processing recorded: {doc_type}, success: {success}, time: {processing_time:.2f}s")
+        
+        # Schrijf metrics naar bestand voor live sharing
+        self._save_metrics_to_file()
     
     def record_ollama_request(self, model: str, response_time: float, success: bool, error_type: Optional[str] = None) -> None:
         """Record Ollama request metrics."""
         self.ollama.record_request(model, response_time, success, error_type)
         
         logger.debug(f"Ollama request recorded: {model}, success: {success}, time: {response_time:.2f}s")
+        
+        # Schrijf metrics naar bestand voor live sharing
+        self._save_metrics_to_file()
     
     def update_system_metrics(self) -> None:
         """Update system metrics."""
@@ -318,6 +328,32 @@ class MetricsCollector:
         lines.append("mcp_ollama_response_time_seconds_bucket{le=\"+Inf\"} " + str(len(self.ollama.response_times)))
         
         return "\n".join(lines)
+    
+    def _save_metrics_to_file(self) -> None:
+        """Sla metrics op naar bestand voor live sharing tussen processen."""
+        try:
+            # Zorg dat logs directory bestaat
+            METRICS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Haal metrics op en schrijf naar bestand
+            metrics = self.get_comprehensive_metrics()
+            with open(METRICS_FILE, 'w') as f:
+                json.dump(metrics, f, indent=2, default=str)
+                
+        except Exception as e:
+            logger.error(f"Fout bij opslaan metrics naar bestand: {e}")
+    
+    @staticmethod
+    def load_metrics_from_file() -> Optional[Dict[str, Any]]:
+        """Laad metrics uit bestand voor live sharing tussen processen."""
+        try:
+            if METRICS_FILE.exists():
+                with open(METRICS_FILE, 'r') as f:
+                    return json.load(f)
+            return None
+        except Exception as e:
+            logger.error(f"Fout bij laden metrics uit bestand: {e}")
+            return None
 
 
 # Global metrics collector instance

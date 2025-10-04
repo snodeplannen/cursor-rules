@@ -7,9 +7,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from datetime import datetime, timedelta
-from .metrics import metrics_collector
+from .metrics import metrics_collector, MetricsCollector
 import random
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 def generate_demo_metrics() -> None:
@@ -62,8 +62,13 @@ def generate_demo_metrics() -> None:
     print("✅ Demo metrics gegenereerd voor dashboard")
 
 
-# Genereer demo metrics bij startup
-generate_demo_metrics()
+# Genereer demo metrics bij startup ALLEEN als er geen live metrics zijn
+live_metrics = MetricsCollector.load_metrics_from_file()
+if live_metrics is None:
+    print("⚠️  Geen live metrics gevonden, genereer demo data...")
+    generate_demo_metrics()
+else:
+    print("✅ Live metrics geladen uit bestand")
 
 
 # FastAPI app initialiseren
@@ -86,7 +91,14 @@ app.add_middleware(
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_home() -> HTMLResponse:
     """Hoofddashboard met overzicht van alle metrics."""
-    metrics = metrics_collector.get_comprehensive_metrics()
+    # Probeer eerst live metrics te laden
+    metrics = MetricsCollector.load_metrics_from_file()
+    is_live = metrics is not None
+    if metrics is None:
+        # Fallback naar local metrics
+        metrics = metrics_collector.get_comprehensive_metrics()
+    
+    data_source_badge = """<span style='background: #27ae60; color: white; padding: 5px 15px; border-radius: 15px; font-size: 0.9em;'>🔴 LIVE DATA</span>""" if is_live else """<span style='background: #f39c12; color: white; padding: 5px 15px; border-radius: 15px; font-size: 0.9em;'>📊 DEMO DATA</span>"""
     
     html_content = f"""
     <!DOCTYPE html>
@@ -207,6 +219,7 @@ async def dashboard_home() -> HTMLResponse:
             <div class="header">
                 <h1>📊 MCP Invoice Processor Monitoring</h1>
                 <p>Real-time monitoring van documentverwerking en systeem status</p>
+                <p>{data_source_badge}</p>
                 <p>Laatste update: {metrics['timestamp']}</p>
             </div>
             
@@ -308,7 +321,11 @@ async def dashboard_home() -> HTMLResponse:
 async def get_metrics() -> JSONResponse:
     """API endpoint voor het ophalen van alle metrics in JSON formaat."""
     try:
-        metrics = metrics_collector.get_comprehensive_metrics()
+        # Probeer eerst live metrics te laden
+        metrics = MetricsCollector.load_metrics_from_file()
+        if metrics is None:
+            # Fallback naar local metrics
+            metrics = metrics_collector.get_comprehensive_metrics()
         return JSONResponse(content=metrics)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fout bij ophalen metrics: {str(e)}")
@@ -327,10 +344,20 @@ async def get_prometheus_metrics() -> str:
 async def health_check() -> Dict[str, Any]:
     """Health check endpoint."""
     try:
-        # Basis health check
-        uptime = metrics_collector.system.uptime.total_seconds()
-        memory_usage = metrics_collector.system.memory_usage_mb
-        cpu_usage = metrics_collector.system.cpu_usage_percent
+        # Probeer eerst live metrics te laden
+        live_metrics = MetricsCollector.load_metrics_from_file()
+        if live_metrics:
+            uptime_str = live_metrics['system']['uptime']
+            # Parse uptime string (HH:MM:SS)
+            h, m, s = map(int, uptime_str.split(':'))
+            uptime = h * 3600 + m * 60 + s
+            memory_usage = live_metrics['system']['memory_usage_mb']
+            cpu_usage = live_metrics['system']['cpu_usage_percent']
+        else:
+            # Fallback naar local metrics
+            uptime = metrics_collector.system.uptime.total_seconds()
+            memory_usage = metrics_collector.system.memory_usage_mb
+            cpu_usage = metrics_collector.system.cpu_usage_percent
         
         # Bepaal status
         status = "healthy"
@@ -362,25 +389,49 @@ async def health_check() -> Dict[str, Any]:
 async def detailed_health_check() -> Dict[str, Any]:
     """Gedetailleerde health check met alle componenten."""
     try:
-        # Component health checks
-        components: Dict[str, Dict[str, Any]] = {
-            "system": {
-                "status": "healthy",
-                "uptime": metrics_collector.system.get_uptime_formatted(),
-                "memory_usage_mb": metrics_collector.system.memory_usage_mb,
-                "cpu_usage_percent": metrics_collector.system.cpu_usage_percent
-            },
-            "processing": {
-                "status": "healthy" if metrics_collector.processing.total_documents_processed > 0 else "no_data",
-                "total_documents": metrics_collector.processing.total_documents_processed,
-                "success_rate": metrics_collector.processing.get_success_rate()
-            },
-            "ollama": {
-                "status": "healthy" if metrics_collector.ollama.total_requests > 0 else "no_data",
-                "total_requests": metrics_collector.ollama.total_requests,
-                "success_rate": metrics_collector.ollama.get_success_rate()
+        # Probeer eerst live metrics te laden
+        live_metrics = MetricsCollector.load_metrics_from_file()
+        
+        if live_metrics:
+            # Gebruik live metrics
+            components: Dict[str, Dict[str, Any]] = {
+                "system": {
+                    "status": "healthy",
+                    "uptime": live_metrics['system']['uptime'],
+                    "memory_usage_mb": live_metrics['system']['memory_usage_mb'],
+                    "cpu_usage_percent": live_metrics['system']['cpu_usage_percent']
+                },
+                "processing": {
+                    "status": "healthy" if live_metrics['processing']['total_documents'] > 0 else "no_data",
+                    "total_documents": live_metrics['processing']['total_documents'],
+                    "success_rate": live_metrics['processing']['success_rate_percent']
+                },
+                "ollama": {
+                    "status": "healthy" if live_metrics['ollama']['total_requests'] > 0 else "no_data",
+                    "total_requests": live_metrics['ollama']['total_requests'],
+                    "success_rate": live_metrics['ollama']['success_rate_percent']
+                }
             }
-        }
+        else:
+            # Fallback naar local metrics
+            components = {
+                "system": {
+                    "status": "healthy",
+                    "uptime": metrics_collector.system.get_uptime_formatted(),
+                    "memory_usage_mb": metrics_collector.system.memory_usage_mb,
+                    "cpu_usage_percent": metrics_collector.system.cpu_usage_percent
+                },
+                "processing": {
+                    "status": "healthy" if metrics_collector.processing.total_documents_processed > 0 else "no_data",
+                    "total_documents": metrics_collector.processing.total_documents_processed,
+                    "success_rate": metrics_collector.processing.get_success_rate()
+                },
+                "ollama": {
+                    "status": "healthy" if metrics_collector.ollama.total_requests > 0 else "no_data",
+                    "total_requests": metrics_collector.ollama.total_requests,
+                    "success_rate": metrics_collector.ollama.get_success_rate()
+                }
+            }
         
         # Overall status
         overall_status = "healthy"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FastMCP HTTP Server voor de MCP Invoice Processor.
+FastMCP HTTP Server voor de MCP Document Processor.
 Integreert MCP functionaliteit met HTTP custom routes voor monitoring.
 """
 
@@ -23,7 +23,7 @@ from .fastmcp_server import mcp as main_mcp
 
 # Maak FastMCP server met HTTP transport ondersteuning en importeer tools
 mcp = FastMCP(
-    name="MCP Invoice Processor HTTP Server",
+    name="MCP Document Processor HTTP Server",
     instructions="""
     Deze server biedt document verwerking via MCP tools en HTTP monitoring endpoints.
     
