@@ -24,16 +24,15 @@ dependencies = [
     "types-pyyaml>=6.0.12.20250915",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.2.0",
-    "pytest-asyncio>=0.23.6",
-    "pytest-html>=3.2.0",
-    "pytest-cov>=4.1.0",
-    "pytest-mock>=3.12.0",
-    "ruff>=0.4.4",
-    "pre-commit>=3.7.0",
-]
+[project.scripts]
+# MCP Servers
+mcp-server = "mcp_invoice_processor.fastmcp_server:run_server"
+mcp-http-server = "mcp_invoice_processor.fastmcp_http_server:run_http_server"
+mcp-http-server-async = "mcp_invoice_processor.http_server:run_http_server"
+
+# MCP Client Demos
+mcp-client-demo = "example_mcp_client:main"
+mcp-http-client = "simple_http_client:test_http_mcp_client"
 
 [build-system]
 requires = ["uv-build"]

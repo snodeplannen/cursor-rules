@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "mcp-invoice-processor-http": {
+      "command": "uv",
+      "args": [
+        "run",
+        "mcp-http-server-async"
+      ],
+      "cwd": "C:\\py_cursor-rules\\cursor_ratsenbergertest",
+      "transport": "http",
+      "host": "localhost",
+      "port": 8000
+    }
+  }
+}
