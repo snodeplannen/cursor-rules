@@ -12,7 +12,7 @@ import asyncio
 import logging
 from typing import Dict, Optional, List, Tuple, Any
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 from fastmcp.utilities.types import Annotations
 
 from .base import BaseDocumentProcessor
@@ -92,8 +92,7 @@ class ProcessorRegistry:
     
     async def classify_document(
         self, 
-        text: str,
-        ctx: Optional[Context] = None
+        text: str
     ) -> Tuple[str, float, Optional[BaseDocumentProcessor]]:
         """
         Classificeer document door alle processors async te proberen.
@@ -103,7 +102,6 @@ class ProcessorRegistry:
         
         Args:
             text: Document tekst om te classificeren
-            ctx: FastMCP context voor logging
             
         Returns:
             Tuple[str, float, Optional[BaseDocumentProcessor]]: 
@@ -111,22 +109,21 @@ class ProcessorRegistry:
                 
         Example:
             >>> registry = ProcessorRegistry()
-            >>> doc_type, confidence, processor = await registry.classify_document(text, ctx)
+            >>> doc_type, confidence, processor = await registry.classify_document(text)
             >>> print(f"Type: {doc_type}, Confidence: {confidence}%")
         """
         if not self._processors:
             logger.warning("Geen processors geregistreerd in registry")
             return "unknown", 0.0, None
         
-        if ctx:
-            await ctx.debug(
-                f"Classificeren document met {len(self._processors)} processors...",
-                extra={"processor_count": len(self._processors)}
-            )
+        logger.debug(
+            f"Classificeren document met {len(self._processors)} processors...",
+            extra={"processor_count": len(self._processors)}
+        )
         
         # Voer alle classificaties parallel uit voor snelheid
         tasks = [
-            processor.classify(text, ctx) 
+            processor.classify(text) 
             for processor in self._processors.values()
         ]
         
@@ -134,8 +131,6 @@ class ProcessorRegistry:
             scores = await asyncio.gather(*tasks, return_exceptions=True)
         except Exception as e:
             logger.error(f"Fout bij parallel classificeren: {e}")
-            if ctx:
-                await ctx.error(f"Classificatie fout: {e}")
             return "unknown", 0.0, None
         
         # Zoek beste score
@@ -156,26 +151,23 @@ class ProcessorRegistry:
             else:
                 continue  # Skip exceptions
             
-            if ctx:
-                await ctx.debug(f"{processor.display_name}: {score:.1f}% confidence")
+            logger.debug(f"{processor.display_name}: {score:.1f}% confidence")
             
             if score > best_score:
                 best_score = score
                 best_processor = processor
         
         if best_processor:
-            if ctx:
-                await ctx.info(
-                    f"📋 Beste match: {best_processor.display_name} ({best_score:.1f}% confidence)",
-                    extra={
-                        "document_type": best_processor.document_type,
-                        "confidence": best_score
-                    }
-                )
+            logger.info(
+                f"📋 Beste match: {best_processor.display_name} ({best_score:.1f}% confidence)",
+                extra={
+                    "document_type": best_processor.document_type,
+                    "confidence": best_score
+                }
+            )
             return best_processor.document_type, best_score, best_processor
         
-        if ctx:
-            await ctx.warning("Geen processor kon documenttype bepalen")
+        logger.warning("Geen processor kon documenttype bepalen")
         
         return "unknown", 0.0, None
     
@@ -317,8 +309,8 @@ def register_processor_resources(mcp: FastMCP, processor: BaseDocumentProcessor)
             "resource_type": "statistics"
         }
     )
-    async def get_stats(ctx: Context) -> Dict[str, Any]:
-        return await processor.get_statistics_resource(ctx)
+    async def get_stats() -> Dict[str, Any]:
+        return await processor.get_statistics_resource()
     
     # Resource 2: JSON Schema
     @mcp.resource(
@@ -332,8 +324,8 @@ def register_processor_resources(mcp: FastMCP, processor: BaseDocumentProcessor)
             "resource_type": "schema"
         }
     )
-    async def get_schema(ctx: Context) -> Dict[str, Any]:
-        return await processor.get_schema_resource(ctx)
+    async def get_schema() -> Dict[str, Any]:
+        return await processor.get_schema_resource()
     
     # Resource 3: Keywords
     @mcp.resource(
@@ -347,8 +339,8 @@ def register_processor_resources(mcp: FastMCP, processor: BaseDocumentProcessor)
             "resource_type": "keywords"
         }
     )
-    async def get_keywords(ctx: Context) -> Dict[str, Any]:
-        return await processor.get_keywords_resource(ctx)
+    async def get_keywords() -> Dict[str, Any]:
+        return await processor.get_keywords_resource()
     
     logger.info(
         f"✅ MCP Resources geregistreerd voor {display_name}",
@@ -388,8 +380,8 @@ def register_all_processor_resources(mcp: FastMCP) -> None:
             "resource_type": "global_statistics"
         }
     )
-    async def get_all_stats(ctx: Context) -> Dict[str, Any]:
-        await ctx.debug("Ophalen global statistics")
+    async def get_all_stats() -> Dict[str, Any]:
+        logger.debug("Ophalen global statistics")
         return registry.get_all_statistics()
     
     logger.info("✅ Global statistics resource geregistreerd: stats://all")

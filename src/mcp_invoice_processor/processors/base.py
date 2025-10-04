@@ -12,7 +12,6 @@ from typing import Dict, Any, Optional, List, Set, Type, Tuple, AsyncIterator
 from enum import Enum
 
 from pydantic import BaseModel
-from fastmcp import Context
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +165,7 @@ class BaseDocumentProcessor(ABC):
     @abstractmethod
     async def classify(
         self, 
-        text: str, 
-        ctx: Optional[Context] = None
+        text: str
     ) -> float:
         """
         Bereken confidence score (0-100) dat deze tekst dit documenttype is.
@@ -177,14 +175,13 @@ class BaseDocumentProcessor(ABC):
         
         Args:
             text: Document tekst om te classificeren
-            ctx: FastMCP context voor logging (optioneel)
             
         Returns:
             float: Confidence score 0-100
             
         Example:
             >>> processor = InvoiceProcessor()
-            >>> score = await processor.classify("Factuur #123...", ctx)
+            >>> score = await processor.classify("Factuur #123...")
             >>> print(f"Confidence: {score}%")
         """
         pass
@@ -238,22 +235,19 @@ class BaseDocumentProcessor(ABC):
     async def extract(
         self,
         text: str,
-        ctx: Optional[Context] = None,
         method: str = "hybrid"
     ) -> Optional[BaseModel]:
         """
         Extraheer gestructureerde data uit tekst met realtime status updates.
         
         Deze methode:
-        1. Logt start via ctx.info() met structured logging
-        2. Stuurt progress updates via ctx.report_progress()
-        3. Extraheert data via Ollama
-        4. Valideert resultaat
-        5. Logt completion met metrics
+        1. Logt start via logger met structured logging
+        2. Extraheert data via Ollama
+        3. Valideert resultaat
+        4. Logt completion met metrics
         
         Args:
             text: Document tekst om te verwerken
-            ctx: FastMCP context voor logging en progress (optioneel maar aanbevolen)
             method: Extractie methode ("json_schema", "prompt_parsing", "hybrid")
             
         Returns:
@@ -261,7 +255,7 @@ class BaseDocumentProcessor(ABC):
             
         Example:
             >>> processor = InvoiceProcessor()
-            >>> data = await processor.extract(text, ctx, method="hybrid")
+            >>> data = await processor.extract(text, method="hybrid")
             >>> if data:
             ...     print(f"Extracted: {data.model_dump()}")
         """
@@ -270,7 +264,6 @@ class BaseDocumentProcessor(ABC):
     async def extract_with_status_stream(
         self,
         text: str,
-        ctx: Optional[Context] = None,
         method: str = "hybrid"
     ) -> AsyncIterator[Tuple[ProcessingStatus, Optional[BaseModel]]]:
         """
@@ -280,7 +273,6 @@ class BaseDocumentProcessor(ABC):
         
         Args:
             text: Document tekst
-            ctx: FastMCP context voor logging
             method: Extractie methode
             
         Yields:
@@ -289,7 +281,7 @@ class BaseDocumentProcessor(ABC):
             - Bij completion: (status, extracted_data)
             
         Example:
-            >>> async for status, data in processor.extract_with_status_stream(text, ctx):
+            >>> async for status, data in processor.extract_with_status_stream(text):
             ...     print(f"{status.stage}: {status.progress}%")
             ...     if data:
             ...         print(f"Completed: {data}")
@@ -311,7 +303,7 @@ class BaseDocumentProcessor(ABC):
             yield (status, None)
             
             # Voer extractie uit
-            data = await self.extract(text, ctx, method)
+            data = await self.extract(text, method)
             
             if data:
                 # Stage 3: Validatie
@@ -321,7 +313,7 @@ class BaseDocumentProcessor(ABC):
                 yield (status, None)
                 
                 # Valideer
-                is_valid, completeness, issues = await self.validate_extracted_data(data, ctx)
+                is_valid, completeness, issues = await self.validate_extracted_data(data)
                 
                 # Stage 4: Completed
                 status.stage = ProcessingStage.COMPLETED
@@ -350,15 +342,13 @@ class BaseDocumentProcessor(ABC):
     @abstractmethod
     async def merge_partial_results(
         self, 
-        partial_results: List[BaseModel],
-        ctx: Optional[Context] = None
+        partial_results: List[BaseModel]
     ) -> Optional[BaseModel]:
         """
         Voeg partiële extractie resultaten samen (voor gechunkte documenten).
         
         Args:
             partial_results: List van partiële data extracties
-            ctx: FastMCP context voor logging
             
         Returns:
             Optional[BaseModel]: Samengevoegd resultaat
@@ -370,15 +360,13 @@ class BaseDocumentProcessor(ABC):
     @abstractmethod
     async def validate_extracted_data(
         self, 
-        data: BaseModel,
-        ctx: Optional[Context] = None
+        data: BaseModel
     ) -> Tuple[bool, float, List[str]]:
         """
         Valideer en beoordeel kwaliteit van geëxtraheerde data.
         
         Args:
             data: Geëxtraheerde data om te valideren
-            ctx: FastMCP context voor logging
             
         Returns:
             Tuple[bool, float, List[str]]: 
@@ -388,12 +376,11 @@ class BaseDocumentProcessor(ABC):
         """
         pass
     
-    # ==================== LOGGING HELPERS (ASYNC) ====================
+    # ==================== LOGGING HELPERS ====================
     
-    async def log_info(
+    def log_info(
         self, 
         message: str, 
-        ctx: Optional[Context] = None,
         extra: Optional[Dict[str, Any]] = None
     ) -> None:
         """
@@ -401,85 +388,54 @@ class BaseDocumentProcessor(ABC):
         
         Args:
             message: Log bericht
-            ctx: FastMCP context
             extra: Extra structured data voor logging
         """
-        if ctx:
-            log_extra = {
-                "processor": self.document_type,
-                "tool": self.tool_name,
-                **(extra or {})
-            }
-            await ctx.info(message, extra=log_extra)
+        log_extra = {
+            "processor": self.document_type,
+            "tool": self.tool_name,
+            **(extra or {})
+        }
+        logger.info(message, extra=log_extra)
     
-    async def log_debug(
+    def log_debug(
         self, 
         message: str, 
-        ctx: Optional[Context] = None,
         extra: Optional[Dict[str, Any]] = None
     ) -> None:
         """Log debug bericht."""
-        if ctx:
-            log_extra = {
-                "processor": self.document_type,
-                "tool": self.tool_name,
-                **(extra or {})
-            }
-            await ctx.debug(message, extra=log_extra)
+        log_extra = {
+            "processor": self.document_type,
+            "tool": self.tool_name,
+            **(extra or {})
+        }
+        logger.debug(message, extra=log_extra)
     
-    async def log_warning(
+    def log_warning(
         self, 
         message: str, 
-        ctx: Optional[Context] = None,
         extra: Optional[Dict[str, Any]] = None
     ) -> None:
         """Log waarschuwing."""
-        if ctx:
-            log_extra = {
-                "processor": self.document_type,
-                "tool": self.tool_name,
-                **(extra or {})
-            }
-            await ctx.warning(message, extra=log_extra)
+        log_extra = {
+            "processor": self.document_type,
+            "tool": self.tool_name,
+            **(extra or {})
+        }
+        logger.warning(message, extra=log_extra)
     
-    async def log_error(
+    def log_error(
         self, 
         message: str, 
-        ctx: Optional[Context] = None,
         extra: Optional[Dict[str, Any]] = None
     ) -> None:
         """Log error bericht."""
-        if ctx:
-            log_extra = {
-                "processor": self.document_type,
-                "tool": self.tool_name,
-                **(extra or {})
-            }
-            await ctx.error(message, extra=log_extra)
+        log_extra = {
+            "processor": self.document_type,
+            "tool": self.tool_name,
+            **(extra or {})
+        }
+        logger.error(message, extra=log_extra)
     
-    async def report_progress(
-        self,
-        progress: float,
-        total: Optional[float] = None,
-        ctx: Optional[Context] = None
-    ) -> None:
-        """
-        Rapporteer progress naar client volgens FastMCP best practices.
-        
-        Progress wordt gebruikt door clients om voortgang te tonen.
-        Gebruik dit voor langlopende operaties.
-        
-        Args:
-            progress: Huidige progress waarde
-            total: Totale waarde (optioneel, default 100 voor percentage)
-            ctx: FastMCP context
-            
-        References:
-            - https://gofastmcp.com/servers/progress
-        """
-        if ctx:
-            # FastMCP report_progress voor realtime updates
-            await ctx.report_progress(progress=progress, total=total or 100.0)
     
     # ==================== METRICS & STATISTICS ====================
     
@@ -551,15 +507,13 @@ class BaseDocumentProcessor(ABC):
     @abstractmethod
     async def get_custom_metrics(
         self, 
-        data: BaseModel,
-        ctx: Optional[Context] = None
+        data: BaseModel
     ) -> Dict[str, Any]:
         """
         Genereer processor-specifieke metrics.
         
         Args:
             data: Geëxtraheerde data
-            ctx: FastMCP context voor logging
             
         Returns:
             Dict: Custom metrics specifiek voor dit documenttype
@@ -595,55 +549,40 @@ class BaseDocumentProcessor(ABC):
             "keywords": f"keywords://{doc_type}"
         }
     
-    async def get_statistics_resource(self, ctx: Optional[Context] = None) -> Dict[str, Any]:
+    async def get_statistics_resource(self) -> Dict[str, Any]:
         """
         Resource: Haal processor statistics op.
         
         Deze methode wordt aangeroepen als MCP resource voor stats://{document_type}
         
-        Args:
-            ctx: FastMCP context
-            
         Returns:
             Dict: Processor statistics
         """
-        if ctx:
-            await ctx.debug(f"Ophalen statistics voor {self.display_name}")
-        
+        logger.debug(f"Ophalen statistics voor {self.display_name}")
         return self.get_statistics()
     
-    async def get_schema_resource(self, ctx: Optional[Context] = None) -> Dict[str, Any]:
+    async def get_schema_resource(self) -> Dict[str, Any]:
         """
         Resource: Haal JSON schema op voor dit documenttype.
         
         Deze methode wordt aangeroepen als MCP resource voor schema://{document_type}
         
-        Args:
-            ctx: FastMCP context
-            
         Returns:
             Dict: JSON schema van data model
         """
-        if ctx:
-            await ctx.debug(f"Ophalen schema voor {self.display_name}")
-        
+        logger.debug(f"Ophalen schema voor {self.display_name}")
         return self.get_json_schema()
     
-    async def get_keywords_resource(self, ctx: Optional[Context] = None) -> Dict[str, Any]:
+    async def get_keywords_resource(self) -> Dict[str, Any]:
         """
         Resource: Haal classificatie keywords op.
         
         Deze methode wordt aangeroepen als MCP resource voor keywords://{document_type}
         
-        Args:
-            ctx: FastMCP context
-            
         Returns:
             Dict: Keywords voor classificatie
         """
-        if ctx:
-            await ctx.debug(f"Ophalen keywords voor {self.display_name}")
-        
+        logger.debug(f"Ophalen keywords voor {self.display_name}")
         return {
             "document_type": self.document_type,
             "display_name": self.display_name,

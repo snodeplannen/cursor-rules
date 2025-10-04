@@ -13,12 +13,10 @@ from typing import Optional, List, Dict, Any, Set, Type, Tuple
 
 import ollama
 from pydantic import BaseModel, ValidationError
-from fastmcp import Context
 from rapidfuzz import fuzz
 
 from ..base import BaseDocumentProcessor
 from ...config import settings
-from ...monitoring.metrics import metrics_collector
 from .models import CVData, WorkExperience, Education
 from .prompts import get_json_schema_prompt, get_prompt_parsing_prompt
 
@@ -72,15 +70,14 @@ class CVProcessor(BaseDocumentProcessor):
     
     async def classify(
         self, 
-        text: str, 
-        ctx: Optional[Context] = None
+        text: str
     ) -> float:
         """
         Classificeer tekst als CV op basis van keywords.
         
         Returns confidence score 0-100.
         """
-        await self.log_debug("Classificeren als CV...", ctx)
+        self.log_debug("Classificeren als CV...")
         
         text_lower = text.lower()
         
@@ -94,9 +91,8 @@ class CVProcessor(BaseDocumentProcessor):
         # Formule: min(keyword_count * 10, 100)
         confidence = min(keyword_count * 10.0, 100.0)
         
-        await self.log_debug(
+        self.log_debug(
             f"CV classificatie: {keyword_count} keywords, {confidence}% confidence",
-            ctx,
             extra={"keyword_count": keyword_count, "confidence": confidence}
         )
         
@@ -124,7 +120,6 @@ class CVProcessor(BaseDocumentProcessor):
     async def extract(
         self,
         text: str,
-        ctx: Optional[Context] = None,
         method: str = "hybrid"
     ) -> Optional[BaseModel]:
         """
@@ -134,33 +129,28 @@ class CVProcessor(BaseDocumentProcessor):
         """
         start_time = time.time()
         
-        await self.log_info(
+        self.log_info(
             f"Start CV extractie ({method} mode)",
-            ctx,
             extra={"method": method, "text_length": len(text)}
         )
-        await self.report_progress(0, 100, ctx)
         
         try:
             # Hybrid mode: probeer json_schema eerst, fallback naar prompt_parsing
             if method == "hybrid":
-                await self.log_info("Hybrid mode: probeer JSON schema eerst", ctx)
-                await self.report_progress(10, 100, ctx)
+                self.log_info("Hybrid mode: probeer JSON schema eerst")
                 
                 # Probeer JSON schema
-                json_result = await self._extract_with_method(text, "json_schema", ctx)
+                json_result = await self._extract_with_method(text, "json_schema")
                 
                 if json_result:
                     # Evalueer kwaliteit
-                    _, completeness, _ = await self.validate_extracted_data(json_result, ctx)
+                    _, completeness, _ = await self.validate_extracted_data(json_result)
                     
                     if completeness >= 90.0:
-                        await self.log_info(
+                        self.log_info(
                             f"JSON schema succesvol ({completeness:.1f}% compleet)",
-                            ctx,
                             extra={"completeness": completeness}
                         )
-                        await self.report_progress(100, 100, ctx)
                         
                         # Update statistics
                         processing_time = time.time() - start_time
@@ -168,26 +158,21 @@ class CVProcessor(BaseDocumentProcessor):
                         
                         return json_result
                     else:
-                        await self.log_warning(
+                        self.log_warning(
                             f"JSON schema incomplete ({completeness:.1f}%), probeer prompt parsing",
-                            ctx,
                             extra={"completeness": completeness}
                         )
                 
-                await self.report_progress(50, 100, ctx)
-                
                 # JSON schema niet goed genoeg, probeer prompt parsing
-                await self.log_info("Probeer prompt parsing als fallback", ctx)
-                prompt_result = await self._extract_with_method(text, "prompt_parsing", ctx)
+                self.log_info("Probeer prompt parsing als fallback")
+                prompt_result = await self._extract_with_method(text, "prompt_parsing")
                 
                 if prompt_result:
-                    _, completeness, _ = await self.validate_extracted_data(prompt_result, ctx)
-                    await self.log_info(
+                    _, completeness, _ = await self.validate_extracted_data(prompt_result)
+                    self.log_info(
                         f"Prompt parsing succesvol ({completeness:.1f}% compleet)",
-                        ctx,
                         extra={"completeness": completeness}
                     )
-                    await self.report_progress(100, 100, ctx)
                     
                     # Update statistics
                     processing_time = time.time() - start_time
@@ -197,16 +182,14 @@ class CVProcessor(BaseDocumentProcessor):
                 
                 # Beide gefaald
                 if json_result:
-                    await self.log_warning("Beide methodes incomplete, gebruik JSON schema resultaat", ctx)
-                    await self.report_progress(100, 100, ctx)
+                    self.log_warning("Beide methodes incomplete, gebruik JSON schema resultaat")
                     
                     processing_time = time.time() - start_time
                     self.update_statistics(True, processing_time)
                     
                     return json_result
                 
-                await self.log_error("Beide extractie methodes gefaald", ctx)
-                await self.report_progress(100, 100, ctx)
+                self.log_error("Beide extractie methodes gefaald")
                 
                 processing_time = time.time() - start_time
                 self.update_statistics(False, processing_time)
@@ -214,14 +197,12 @@ class CVProcessor(BaseDocumentProcessor):
                 return None
             
             # Single method mode
-            await self.report_progress(20, 100, ctx)
-            result = await self._extract_with_method(text, method, ctx)
-            await self.report_progress(100, 100, ctx)
+            result = await self._extract_with_method(text, method)
             
             processing_time = time.time() - start_time
             
             if result:
-                _, completeness, _ = await self.validate_extracted_data(result, ctx)
+                _, completeness, _ = await self.validate_extracted_data(result)
                 self.update_statistics(True, processing_time, completeness=completeness)
             else:
                 self.update_statistics(False, processing_time)
@@ -229,8 +210,7 @@ class CVProcessor(BaseDocumentProcessor):
             return result
             
         except Exception as e:
-            await self.log_error(f"Extractie fout: {e}", ctx, extra={"error": str(e)})
-            await self.report_progress(100, 100, ctx)
+            self.log_error(f"Extractie fout: {e}", extra={"error": str(e)})
             
             processing_time = time.time() - start_time
             self.update_statistics(False, processing_time)
@@ -240,15 +220,14 @@ class CVProcessor(BaseDocumentProcessor):
     async def _extract_with_method(
         self,
         text: str,
-        method: str,
-        ctx: Optional[Context] = None
+        method: str
     ) -> Optional[CVData]:
         """Helper method voor extractie met specifieke methode."""
         
         try:
             prompt = self.get_extraction_prompt(text, method)
             
-            await self.log_debug(f"Ollama aanroepen met {method} methode", ctx)
+            self.log_debug(f"Ollama aanroepen met {method} methode")
             
             # Ollama request
             if method == "json_schema":
@@ -279,7 +258,7 @@ class CVProcessor(BaseDocumentProcessor):
             json_str = self._extract_json_from_response(response_content, method)
             
             if not json_str:
-                await self.log_error("Geen JSON gevonden in response", ctx)
+                self.log_error("Geen JSON gevonden in response")
                 return None
             
             # JSON parsen met reparatie
@@ -291,14 +270,14 @@ class CVProcessor(BaseDocumentProcessor):
             # Valideren met Pydantic
             try:
                 validated_data = CVData(**parsed_data)
-                await self.log_info("CV data succesvol geëxtraheerd", ctx)
+                self.log_info("CV data succesvol geëxtraheerd")
                 return validated_data
             except ValidationError as e:
-                await self.log_error(f"Pydantic validatie fout: {e}", ctx)
+                self.log_error(f"Pydantic validatie fout: {e}")
                 return None
                 
         except Exception as e:
-            await self.log_error(f"Extractie fout: {e}", ctx)
+            self.log_error(f"Extractie fout: {e}")
             return None
     
     def _extract_json_from_response(self, response: str, method: str) -> Optional[str]:
@@ -364,25 +343,24 @@ class CVProcessor(BaseDocumentProcessor):
     
     async def merge_partial_results(
         self, 
-        partial_results: List[BaseModel],
-        ctx: Optional[Context] = None
+        partial_results: List[BaseModel]
     ) -> Optional[CVData]:
         """
         Merge partiële CV resultaten.
         
         Combineert werk ervaring, opleiding en skills.
         """
-        await self.log_info(f"Mergen van {len(partial_results)} partiële resultaten", ctx)
+        self.log_info(f"Mergen van {len(partial_results)} partiële resultaten")
         
         if not partial_results:
-            await self.log_error("Geen partiële resultaten om te mergen", ctx)
+            self.log_error("Geen partiële resultaten om te mergen")
             return None
         
         # Filter alleen CVData objecten
         cv_results = [r for r in partial_results if isinstance(r, CVData)]
         
         if not cv_results:
-            await self.log_error("Geen CV data gevonden in resultaten", ctx)
+            self.log_error("Geen CV data gevonden in resultaten")
             return None
         
         # Start met eerste resultaat
@@ -418,10 +396,9 @@ class CVProcessor(BaseDocumentProcessor):
             if not merged.summary and result.summary:
                 merged.summary = result.summary
         
-        await self.log_info(
+        self.log_info(
             f"Merge compleet: {len(merged.work_experience)} jobs, "
             f"{len(merged.education)} education, {len(merged.skills)} skills",
-            ctx,
             extra={
                 "work_experience_count": len(merged.work_experience),
                 "education_count": len(merged.education),
@@ -516,8 +493,7 @@ class CVProcessor(BaseDocumentProcessor):
     
     async def validate_extracted_data(
         self, 
-        data: BaseModel,
-        ctx: Optional[Context] = None
+        data: BaseModel
     ) -> Tuple[bool, float, List[str]]:
         """
         Valideer CV data en bereken completeness.
@@ -563,16 +539,14 @@ class CVProcessor(BaseDocumentProcessor):
         completeness = (filled_fields / total_fields * 100) if total_fields > 0 else 0.0
         is_valid = len(issues) == 0
         
-        if ctx:
-            await self.log_info(
-                f"Validatie: {completeness:.1f}% compleet, {len(issues)} issues",
-                ctx,
-                extra={
-                    "completeness": completeness,
-                    "is_valid": is_valid,
-                    "issues_count": len(issues)
-                }
-            )
+        self.log_info(
+            f"Validatie: {completeness:.1f}% compleet, {len(issues)} issues",
+            extra={
+                "completeness": completeness,
+                "is_valid": is_valid,
+                "issues_count": len(issues)
+            }
+        )
         
         return is_valid, completeness, issues
     
@@ -580,8 +554,7 @@ class CVProcessor(BaseDocumentProcessor):
     
     async def get_custom_metrics(
         self, 
-        data: BaseModel,
-        ctx: Optional[Context] = None
+        data: BaseModel
     ) -> Dict[str, Any]:
         """
         Generate CV-specific metrics.
@@ -602,8 +575,7 @@ class CVProcessor(BaseDocumentProcessor):
             "has_summary": bool(data.summary),
         }
         
-        if ctx:
-            await self.log_debug("Custom metrics gegenereerd", ctx, extra=metrics)
+        self.log_debug("Custom metrics gegenereerd", extra=metrics)
         
         return metrics
 

@@ -14,11 +14,11 @@ Usage:
     >>> 
     >>> # Gebruik registry voor classificatie
     >>> registry = get_registry()
-    >>> doc_type, confidence, processor = await registry.classify_document(text, ctx)
+    >>> doc_type, confidence, processor = await registry.classify_document(text)
     >>> 
     >>> # Extraheer data
     >>> if processor:
-    ...     data = await processor.extract(text, ctx, method="hybrid")
+    ...     data = await processor.extract(text, method="hybrid")
 
 References:
     - https://gofastmcp.com/servers/context
