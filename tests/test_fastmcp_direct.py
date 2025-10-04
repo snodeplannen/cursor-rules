@@ -82,13 +82,15 @@ class MockFastMCPContext:
 @pytest.mark.asyncio
 @pytest.mark.fastmcp
 async def test_document_processing() -> None:
-    """Test document verwerking functionaliteit."""
-    logger.info("🚀 Testen Document Verwerking")
+    """Test document verwerking functionaliteit met v2.0 processors."""
+    logger.info("🚀 Testen Document Verwerking (v2.0)")
     logger.info("=" * 60)
     
     try:
-        # Test document classificatie
-        from mcp_invoice_processor import classify_document, DocumentType
+        # Test document classificatie via nieuwe processors
+        from mcp_invoice_processor.processors import get_registry
+        
+        registry = get_registry()
         
         # Test verschillende document types
         test_texts = [
@@ -99,12 +101,14 @@ async def test_document_processing() -> None:
         
         for test_name, test_text in test_texts:
             try:
-                doc_type = classify_document(test_text)
-                logger.info(f"{test_name}: {doc_type.value}")
+                doc_type, confidence, processor = await registry.classify_document(test_text, None)
+                logger.info(f"{test_name}: {doc_type} ({confidence:.1f}% confidence)")
                 
                 # Valideer classificatie resultaat
-                assert isinstance(doc_type, DocumentType)
-                assert doc_type.value in ["invoice", "cv", "unknown"]
+                assert isinstance(doc_type, str)
+                assert doc_type in ["invoice", "cv", "unknown"]
+                assert isinstance(confidence, float)
+                assert 0 <= confidence <= 100
                 
             except Exception as e:
                 logger.error(f"❌ Classificatie mislukt voor {test_name}: {e}")
