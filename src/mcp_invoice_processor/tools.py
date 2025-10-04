@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
 Gedeelde MCP tools voor document verwerking.
-Deze tools worden gebruikt door zowel de STDIO als HTTP server.
+
+Deze tools gebruiken de nieuwe modulaire processor architecture met:
+- ProcessorRegistry voor centrale processor management
+- Async parallel document classificatie  
+- FastMCP Context integratie voor logging en progress
+- Per-processor statistics tracking
 """
 
+import time
 import logging
 import warnings
 from pathlib import Path
@@ -11,9 +17,10 @@ from typing import Dict, Any
 
 from fastmcp import Context
 
-from .processing.pipeline import extract_structured_data, ExtractionMethod
-from .processing.classification import classify_document, DocumentType
-from .processing.models import CVData, InvoiceData
+from .processors import get_registry, register_processor
+from .processors.invoice import InvoiceProcessor
+from .processors.cv import CVProcessor
+from .processing.text_extractor import extract_text_from_pdf
 from .config import settings
 from .monitoring.metrics import metrics_collector
 from .logging_config import setup_logging
@@ -21,10 +28,34 @@ from .logging_config import setup_logging
 # Setup logging
 logger = setup_logging(log_level="INFO")
 
+# Initialize and register processors
+_processors_initialized = False
+
+
+def _init_processors():
+    """Initialize and register all document processors."""
+    global _processors_initialized
+    
+    if not _processors_initialized:
+        register_processor(InvoiceProcessor())
+        register_processor(CVProcessor())
+        _processors_initialized = True
+        logger.info("✅ Document processors geregistreerd: Invoice, CV")
+
+
+# Initialize processors at module load
+_init_processors()
+
 
 async def process_document_text(text: str, ctx: Context, extraction_method: str = "hybrid") -> Dict[str, Any]:
     """
     Verwerk document tekst en extraheer gestructureerde data.
+    
+    Gebruikt de nieuwe processor architecture met:
+    - Async parallel classificatie
+    - Processor-specifieke extractie
+    - Realtime progress reporting
+    - Structured logging met metadata
     
     Args:
         text: De tekst inhoud van het document
@@ -34,122 +65,141 @@ async def process_document_text(text: str, ctx: Context, extraction_method: str 
     Returns:
         Dict met geëxtraheerde document data
     """
+    start_time = time.time()
+    
     try:
         # Onderdruk warnings tijdens document verwerking
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             
-            # Converteer string parameter naar enum
-            try:
-                method_enum = ExtractionMethod(extraction_method.lower())
-            except ValueError:
-                method_enum = ExtractionMethod.HYBRID
-                logger.warning(f"Onbekende extractie methode '{extraction_method}', gebruik HYBRID als default")
-            
-            # Log input parameters voor troubleshooting
-            logger.info(f"process_document_text aangeroepen met tekst lengte: {len(text)} karakters, methode: {method_enum.value}")
+            # Log input parameters
+            logger.info(
+                f"process_document_text: {len(text)} karakters, methode: {extraction_method}"
+            )
             logger.debug(f"Tekst preview: {text[:200]}...")
             
-            method_name = "JSON Schema Mode" if method_enum == ExtractionMethod.JSON_SCHEMA else "Prompt Parsing Mode"
-            await ctx.info(f"🚀 Starten document verwerking ({method_name})...")
+            await ctx.info(f"🚀 Starten document verwerking ({extraction_method} mode)...")
+            await ctx.report_progress(0, 100)
             
-            # Start metrics timer
-            metrics_collector.start_timer("document_processing")
-            
-            # Classificeer document type
+            # Classificeer document via registry (parallel over alle processors)
+            registry = get_registry()
             await ctx.info("📊 Classificeren document type...")
-            doc_type = classify_document(text)
-            logger.info(f"Document geclassificeerd als: {doc_type.value}")
-            await ctx.info(f"📋 Gedetecteerd type: {doc_type.value}")
+            await ctx.report_progress(10, 100)
             
-            # Extraheer gestructureerde data
+            doc_type, confidence, processor = await registry.classify_document(text, ctx)
+            
+            if not processor:
+                await ctx.warning("⚠️ Geen geschikte processor gevonden")
+                await ctx.report_progress(100, 100)
+                
+                processing_time = time.time() - start_time
+                metrics_collector.record_document_processing(
+                    "unknown", False, processing_time, "no_processor_found"
+                )
+                
+                return {
+                    "error": "Kon document type niet bepalen",
+                    "document_type": "unknown",
+                    "processing_time": processing_time
+                }
+            
+            logger.info(f"Document type: {doc_type} ({confidence:.1f}% confidence)")
+            await ctx.info(f"📋 Type: {processor.display_name} ({confidence:.1f}% confidence)")
+            await ctx.report_progress(20, 100)
+            
+            # Extraheer data via processor
             await ctx.info("🤖 Extractie van gestructureerde data...")
-            result = await extract_structured_data(text, doc_type, ctx, method_enum)
+            result = await processor.extract(text, ctx, extraction_method)
+            await ctx.report_progress(90, 100)
             
-            # Stop timer en record metrics
-            processing_time = metrics_collector.stop_timer("document_processing")
+            processing_time = time.time() - start_time
             
             if result:
-                # Record success metrics
-                metrics_collector.record_document_processing(
-                    doc_type.value, True, processing_time
-                )
-                
+                # Success!
                 await ctx.info(f"✅ Document succesvol verwerkt in {processing_time:.2f}s")
+                await ctx.report_progress(100, 100)
                 
-                # Convert result to dict for JSON serialization
-                if isinstance(result, (CVData, InvoiceData)):
-                    result_dict = result.model_dump()
-                    result_dict["document_type"] = doc_type.value
-                    result_dict["processing_time"] = processing_time
-                    return result_dict
-                else:
-                    return {
-                        "document_type": doc_type.value,
-                        "processing_time": processing_time,
-                        "error": "Onbekend resultaat type"
-                    }
-            else:
-                # Record failure metrics
-                metrics_collector.record_document_processing(
-                    doc_type.value, False, processing_time, "extraction_failed"
+                # Update processor statistics
+                processor.update_statistics(
+                    success=True,
+                    processing_time=processing_time,
+                    confidence=confidence
                 )
                 
-                await ctx.error("❌ Document verwerking mislukt")
+                # Record global metrics
+                metrics_collector.record_document_processing(
+                    doc_type, True, processing_time
+                )
+                
+                # Convert to dict
+                result_dict = result.model_dump()
+                result_dict["document_type"] = doc_type
+                result_dict["confidence"] = confidence
+                result_dict["processing_time"] = processing_time
+                result_dict["processor"] = processor.tool_name
+                
+                return result_dict
+            else:
+                # Extraction failed
+                await ctx.error("❌ Data extractie mislukt")
+                await ctx.report_progress(100, 100)
+                
+                processor.update_statistics(
+                    success=False,
+                    processing_time=processing_time
+                )
+                
+                metrics_collector.record_document_processing(
+                    doc_type, False, processing_time, "extraction_failed"
+                )
+                
                 return {
-                    "document_type": doc_type.value,
-                    "processing_time": processing_time,
-                    "error": "Extractie mislukt"
+                    "error": "Extractie mislukt",
+                    "document_type": doc_type,
+                    "processing_time": processing_time
                 }
             
     except Exception as e:
-        # Record failure metrics
-        processing_time = metrics_collector.stop_timer("document_processing")
+        processing_time = time.time() - start_time
+        
+        # Log error
+        logger.error(f"Fout bij document verwerking: {e}", exc_info=True)
+        logger.error(f"Input: {len(text)} karakters, tijd: {processing_time:.2f}s")
+        
+        await ctx.error(f"💥 Fout bij verwerking: {e}")
+        await ctx.report_progress(100, 100)
+        
+        # Record failure
         metrics_collector.record_document_processing(
             "unknown", False, processing_time, f"error: {type(e).__name__}"
         )
         
-        # Log de error voor troubleshooting
-        logger.error(f"Fout bij document verwerking: {e}", exc_info=True)
-        logger.error(f"Input tekst lengte: {len(text)} karakters")
-        logger.error(f"Processing time: {processing_time}")
-        
-        await ctx.error(f"💥 Fout bij document verwerking: {e}")
         return {
             "error": str(e),
             "processing_time": processing_time
         }
 
 
-async def process_document_file(file_path: str, ctx: Context, extraction_method: str = "json_schema") -> Dict[str, Any]:
+async def process_document_file(file_path: str, ctx: Context, extraction_method: str = "hybrid") -> Dict[str, Any]:
     """
     Verwerk een document bestand en extraheer gestructureerde data.
     
     Args:
         file_path: Pad naar het document bestand
         ctx: FastMCP context voor logging en progress
-        extraction_method: Extractie methode - "json_schema" (default) of "prompt_parsing"
+        extraction_method: Extractie methode - "hybrid" (default), "json_schema" of "prompt_parsing"
     
     Returns:
         Dict met geëxtraheerde document data
     """
     try:
-        # Onderdruk warnings tijdens bestand verwerking
+        # Onderdruk warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             
-            # Converteer string parameter naar enum
-            try:
-                method_enum = ExtractionMethod(extraction_method.lower())
-            except ValueError:
-                method_enum = ExtractionMethod.HYBRID
-                logger.warning(f"Onbekende extractie methode '{extraction_method}', gebruik HYBRID als default")
+            logger.info(f"process_document_file: {file_path}, methode: {extraction_method}")
             
-            # Log input parameters voor troubleshooting
-            logger.info(f"process_document_file aangeroepen met bestand: {file_path}, methode: {method_enum.value}")
-            
-            method_name = "JSON Schema Mode" if method_enum == ExtractionMethod.JSON_SCHEMA else "Prompt Parsing Mode"
-            await ctx.info(f"📁 Lezen bestand: {file_path} ({method_name})")
+            await ctx.info(f"📁 Lezen bestand: {file_path}")
             
             file_path_obj = Path(file_path)
             if not file_path_obj.exists():
@@ -162,8 +212,6 @@ async def process_document_file(file_path: str, ctx: Context, extraction_method:
                 with open(file_path_obj, 'r', encoding='utf-8') as f:
                     text_content = f.read()
             elif file_path_obj.suffix.lower() == '.pdf':
-                # Voor PDF bestanden gebruik de PDF text extractor
-                from .processing.text_extractor import extract_text_from_pdf
                 with open(file_path_obj, 'rb') as f:
                     text_content = extract_text_from_pdf(f.read())
             else:
@@ -171,11 +219,11 @@ async def process_document_file(file_path: str, ctx: Context, extraction_method:
                 await ctx.error(f"❌ Niet ondersteund bestandstype: {file_path_obj.suffix}")
                 return {"error": f"Niet ondersteund bestandstype: {file_path_obj.suffix}"}
             
-            logger.info(f"Tekst gelezen uit bestand: {len(text_content)} karakters")
+            logger.info(f"Tekst gelezen: {len(text_content)} karakters")
             await ctx.info(f"📄 Tekst gelezen: {len(text_content)} karakters")
             
             # Verwerk de tekst
-            return await process_document_text(text_content, ctx, method_enum.value)
+            return await process_document_text(text_content, ctx, extraction_method)
         
     except Exception as e:
         logger.error(f"Fout bij bestand verwerking: {e}", exc_info=True)
@@ -187,33 +235,47 @@ async def classify_document_type(text: str, ctx: Context) -> Dict[str, Any]:
     """
     Classificeer alleen het document type zonder volledige verwerking.
     
+    Gebruikt async parallel classificatie via alle geregistreerde processors.
+    
     Args:
         text: De tekst inhoud van het document
         ctx: FastMCP context voor logging
     
     Returns:
-        Dict met document type classificatie
+        Dict met document type classificatie en confidence scores
     """
     try:
-        # Onderdruk warnings tijdens document classificatie
+        # Onderdruk warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             
-            # Log input parameters voor troubleshooting
-            logger.info(f"classify_document_type aangeroepen met tekst lengte: {len(text)} karakters")
+            logger.info(f"classify_document_type: {len(text)} karakters")
             logger.debug(f"Tekst preview: {text[:200]}...")
             
             await ctx.info("📊 Classificeren document type...")
             
-            doc_type = classify_document(text)
-            logger.info(f"Document geclassificeerd als: {doc_type.value}")
+            # Classificeer via registry (parallel)
+            registry = get_registry()
+            doc_type, confidence, processor = await registry.classify_document(text, ctx)
             
-            await ctx.info(f"📋 Gedetecteerd type: {doc_type.value}")
-            
-            return {
-                "document_type": doc_type.value,
-                "confidence": "high" if doc_type != DocumentType.UNKNOWN else "low"
-            }
+            if processor:
+                logger.info(f"Document type: {doc_type} ({confidence:.1f}% confidence)")
+                await ctx.info(f"📋 Type: {processor.display_name} ({confidence:.1f}%)")
+                
+                return {
+                    "document_type": doc_type,
+                    "confidence": confidence,
+                    "confidence_level": "high" if confidence >= 70 else "medium" if confidence >= 40 else "low",
+                    "processor": processor.tool_name,
+                    "display_name": processor.display_name
+                }
+            else:
+                await ctx.warning("⚠️ Kon document type niet bepalen")
+                return {
+                    "document_type": "unknown",
+                    "confidence": 0.0,
+                    "confidence_level": "none"
+                }
         
     except Exception as e:
         logger.error(f"Fout bij document classificatie: {e}", exc_info=True)
@@ -223,23 +285,40 @@ async def classify_document_type(text: str, ctx: Context) -> Dict[str, Any]:
 
 async def get_metrics(ctx: Context) -> Dict[str, Any]:
     """
-    Haal huidige metrics op van de document processor.
+    Haal huidige metrics op van alle processors en het systeem.
+    
+    Bevat:
+    - Global system metrics
+    - Per-processor statistics
+    - Ollama metrics
     
     Args:
         ctx: FastMCP context voor logging
     
     Returns:
-        Dict met huidige metrics
+        Dict met comprehensive metrics
     """
     try:
         logger.info("get_metrics aangeroepen")
         await ctx.info("📊 Ophalen metrics...")
         
-        metrics = metrics_collector.get_comprehensive_metrics()
-        logger.info("Metrics succesvol opgehaald")
+        # Get global metrics
+        global_metrics = metrics_collector.get_comprehensive_metrics()
         
+        # Get processor statistics
+        registry = get_registry()
+        processor_stats = registry.get_all_statistics()
+        
+        # Combine
+        combined_metrics = {
+            **global_metrics,
+            "processors": processor_stats
+        }
+        
+        logger.info("Metrics succesvol opgehaald")
         await ctx.info("✅ Metrics opgehaald")
-        return metrics
+        
+        return combined_metrics
         
     except Exception as e:
         logger.error(f"Fout bij ophalen metrics: {e}", exc_info=True)
@@ -250,6 +329,11 @@ async def get_metrics(ctx: Context) -> Dict[str, Any]:
 async def health_check(ctx: Context) -> Dict[str, Any]:
     """
     Voer een health check uit van de service.
+    
+    Test:
+    - Ollama connectie
+    - Geregistreerde processors
+    - System metrics
     
     Args:
         ctx: FastMCP context voor logging
@@ -264,33 +348,48 @@ async def health_check(ctx: Context) -> Dict[str, Any]:
         # Test Ollama connectie
         import ollama
         try:
-            # Probeer een eenvoudige request naar Ollama
             client = ollama.AsyncClient(host=settings.ollama.HOST)
             models = await client.list()
             ollama_status = "healthy"
             available_models = [model['name'] for model in models.get('models', [])]
-            logger.info(f"Ollama status: {ollama_status}, beschikbare modellen: {available_models}")
+            logger.info(f"Ollama: {ollama_status}, models: {available_models}")
         except Exception as e:
             ollama_status = f"unhealthy: {e}"
             available_models = []
             logger.error(f"Ollama connectie mislukt: {e}")
         
-        # Get basic metrics
+        # Check processors
+        registry = get_registry()
+        processor_types = registry.get_processor_types()
+        processor_count = len(processor_types)
+        
+        # Get metrics
         metrics = metrics_collector.get_comprehensive_metrics()
-        logger.info("Metrics opgehaald voor health check")
+        processor_stats = registry.get_all_statistics()
         
         health_data = {
             "status": "healthy" if ollama_status == "healthy" else "degraded",
             "timestamp": metrics["timestamp"],
-            "ollama_status": ollama_status,
-            "available_models": available_models,
-            "uptime": metrics["system"]["uptime"],
-            "total_documents_processed": metrics["processing"]["total_documents"],
-            "total_ollama_requests": metrics["ollama"]["total_requests"]
+            "ollama": {
+                "status": ollama_status,
+                "available_models": available_models,
+                "model_in_use": settings.ollama.MODEL
+            },
+            "processors": {
+                "count": processor_count,
+                "types": processor_types,
+                "total_documents_processed": processor_stats["global"]["total_documents_processed"],
+                "global_success_rate": processor_stats["global"]["global_success_rate"]
+            },
+            "system": {
+                "uptime": metrics["system"]["uptime"],
+                "total_ollama_requests": metrics["ollama"]["total_requests"]
+            }
         }
         
         logger.info(f"Health check voltooid: {health_data['status']}")
-        await ctx.info(f"✅ Health check voltooid: {health_data['status']}")
+        await ctx.info(f"✅ Health check: {health_data['status']}")
+        
         return health_data
         
     except Exception as e:
@@ -300,4 +399,3 @@ async def health_check(ctx: Context) -> Dict[str, Any]:
             "status": "unhealthy",
             "error": str(e)
         }
-
