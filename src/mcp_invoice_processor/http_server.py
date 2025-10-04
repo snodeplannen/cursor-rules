@@ -1,96 +1,226 @@
 #!/usr/bin/env python3
 """
-HTTP Server wrapper voor de MCP Invoice Processor.
-Maakt de MCP functionaliteit beschikbaar via HTTP endpoints.
+FastMCP HTTP Server voor de MCP Invoice Processor.
+Integreert MCP functionaliteit met HTTP custom routes voor monitoring.
 """
 
-import asyncio
-import logging
-from typing import Dict, Any
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse, PlainTextResponse
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+import warnings
+from starlette.requests import Request
+from starlette.responses import JSONResponse, PlainTextResponse
 
+from fastmcp import FastMCP
 from .monitoring.metrics import metrics_collector
+from .logging_config import setup_logging
 
-# Configureer logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Onderdruk warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# Maak FastAPI app
-app = FastAPI(
-    title="MCP Invoice Processor HTTP Server",
-    description="HTTP wrapper voor MCP Invoice Processor functionaliteit",
-    version="1.0.0"
+# Setup logging
+logger = setup_logging(log_level="INFO")
+
+# Import de hoofdserver om tools te delen
+from .fastmcp_server import mcp as main_mcp
+
+# Maak FastMCP server met HTTP transport ondersteuning en importeer tools
+mcp = FastMCP(
+    name="MCP Invoice Processor HTTP Server",
+    instructions="""
+    Deze server biedt document verwerking via MCP tools en HTTP monitoring endpoints.
+    
+    MCP Tools:
+    - process_document_text: Verwerk document tekst
+    - process_document_file: Verwerk document bestand  
+    - classify_document_type: Classificeer document type
+    - get_metrics: Haal server metrics op
+    - health_check: Controleer server status
+    
+    HTTP Endpoints:
+    - /health: Health check
+    - /metrics: JSON metrics
+    - /metrics/prometheus: Prometheus metrics
+    """
 )
 
-# CORS middleware toevoegen
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# Import functies voor gebruik in custom routes en tools
+from .fastmcp_server import (
+    health_check as mcp_health_check
 )
 
-@app.get("/")
-async def root() -> Dict[str, Any]:
+# Definieer onze eigen tools die de originele functies aanroepen
+from .processing.pipeline import extract_structured_data, ExtractionMethod
+from .processing.classification import classify_document, DocumentType
+from .processing.models import CVData, InvoiceData
+from .config import settings
+from .monitoring.metrics import metrics_collector
+from fastmcp import Context
+
+@mcp.tool()
+async def process_document_text(text: str, ctx: Context, extraction_method: str = "hybrid"):
+    """Verwerk document tekst en extraheer gestructureerde data."""
+    # Gebruik de originele implementatie
+    return await main_mcp._tools["process_document_text"].func(text, ctx, extraction_method)
+
+@mcp.tool()
+async def process_document_file(file_path: str, ctx: Context, extraction_method: str = "json_schema"):
+    """Verwerk een document bestand en extraheer gestructureerde data."""
+    # Gebruik de originele implementatie
+    return await main_mcp._tools["process_document_file"].func(file_path, ctx, extraction_method)
+
+@mcp.tool()
+async def classify_document_type(text: str, ctx: Context):
+    """Classificeer alleen het document type zonder volledige verwerking."""
+    # Gebruik de originele implementatie
+    return await main_mcp._tools["classify_document_type"].func(text, ctx)
+
+@mcp.tool()
+async def get_metrics(ctx: Context):
+    """Haal huidige metrics op van de document processor."""
+    # Gebruik de originele implementatie
+    return await main_mcp._tools["get_metrics"].func(ctx)
+
+@mcp.tool()
+async def health_check(ctx: Context):
+    """Voer een health check uit van de service."""
+    # Gebruik de originele implementatie
+    return await main_mcp._tools["health_check"].func(ctx)
+
+@mcp.custom_route("/", methods=["GET"])
+async def root(request: Request) -> JSONResponse:
     """Root endpoint met server informatie."""
-    return {
+    return JSONResponse({
         "name": "MCP Invoice Processor HTTP Server",
         "version": "1.0.0",
         "status": "running",
+        "transport": "HTTP",
+        "mcp_version": "1.13.1",
         "endpoints": {
             "health": "/health",
-            "metrics": "/metrics",
-            "metrics_prometheus": "/metrics/prometheus"
-        }
-    }
+            "metrics": "/metrics", 
+            "metrics_prometheus": "/metrics/prometheus",
+            "mcp": "/mcp"
+        },
+        "mcp_tools": [
+            "process_document_text",
+            "process_document_file",
+            "classify_document_type", 
+            "get_metrics",
+            "health_check"
+        ]
+    })
 
-@app.get("/health")
-async def health_check() -> Dict[str, Any]:
-    """Health check endpoint."""
+@mcp.custom_route("/health", methods=["GET"])
+async def health_endpoint(request: Request) -> JSONResponse:
+    """HTTP Health check endpoint."""
     try:
-        return {
-            "status": "healthy",
-            "service": "MCP Invoice Processor HTTP Server",
-            "timestamp": asyncio.get_event_loop().time()
+        # Maak een eenvoudige context implementatie
+        class SimpleContext:
+            def __init__(self):
+                self.messages = []
+                
+            async def info(self, message: str):
+                self.messages.append(f"INFO: {message}")
+                logger.info(message)
+                
+            async def error(self, message: str):
+                self.messages.append(f"ERROR: {message}")
+                logger.error(message)
+        
+        # Direct health check implementatie
+        import ollama
+        try:
+            # Probeer een eenvoudige request naar Ollama
+            client = ollama.AsyncClient(host=settings.ollama.HOST)
+            models = await client.list()
+            ollama_status = "healthy"
+            available_models = [model['name'] for model in models.get('models', [])]
+        except Exception as e:
+            ollama_status = f"unhealthy: {e}"
+            available_models = []
+        
+        # Get basic metrics
+        metrics = metrics_collector.get_comprehensive_metrics()
+        
+        health_result = {
+            "status": "healthy" if ollama_status == "healthy" else "degraded",
+            "timestamp": metrics["timestamp"],
+            "ollama_status": ollama_status,
+            "available_models": available_models,
+            "uptime": metrics["system"]["uptime"],
+            "total_documents_processed": metrics["processing"]["total_documents"],
+            "total_ollama_requests": metrics["ollama"]["total_requests"]
         }
+        
+        # Context messages zijn niet nodig voor direct health check
+        
+        if health_result.get("status") == "healthy":
+            return JSONResponse(health_result)
+        else:
+            return JSONResponse(health_result, status_code=503)
+            
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail=f"Health check failed: {str(e)}")
+        return JSONResponse({
+            "status": "unhealthy",
+            "error": str(e),
+            "service": "MCP Invoice Processor HTTP Server"
+        }, status_code=503)
 
-@app.get("/metrics")
-async def get_metrics() -> JSONResponse:
-    """Haal alle metrics op in JSON formaat."""
+@mcp.custom_route("/metrics", methods=["GET"])
+async def metrics_endpoint(request: Request) -> JSONResponse:
+    """HTTP Metrics endpoint in JSON formaat."""
     try:
         metrics = metrics_collector.get_comprehensive_metrics()
-        return JSONResponse(content=metrics)
+        return JSONResponse(metrics)
     except Exception as e:
         logger.error(f"Failed to get metrics: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
+        return JSONResponse({
+            "error": f"Failed to get metrics: {str(e)}"
+        }, status_code=500)
 
-@app.get("/metrics/prometheus")
-async def get_prometheus_metrics() -> PlainTextResponse:
-    """Haal metrics op in Prometheus formaat."""
+@mcp.custom_route("/metrics/prometheus", methods=["GET"])
+async def prometheus_metrics_endpoint(request: Request) -> PlainTextResponse:
+    """HTTP Metrics endpoint in Prometheus formaat."""
     try:
         prometheus_metrics = metrics_collector.export_metrics("prometheus")
-        return PlainTextResponse(content=prometheus_metrics)
+        return PlainTextResponse(prometheus_metrics)
     except Exception as e:
         logger.error(f"Failed to get Prometheus metrics: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get Prometheus metrics: {str(e)}")
+        return PlainTextResponse(f"# ERROR: Failed to get metrics: {str(e)}")
 
 def run_http_server(host: str = "0.0.0.0", port: int = 8080) -> None:
-    """Start de HTTP server."""
-    logger.info(f"Starting HTTP server on {host}:{port}")
+    """Start de FastMCP HTTP server."""
+    logger.info(f"🚀 Starting FastMCP HTTP server on {host}:{port}")
+    logger.info("📊 Server biedt zowel MCP tools als HTTP monitoring endpoints")
+    logger.info("🔧 Beschikbare MCP tools: process_document_text, process_document_file, classify_document_type, get_metrics, health_check")
+    logger.info("🌐 HTTP endpoints: /, /health, /metrics, /metrics/prometheus, /mcp")
     
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        log_level="info"
-    )
+    try:
+        # Start FastMCP server met HTTP transport
+        mcp.run(
+            transport="http",
+            host=host,
+            port=port,
+            log_level="info"
+        )
+    except Exception as e:
+        logger.error(f"Fout bij starten FastMCP HTTP server: {e}", exc_info=True)
+        raise
+
+async def run_http_server_async(host: str = "0.0.0.0", port: int = 8080) -> None:
+    """Start de FastMCP HTTP server asynchroon."""
+    logger.info(f"🚀 Starting FastMCP HTTP server (async) on {host}:{port}")
+    
+    try:
+        # Start FastMCP server asynchroon met HTTP transport
+        await mcp.run_async(
+            transport="http",
+            host=host,
+            port=port,
+            log_level="info"
+        )
+    except Exception as e:
+        logger.error(f"Fout bij starten FastMCP HTTP server (async): {e}", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     import sys

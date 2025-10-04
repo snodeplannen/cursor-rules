@@ -53,8 +53,37 @@ logging.getLogger("mcp.server").setLevel(logging.WARNING)
 logging.getLogger("mcp.server.lowlevel").setLevel(logging.WARNING)
 logging.getLogger("fastmcp").setLevel(logging.WARNING)
 
-# Initialize FastMCP server
-mcp = FastMCP("MCP Invoice Processor")
+# Initialize FastMCP server met uitgebreide instructies
+mcp = FastMCP(
+    name="MCP Invoice Processor",
+    instructions="""
+    Deze MCP server biedt geavanceerde document verwerking met AI-powered extractie.
+    
+    🎯 Hoofdfunctionaliteit:
+    - Automatische document classificatie (CV, Factuur, etc.)
+    - Gestructureerde data extractie met Ollama LLM
+    - Uitgebreide metrics en monitoring
+    - Multi-format ondersteuning (TXT, PDF)
+    
+    🔧 Beschikbare Tools:
+    - process_document_text(text, extraction_method): Verwerk document tekst
+    - process_document_file(file_path, extraction_method): Verwerk document bestand
+    - classify_document_type(text): Classificeer document type
+    - get_metrics(): Haal server metrics op
+    - health_check(): Controleer server status
+    
+    📊 Extractie Methodes:
+    - "hybrid": Combinatie van JSON schema en prompt parsing (aanbevolen)
+    - "json_schema": Gestructureerde extractie met JSON schema
+    - "prompt_parsing": Flexibele extractie met prompt engineering
+    
+    💡 Tips:
+    - Gebruik "hybrid" methode voor beste resultaten
+    - Voor grote documenten: gebruik process_document_file
+    - Controleer altijd eerst de health_check voor Ollama connectie
+    """,
+    on_duplicate_tools="warn"
+)
 
 # Configureer MCP server logging om Cursor MCP logs te verbeteren
 def on_startup():
@@ -370,84 +399,249 @@ async def health_check(ctx: Context) -> Dict[str, Any]:
         }
 
 
-# Resource voor het ophalen van voorbeelden
-@mcp.resource("examples://document-types")
+# Resources voor documentatie en voorbeelden
+@mcp.resource("mcp://document-types")
 async def document_types_examples() -> str:
     """Voorbeelden van ondersteunde document types."""
     return """
-    # Ondersteunde Document Types
+    # 📋 Ondersteunde Document Types
     
-    ## CV/Resume
-    - Trefwoorden: ervaring, opleiding, vaardigheden, curriculum vitae, werkervaring
-    - Geëxtraheerde velden: naam, email, telefoon, werkervaring, opleiding, vaardigheden
+    ## 👤 CV/Resume
+    - **Trefwoorden**: ervaring, opleiding, vaardigheden, curriculum vitae, werkervaring
+    - **Geëxtraheerde velden**: naam, email, telefoon, werkervaring, opleiding, vaardigheden
+    - **Voorbeeld gebruik**: 
+      ```
+      result = await process_document_text(cv_text, "hybrid")
+      print(f"Naam: {result['full_name']}")
+      ```
     
-    ## Factuur/Invoice
-    - Trefwoorden: factuur, totaal, bedrag, btw, klant, leverancier
-    - Geëxtraheerde velden: factuurnummer, bedragen, datum, bedrijfsinformatie
+    ## 🧾 Factuur/Invoice  
+    - **Trefwoorden**: factuur, totaal, bedrag, btw, klant, leverancier
+    - **Geëxtraheerde velden**: factuurnummer, bedragen, datum, bedrijfsinformatie
+    - **Voorbeeld gebruik**:
+      ```
+      result = await process_document_text(invoice_text, "json_schema")
+      print(f"Totaal: €{result['total_amount']}")
+      ```
     
-    ## Gebruik
-    1. Upload document tekst via process_document_text()
-    2. Upload document bestand via process_document_file()
-    3. Alleen classificatie via classify_document_type()
+    ## 🚀 Gebruik
+    1. **Tekst verwerking**: `process_document_text(text, method)`
+    2. **Bestand verwerking**: `process_document_file(path, method)`  
+    3. **Alleen classificatie**: `classify_document_type(text)`
+    4. **Status check**: `health_check()` - controleer Ollama connectie
+    """
+
+@mcp.resource("mcp://extraction-methods")
+async def extraction_methods_guide() -> str:
+    """Gids voor extractie methodes."""
+    return """
+    # 🔧 Extractie Methodes Gids
+    
+    ## 🎯 Hybrid (Aanbevolen)
+    - **Wanneer**: Voor de meeste documenten
+    - **Voordelen**: Combineert precisie van JSON schema met flexibiliteit van prompts
+    - **Gebruik**: `extraction_method="hybrid"`
+    
+    ## 📊 JSON Schema  
+    - **Wanneer**: Voor gestructureerde documenten met vaste formaten
+    - **Voordelen**: Hoge precisie, consistente output
+    - **Gebruik**: `extraction_method="json_schema"`
+    
+    ## 💬 Prompt Parsing
+    - **Wanneer**: Voor complexe of ongestructureerde documenten
+    - **Voordelen**: Flexibel, kan complexe patronen herkennen
+    - **Gebruik**: `extraction_method="prompt_parsing"`
+    
+    ## 🎨 Best Practices
+    1. Start altijd met "hybrid" methode
+    2. Gebruik "json_schema" voor facturen en gestructureerde data
+    3. Gebruik "prompt_parsing" voor complexe CV's of vrije tekst
+    4. Test verschillende methodes voor optimale resultaten
+    """
+
+@mcp.resource("mcp://server-config")
+async def server_configuration() -> str:
+    """Server configuratie informatie."""
+    return f"""
+    # ⚙️ Server Configuratie
+    
+    ## 🤖 Ollama Integratie
+    - **Host**: {settings.ollama.HOST}
+    - **Model**: {settings.ollama.MODEL}
+    - **Timeout**: {settings.ollama.TIMEOUT}s
+    
+    ## 📊 Monitoring
+    - **Metrics**: Uitgebreide performance metrics beschikbaar
+    - **Logging**: Gestructureerde logging met verschillende niveaus
+    - **Health Checks**: Automatische Ollama connectie monitoring
+    
+    ## 🔧 Ondersteunde Formaten
+    - **Tekst**: Direct tekst input via process_document_text
+    - **PDF**: Automatische tekst extractie via process_document_file
+    - **TXT**: Plain text bestanden
+    
+    ## 🚀 Performance Tips
+    - Gebruik kleinere documenten voor snellere verwerking
+    - Monitor metrics voor performance optimalisatie
+    - Controleer Ollama status via health_check
     """
 
 
-# Prompt voor document verwerking instructies
+# Prompts voor document verwerking instructies
 @mcp.prompt("document-processing-guide")
 async def document_processing_guide(document_type: str = "any") -> str:
-    """Gids voor document verwerking."""
+    """Gids voor document verwerking met specifieke instructies per type."""
     
     if document_type.lower() == "cv":
         return """
-        # CV Verwerking Gids
+        # 👤 CV Verwerking Gids
         
-        Voor optimale CV verwerking:
-        1. Zorg voor duidelijke secties (Persoonlijke gegevens, Werkervaring, Opleiding)
-        2. Gebruik consistente datumformaten
-        3. Lijst vaardigheden duidelijk op
-        4. Include contactinformatie bovenaan
+        ## 🎯 Optimale CV Verwerking:
+        1. **Structuur**: Zorg voor duidelijke secties (Persoonlijke gegevens, Werkervaring, Opleiding)
+        2. **Datums**: Gebruik consistente datumformaten (DD-MM-YYYY of MM/YYYY)
+        3. **Vaardigheden**: Lijst vaardigheden duidelijk op, gescheiden door komma's
+        4. **Contact**: Include contactinformatie bovenaan het document
+        5. **Taal**: Ondersteunt Nederlands en Engels
         
-        Voorbeeld gebruik:
-        ```
-        result = await process_document_text(cv_text)
-        print(f"Naam: {result['full_name']}")
-        print(f"Email: {result['email']}")
+        ## 🔧 Aanbevolen Methode:
+        - **Hybrid**: Voor de meeste CV's (combineert structuur met flexibiliteit)
+        - **Prompt Parsing**: Voor creatieve of ongestructureerde CV's
+        
+        ## 💡 Voorbeeld Gebruik:
+        ```python
+        result = await process_document_text(cv_text, "hybrid")
+        print(f"👤 Naam: {result['full_name']}")
+        print(f"📧 Email: {result['email']}")
+        print(f"💼 Ervaring: {len(result['work_experience'])} posities")
         ```
         """
     elif document_type.lower() == "invoice":
         return """
-        # Factuur Verwerking Gids
+        # 🧾 Factuur Verwerking Gids
         
-        Voor optimale factuur verwerking:
-        1. Zorg voor duidelijk factuurnummer
-        2. Include datum en vervaldatum
-        3. Lijst alle regels met bedragen
-        4. Toon BTW berekening
-        5. Include bedrijfsinformatie
+        ## 🎯 Optimale Factuur Verwerking:
+        1. **Factuurnummer**: Zorg voor duidelijk zichtbaar factuurnummer
+        2. **Datums**: Include factuurdatum en vervaldatum
+        3. **Bedragen**: Lijst alle regels met bedragen en BTW
+        4. **BTW**: Toon BTW berekening en percentage
+        5. **Bedrijfsinfo**: Include leverancier en klant informatie
+        6. **Totaal**: Duidelijk eindtotaal inclusief BTW
         
-        Voorbeeld gebruik:
-        ```
-        result = await process_document_text(invoice_text)
-        print(f"Nummer: {result['invoice_number']}")
-        print(f"Totaal: €{result['total_amount']}")
+        ## 🔧 Aanbevolen Methode:
+        - **JSON Schema**: Voor gestructureerde facturen (aanbevolen)
+        - **Hybrid**: Voor complexere factuurformaten
+        
+        ## 💡 Voorbeeld Gebruik:
+        ```python
+        result = await process_document_text(invoice_text, "json_schema")
+        print(f"🧾 Nummer: {result['invoice_number']}")
+        print(f"💰 Totaal: €{result['total_amount']}")
+        print(f"📅 Datum: {result['invoice_date']}")
         ```
         """
     else:
         return """
-        # Document Verwerking Gids
+        # 📄 Algemene Document Verwerking Gids
         
-        Ondersteunde document types:
-        - CV/Resume: Persoonlijke en professionele informatie
-        - Factuur/Invoice: Financiële transactie documenten
+        ## 🎯 Ondersteunde Document Types:
+        - **👤 CV/Resume**: Persoonlijke en professionele informatie
+        - **🧾 Factuur/Invoice**: Financiële transactie documenten
+        - **📄 Algemeen**: Automatische classificatie voor onbekende types
         
-        Algemene stappen:
-        1. Document classificatie
-        2. Tekst extractie (indien PDF)
-        3. Gestructureerde data extractie met AI
-        4. Validatie en opschoning
+        ## 🔄 Verwerkingsstappen:
+        1. **📊 Classificatie**: Automatische detectie van document type
+        2. **📝 Extractie**: Tekst extractie (PDF → tekst indien nodig)
+        3. **🤖 AI Verwerking**: Gestructureerde data extractie met Ollama
+        4. **✅ Validatie**: Data validatie en opschoning
+        5. **📤 Output**: Gestructureerde JSON output
         
-        Gebruik process_document_text() voor directe tekst verwerking
-        of process_document_file() voor bestanden.
+        ## 🚀 Snelstart:
+        ```python
+        # Voor tekst
+        result = await process_document_text(text, "hybrid")
+        
+        # Voor bestanden  
+        result = await process_document_file("document.pdf", "hybrid")
+        
+        # Alleen classificatie
+        doc_type = await classify_document_type(text)
+        ```
+        
+        ## 💡 Tips:
+        - Start altijd met `health_check()` om Ollama connectie te verifiëren
+        - Gebruik `get_metrics()` voor performance monitoring
+        - Probeer verschillende extractie methodes voor optimale resultaten
+        """
+
+@mcp.prompt("troubleshooting-guide") 
+async def troubleshooting_guide(issue_type: str = "general") -> str:
+    """Troubleshooting gids voor veelvoorkomende problemen."""
+    
+    if issue_type.lower() == "ollama":
+        return """
+        # 🔧 Ollama Troubleshooting
+        
+        ## ❌ Veelvoorkomende Problemen:
+        
+        ### 1. Ollama Connectie Mislukt
+        - **Symptoom**: "Ollama connectie mislukt" in health_check
+        - **Oplossing**: 
+          - Controleer of Ollama draait: `ollama serve`
+          - Verificeer host configuratie in settings
+          - Test connectie: `curl http://localhost:11434/api/tags`
+        
+        ### 2. Model Niet Beschikbaar
+        - **Symptoom**: Model niet gevonden error
+        - **Oplossing**:
+          - Download model: `ollama pull llama3.2`
+          - Controleer beschikbare modellen: `ollama list`
+          - Update MODEL setting in configuratie
+        
+        ### 3. Timeout Errors
+        - **Symptoom**: Request timeout tijdens verwerking
+        - **Oplossing**:
+          - Verhoog TIMEOUT setting
+          - Gebruik kleinere documenten
+          - Controleer Ollama performance
+        
+        ## ✅ Health Check:
+        ```python
+        result = await health_check()
+        print(f"Status: {result['status']}")
+        print(f"Ollama: {result['ollama_status']}")
+        ```
+        """
+    else:
+        return """
+        # 🛠️ Algemene Troubleshooting
+        
+        ## 🔍 Diagnostiek Stappen:
+        1. **Health Check**: `await health_check()` - controleer server status
+        2. **Metrics**: `await get_metrics()` - bekijk performance data  
+        3. **Logs**: Controleer logs voor error details
+        4. **Ollama**: Verificeer Ollama connectie en model beschikbaarheid
+        
+        ## ❌ Veelvoorkomende Problemen:
+        
+        ### Document Verwerking Mislukt
+        - Controleer document formaat (TXT/PDF ondersteund)
+        - Probeer verschillende extractie methodes
+        - Verificeer document grootte (< 1MB aanbevolen)
+        
+        ### Lage Extractie Kwaliteit  
+        - Gebruik "hybrid" methode voor beste resultaten
+        - Controleer document kwaliteit en structuur
+        - Probeer verschillende Ollama modellen
+        
+        ### Performance Problemen
+        - Monitor metrics voor bottlenecks
+        - Optimaliseer Ollama configuratie
+        - Gebruik kleinere batch sizes
+        
+        ## 🆘 Support:
+        - Controleer logs in `/logs` directory
+        - Gebruik `get_metrics()` voor performance data
+        - Test met `health_check()` voor system status
         """
 
 

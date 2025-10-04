@@ -127,7 +127,17 @@ def setup_logging(log_level: str = "DEBUG", log_file: Optional[str] = None) -> l
             # FastMCP specifieke loggers
             "fastmcp": {
                 "handlers": ["mcp_server", "file_detailed", "file_json"],
-                "level": "WARNING",  # Verhoog naar WARNING om DEBUG/INFO output te voorkomen
+                "level": "INFO",  # Verlaag naar INFO voor betere FastMCP integratie
+                "propagate": False,
+            },
+            "fastmcp.server": {
+                "handlers": ["mcp_server", "file_detailed", "file_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "fastmcp.transport": {
+                "handlers": ["mcp_server", "file_detailed", "file_json"],
+                "level": "INFO",
                 "propagate": False,
             },
             # Speciale MCP server logger voor Cursor integratie
