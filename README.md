@@ -323,6 +323,35 @@ Verwerkt een PDF-document en extraheert gestructureerde data.
 - **CV's**: Extraheert naam, email, telefoon, werkervaring, opleiding, vaardigheden
 - **Facturen**: Extraheert factuurnummer, totaalbedrag, klantgegevens
 
+## 🔧 FastMCP Features
+
+### MCP Tools
+De server biedt de volgende MCP tools:
+
+- **`process_document_text`**: Verwerkt document tekst en extraheert gestructureerde data
+- **`process_document_file`**: Verwerkt een document bestand en extraheert gestructureerde data  
+- **`classify_document_type`**: Classificeert alleen het document type zonder volledige verwerking
+- **`get_metrics`**: Haalt huidige metrics op van de document processor
+- **`health_check`**: Voert een health check uit van de service
+
+### MCP Resources
+Uitgebreide documentatie via MCP resources:
+
+- **`mcp://document-types`**: Voorbeelden van ondersteunde document types
+- **`mcp://extraction-methods`**: Gids voor extractie methodes  
+- **`mcp://server-config`**: Server configuratie informatie
+
+### MCP Prompts
+Interactieve gidsen voor optimaal gebruik:
+
+- **`document-processing-guide`**: Document verwerking instructies per type
+- **`troubleshooting-guide`**: Troubleshooting voor veelvoorkomende problemen
+
+### Extractie Methodes
+- **`hybrid`**: Combinatie van JSON schema en prompt parsing (aanbevolen)
+- **`json_schema`**: Gestructureerde extractie met JSON schema
+- **`prompt_parsing`**: Flexibele extractie met prompt engineering
+
 ## 🤖 Ollama Integratie
 
 De applicatie gebruikt Ollama voor AI-gestuurde data-extractie:
@@ -380,15 +409,22 @@ uv run python -m src.mcp_invoice_processor
 
 #### HTTP Transport (voor web API gebruik)
 ```bash
-# Optie 1: Direct HTTP server starten
+# Optie 1: FastMCP HTTP server met custom routes (AANBEVOLEN)
 uv run python -m src.mcp_invoice_processor.http_server
 
 # Optie 2: Met custom host/port
 uv run python -m src.mcp_invoice_processor.http_server 0.0.0.0 8080
 
-# Optie 3: Via FastMCP HTTP transport
+# Optie 3: Via FastMCP CLI (alleen MCP endpoints)
 uv run fastmcp run src.mcp_invoice_processor.fastmcp_server:mcp --transport http --host 0.0.0.0 --port 8080
 ```
+
+**HTTP Endpoints (Optie 1):**
+- `http://localhost:8080/` - Server informatie
+- `http://localhost:8080/health` - Health check
+- `http://localhost:8080/metrics` - JSON metrics
+- `http://localhost:8080/metrics/prometheus` - Prometheus metrics
+- `http://localhost:8080/mcp` - MCP protocol endpoint
 
 ### Docker Deployment
 ```bash
