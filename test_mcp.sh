@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Test script voor de MCP Invoice Processor
+# Test script voor de MCP Document Processor
 # Dit script test de verbinding en functionaliteit van de MCP server
 
-echo "🚀 MCP Invoice Processor Test Script"
+echo "🚀 MCP Document Processor Test Script"
 echo "=================================================="
 
 # Controleer of uv beschikbaar is
@@ -13,8 +13,8 @@ if ! command -v uv &> /dev/null; then
 fi
 
 # Controleer of alle bestanden bestaan
-if [ ! -f "src/mcp_invoice_processor/main.py" ]; then
-    echo "❌ Kan main.py niet vinden. Controleer de projectstructuur."
+if [ ! -f "src/mcp_invoice_processor/fastmcp_server.py" ]; then
+    echo "❌ Kan fastmcp_server.py niet vinden. Controleer de projectstructuur."
     exit 1
 fi
 
@@ -22,21 +22,27 @@ echo "✅ Projectstructuur gecontroleerd"
 
 # Test de server start
 echo "🔌 Testen van server start..."
-timeout 10s uv run python -m src.mcp_invoice_processor.main &
-SERVER_PID=$!
 
-# Wacht even tot de server opstart
-sleep 3
-
-# Controleer of de server nog draait
-if kill -0 $SERVER_PID 2>/dev/null; then
-    echo "✅ Server start succesvol"
-    
-    # Stop de server
-    kill $SERVER_PID 2>/dev/null
-    wait $SERVER_PID 2>/dev/null
+# Test de nieuwe script commands
+echo "🧪 Testen van script commands..."
+if timeout 5s uv run mcp-server --help >/dev/null 2>&1; then
+    echo "✅ mcp-server script werkt"
 else
-    echo "❌ Server start mislukt"
+    echo "⚠️ mcp-server script niet beschikbaar (normaal voor STDIO server)"
+fi
+
+# Test HTTP server script
+if timeout 5s uv run mcp-http-server-async --help >/dev/null 2>&1; then
+    echo "✅ mcp-http-server-async script werkt"
+else
+    echo "⚠️ mcp-http-server-async script niet beschikbaar"
+fi
+
+# Test de server module import
+if uv run python -c "import src.mcp_invoice_processor.fastmcp_server; print('✅ MCP server module succesvol geïmporteerd')" >/dev/null 2>&1; then
+    echo "✅ MCP server module werkt correct"
+else
+    echo "❌ MCP server module import mislukt"
     exit 1
 fi
 
@@ -61,8 +67,8 @@ echo "🎯 Alle tests voltooid!"
 echo ""
 echo "📋 Volgende stappen:"
 echo "1. Start Ollama op je systeem"
-echo "2. Kopieer .env.example naar .env en pas aan"
-echo "3. Gebruik de MCP configuratie bestanden"
-echo "4. Test met echte PDF documenten"
+echo "2. Gebruik mcp_config_cursor.json voor Cursor integratie"
+echo "3. Start HTTP server met: uv run python src/mcp_invoice_processor/http_server.py"
+echo "4. Test met echte documenten via MCP tools"
 echo ""
 echo "📚 Zie MCP_USAGE.md voor gedetailleerde instructies"

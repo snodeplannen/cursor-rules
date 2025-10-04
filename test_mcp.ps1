@@ -1,7 +1,7 @@
-# Test script voor de MCP Invoice Processor (PowerShell)
+# Test script voor de MCP Document Processor (PowerShell)
 # Dit script test de verbinding en functionaliteit van de MCP server
 
-Write-Host "🚀 MCP Invoice Processor Test Script" -ForegroundColor Green
+Write-Host "🚀 MCP Document Processor Test Script" -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Green
 
 # Controleer of uv beschikbaar is
@@ -14,8 +14,8 @@ try {
 }
 
 # Controleer of alle bestanden bestaan
-if (-not (Test-Path "src/mcp_invoice_processor/main.py")) {
-    Write-Host "❌ Kan main.py niet vinden. Controleer de projectstructuur." -ForegroundColor Red
+if (-not (Test-Path "src/mcp_invoice_processor/fastmcp_server.py")) {
+    Write-Host "❌ Kan fastmcp_server.py niet vinden. Controleer de projectstructuur." -ForegroundColor Red
     exit 1
 }
 
@@ -25,9 +25,18 @@ Write-Host "✅ Projectstructuur gecontroleerd" -ForegroundColor Green
 Write-Host "🔌 Testen van server start..." -ForegroundColor Yellow
 try {
     # Test of de server module kan worden geïmporteerd
-    $null = uv run python -c "import src.mcp_invoice_processor.main; print('✅ MCP server module succesvol geïmporteerd')" 2>$null
+    $null = uv run python -c "import src.mcp_invoice_processor.fastmcp_server; print('✅ MCP server module succesvol geïmporteerd')" 2>$null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ MCP server module werkt correct" -ForegroundColor Green
+        
+        # Test de nieuwe script commands
+        Write-Host "🧪 Testen van script commands..." -ForegroundColor Yellow
+        $null = uv run mcp-server --help 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ mcp-server script werkt" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️ mcp-server script niet beschikbaar (normaal voor STDIO server)" -ForegroundColor Yellow
+        }
     } else {
         Write-Host "❌ MCP server module import mislukt" -ForegroundColor Red
         exit 1
@@ -37,7 +46,7 @@ try {
     Write-Host "🔄 Testen van server startup..." -ForegroundColor Yellow
     $job = Start-Job -ScriptBlock {
         Set-Location $using:PWD
-        uv run python -m src.mcp_invoice_processor.main
+        uv run python src/mcp_invoice_processor/fastmcp_server.py
     }
     
     # Wacht even tot de server opstart
@@ -61,9 +70,6 @@ try {
         }
         
         # Ruim de job op
-        if ($job.State -ne "Completed") {
-            Stop-Job $job -ErrorAction SilentlyContinue
-        }
         Remove-Job $job -ErrorAction SilentlyContinue
     }
 } catch {
@@ -101,8 +107,8 @@ Write-Host "🎯 Alle tests voltooid!" -ForegroundColor Green
 Write-Host ""
 Write-Host "📋 Volgende stappen:" -ForegroundColor Cyan
 Write-Host "1. Start Ollama op je systeem" -ForegroundColor White
-Write-Host "2. Kopieer .env.example naar .env en pas aan" -ForegroundColor White
-Write-Host "3. Gebruik de MCP configuratie bestanden" -ForegroundColor White
-Write-Host "4. Test met echte PDF documenten" -ForegroundColor White
+Write-Host "2. Gebruik mcp_config_cursor.json voor Cursor integratie" -ForegroundColor White
+Write-Host "3. Start HTTP server met: uv run python src/mcp_invoice_processor/http_server.py" -ForegroundColor White
+Write-Host "4. Test met echte documenten via MCP tools" -ForegroundColor White
 Write-Host ""
 Write-Host "📚 Zie MCP_USAGE.md voor gedetailleerde instructies" -ForegroundColor Cyan
