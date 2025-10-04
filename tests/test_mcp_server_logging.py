@@ -76,13 +76,14 @@ def test_mcp_server_logging() -> bool:
             print("❌ Logs directory niet aangemaakt")
         
         print("\n🎉 MCP server logging test voltooid!")
+        assert True, "MCP server logging test completed successfully"
         return True
         
     except Exception as e:
         print(f"❌ MCP server logging test gefaald: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False, f"MCP server logging test failed: {e}"
 
 if __name__ == "__main__":
     test_mcp_server_logging()
