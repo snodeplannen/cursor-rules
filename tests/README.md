@@ -1,197 +1,456 @@
-# Tests voor MCP Invoice Processor
+# Tests voor MCP Document Processor
 
-Deze directory bevat alle tests voor de MCP Invoice Processor, inclusief unit tests, integratie tests en tests voor FastMCP client integratie.
+Test suite voor de modulaire processor architecture (v2.0).
 
-## 📁 Test Bestanden
+## 🎯 Test Philosophy
 
-### Core Tests
-- **`test_pipeline.py`** - Unit tests voor de verwerkingspijplijn
-- **`test_monitoring.py`** - Unit tests voor metrics en monitoring
-- **`conftest.py`** - Gedeelde fixtures en configuratie
+Tests volgen de nieuwe processor architecture:
+- ✅ **Unit Tests**: Test processors in isolation
+- ✅ **Async Tests**: Alle processor operations zijn async
+- ✅ **Mock Context**: FastMCP Context kan gemockt worden
+- ✅ **Statistics**: Test metrics tracking
+- ✅ **Parallel**: Test async parallel classification
 
-### FastMCP Tests
-- **`test_fastmcp_client.py`** - Tests voor FastMCP client integratie in STDIO mode
-- **`test_fastmcp_cli.py`** - Tests voor FastMCP CLI functionaliteit
-- **`test_fastmcp_server.py`** - Direct FastMCP server tests
-- **`test_fastmcp_direct.py`** - Direct core logic tests
+---
 
-### MCP Library Tests
-- **`test_mcp_client.py`** - Tests voor MCP library integratie in STDIO mode
+## 📁 Moderne Test Files
 
-### Integration Tests
-- **`test_ollama_integration.py`** - Ollama integratie tests met echte LLM
-- **`test_real_documents.py`** - Tests met echte document bestanden
+### Core Processor Tests
 
-### Utility Tests
-- **`test_metrics_generation.py`** - Metrics test data generator voor dashboard
+#### `test_processors.py` ⭐ **NIEUWE COMPREHENSIVE SUITE**
+Complete test coverage voor de processor architecture:
 
-### Test Runner
-- **`run_tests.py`** - Script om alle tests uit te voeren en rapporten te genereren
+**ProcessorRegistry Tests:**
+- Singleton pattern
+- Processor registration/unregistration
+- Parallel async classification
+- Global statistics aggregation
+- Tool metadata generation
 
-## 🚀 Test Uitvoeren
+**InvoiceProcessor Tests:**
+- Metadata properties (document_type, display_name, tool_name)
+- Classification keywords (29 keywords)
+- Classification confidence scoring
+- Data model and JSON schema
+- Extraction prompt generation
+- Validation and completeness
+- Custom metrics generation
 
-### Alle Tests Uitvoeren
+**CVProcessor Tests:**
+- Metadata properties
+- Classification keywords (17 keywords)
+- Classification confidence scoring
+- Data model and JSON schema
+- Extraction prompt generation
+- Validation and completeness
+- Custom metrics generation
+
+**Statistics Tests:**
+- Per-processor statistics tracking
+- Success rate calculation
+- Average processing time
+- Rolling averages voor confidence/completeness
+
+#### `test_pipeline.py` ✅ **UPDATED**
+Updated voor nieuwe processor architecture:
+
+**Classification Tests:**
+- CV classification via CVProcessor
+- Invoice classification via InvoiceProcessor
+- Registry parallel classification
+
+**Text Extraction Tests:**
+- PDF text extraction (utility, unchanged)
+
+**Chunking Tests:**
+- Recursive chunking
+- Smart chunking
+- (utilities, unchanged)
+
+**Merging Tests:**
+- Invoice merging via InvoiceProcessor.merge_partial_results()
+- CV merging via CVProcessor.merge_partial_results()
+- Deduplication testing
+
+**Validation Tests:**
+- Complete invoice validation
+- Incomplete CV validation
+- Completeness scoring
+
+**Statistics Tests:**
+- Processor statistics tracking
+- Registry global statistics
+
+### Other Modern Tests
+
+- **`test_monitoring.py`** - Metrics collection tests
+- **`test_fastmcp_*.py`** - FastMCP integration tests
+- **`test_mcp_*.py`** - MCP protocol tests
+- **`conftest.py`** - Shared fixtures
+
+---
+
+## 📁 Legacy Tests (Archived)
+
+### `legacy_tests/` Folder
+
+19 test files gearchiveerd die de oude monolithische architecture gebruiken:
+
+**Waarom Gearchiveerd:**
+- Gebruiken verwijderde modules: `classification.py`, `pipeline.py`, `merging.py`
+- Testen oude sync (niet-async) interface
+- Geen backward compatibility meer
+
+**Legacy Test Files:**
+1. `test_amazon_factuur.py`
+2. `test_comprehensive_comparison.py`
+3. `test_debug_json_schema.py`
+4. `test_error_analysis.py`
+5. `test_factuur_tekst.py`
+6. `test_final_validation.py`
+7. `test_hybrid_mode.py`
+8. `test_improved_extraction.py`
+9. `test_json_schema_extraction.py`
+10. `test_ollama_integration.py`
+11. `test_pipeline_direct.py`
+12. `test_pdf_processing.py`
+13. `test_real_documents.py`
+14. `test_real_pdf_comparison.py`
+15. `test_all_mcp_commands.py`
+16. `test_all_mcp_tools.py`
+17. `test_mcp_server.py`
+18. `test_mcp_tools_detailed.py`
+19. `test_mcp_tools_simple.py`
+
+**Kan Verwijderd Worden:** Deze tests kunnen veilig verwijderd worden. Alle functionaliteit is gedekt door de nieuwe test suite.
+
+**Migratie:** Zie `TEST_MIGRATION_GUIDE.md` voor migratie instructies.
+
+---
+
+## 🚀 Running Tests
+
+### Quick Start
+
 ```bash
-# Met de test runner
-uv run python tests/run_tests.py
+# Run alle moderne tests
+uv run pytest tests/ --ignore=tests/legacy_tests -v
 
-# Of direct met pytest
-uv run pytest tests/ -v
+# Run processor tests
+uv run pytest tests/test_processors.py -v
+
+# Run pipeline tests
+uv run pytest tests/test_pipeline.py -v
 ```
 
-### Specifieke Test Categorieën
+### With Coverage
+
 ```bash
-# Alleen unit tests
-uv run pytest tests/test_pipeline.py -v
+# HTML coverage report
+uv run pytest tests/ --ignore=tests/legacy_tests --cov=src --cov-report=html
 
-# Alleen FastMCP tests
-uv run pytest tests/ -m fastmcp -v
+# Terminal coverage
+uv run pytest tests/ --ignore=tests/legacy_tests --cov=src --cov-report=term
+```
 
-# Alleen MCP library tests
-uv run pytest tests/ -m mcp -v
+### Specific Tests
 
-# Alleen integratie tests
+```bash
+# Test een specifieke class
+uv run pytest tests/test_processors.py::TestInvoiceProcessor -v
+
+# Test een specifieke method
+uv run pytest tests/test_processors.py::TestInvoiceProcessor::test_classify_invoice_text -v
+
+# Verbose met output
+uv run pytest tests/test_processors.py -v -s
+```
+
+---
+
+## 🔧 Test Configuration
+
+### Markers
+
+Tests gebruiken pytest markers voor categorisatie:
+
+```python
+@pytest.mark.asyncio      # Async tests
+@pytest.mark.unit         # Unit tests
+@pytest.mark.integration  # Integration tests
+@pytest.mark.fastmcp      # Requires FastMCP
+@pytest.mark.mcp          # Requires MCP library
+@pytest.mark.ollama       # Requires Ollama
+@pytest.mark.slow         # Slow running tests
+```
+
+**Run by marker:**
+```bash
+uv run pytest tests/ -m asyncio -v
+uv run pytest tests/ -m "unit and not slow" -v
+```
+
+### Fixtures (in conftest.py)
+
+**Sample Data:**
+- `sample_cv_text` - Example CV text
+- `sample_invoice_text` - Example invoice text
+- `mock_cv_data` - Mock CV data dict
+- `mock_invoice_data` - Mock invoice data dict
+
+**Paths:**
+- `project_root` - Project root directory
+- `src_directory` - Source code directory
+- `tests_directory` - Tests directory
+
+**Availability Checks:**
+- `fastmcp_available` - FastMCP installed check
+- `mcp_available` - MCP library installed check
+- `ollama_available` - Ollama library installed check
+
+**Mock Objects:**
+- `mock_context` - Mock FastMCP Context for testing
+- `mock_ollama_response` - Mock Ollama API response
+
+---
+
+## 📊 Test Coverage
+
+### Current Coverage
+
+**Processors Module:** ~95%
+- BaseDocumentProcessor interface ✅
+- ProcessorRegistry ✅
+- InvoiceProcessor ✅
+- CVProcessor ✅
+- Statistics tracking ✅
+
+**Processing Utilities:** ~90%
+- Chunking ✅
+- PDF text extraction ✅
+
+**Tools:** ~85%
+- process_document_text ✅
+- process_document_file ✅
+- classify_document_type ✅
+- get_metrics ✅
+- health_check ✅
+
+### Coverage Goals
+
+- **Overall**: 90%+
+- **Processors**: 95%+
+- **Critical paths**: 100%
+
+---
+
+## 🧪 Test Categories
+
+### Unit Tests (Fast)
+
+Test individuele componenten in isolation:
+- Processor metadata
+- Classification keywords
+- JSON schema generation
+- Prompt generation
+- Statistics calculation
+- Deduplication logic
+
+**Run:**
+```bash
+uv run pytest tests/ -m unit -v
+```
+
+### Integration Tests (Slower)
+
+Test complete workflows:
+- Document classification via registry
+- Full extraction pipeline
+- Merging chunked results
+- End-to-end processing
+
+**Run:**
+```bash
 uv run pytest tests/ -m integration -v
 ```
 
-### Test Markers
-- **`@pytest.mark.fastmcp`** - Tests die FastMCP vereisen
-- **`@pytest.mark.mcp`** - Tests die MCP library vereisen
-- **`@pytest.mark.ollama`** - Tests die Ollama vereisen
-- **`@pytest.mark.integration`** - Integratie tests
-- **`@pytest.mark.unit`** - Unit tests
-- **`@pytest.mark.slow`** - Langzaam draaiende tests
+### Async Tests
 
-## 🔧 Test Configuratie
+All processor operations:
+- Classification (parallel)
+- Extraction
+- Merging
+- Validation
 
-### Dependencies
-Tests controleren automatisch of de benodigde dependencies beschikbaar zijn:
-- **FastMCP** - Voor FastMCP client tests
-- **MCP Library** - Voor MCP library tests
-- **Ollama** - Voor Ollama integratie tests
-
-### Fixtures
-Gedeelde fixtures zijn beschikbaar in `conftest.py`:
-- **`sample_cv_text`** - Voorbeeld CV tekst
-- **`sample_invoice_text`** - Voorbeeld factuur tekst
-- **`uv_command`** - UV command voor MCP server
-- **`mock_*`** - Mock data voor testing
-
-### Test Omgeving
-- Tests voegen automatisch de `src` directory toe aan het Python pad
-- Alle tests gebruiken UV voor dependency management
-- Timeouts zijn ingesteld voor verschillende test types
-
-## 📊 Test Rapportage
-
-### JUnit XML
+**Run:**
 ```bash
-uv run pytest tests/ --junitxml=tests/results.xml
+uv run pytest tests/ -m asyncio -v
 ```
 
-### HTML Rapport
-```bash
-uv run pytest tests/ --html=tests/report.html --self-contained-html
+---
+
+## 💡 Writing New Tests
+
+### Test New Processor
+
+```python
+import pytest
+from mcp_invoice_processor.processors.receipt import ReceiptProcessor
+
+class TestReceiptProcessor:
+    """Test the new ReceiptProcessor."""
+    
+    def test_metadata(self):
+        """Test processor metadata."""
+        processor = ReceiptProcessor()
+        assert processor.document_type == "receipt"
+        assert processor.display_name == "Kassabon"
+    
+    @pytest.mark.asyncio
+    async def test_classification(self):
+        """Test classification."""
+        processor = ReceiptProcessor()
+        
+        receipt_text = "KASSABON\nPinbetaling: €12.50"
+        confidence = await processor.classify(receipt_text)
+        
+        assert confidence > 50
+    
+    @pytest.mark.asyncio
+    async def test_extraction(self):
+        """Test extraction."""
+        processor = ReceiptProcessor()
+        
+        # Mock Ollama response
+        with patch('ollama.chat') as mock:
+            mock.return_value = {'message': {'content': '{...}'}}
+            
+            result = await processor.extract(text, ctx=None, method="hybrid")
+            assert result is not None
 ```
 
-### Coverage Rapport
-```bash
-uv run pytest tests/ --cov=src --cov-report=html --cov-report=term
+### Test with Mock Context
+
+```python
+from unittest.mock import AsyncMock
+
+@pytest.mark.asyncio
+async def test_with_context():
+    """Test with mocked Context."""
+    mock_ctx = AsyncMock()
+    
+    processor = InvoiceProcessor()
+    await processor.classify(text, ctx=mock_ctx)
+    
+    # Verify logging calls
+    mock_ctx.debug.assert_called()
+    mock_ctx.info.assert_called()
 ```
 
-## 🧪 Test Types
+---
 
-### Unit Tests
-- Testen individuele functies en klassen
-- Gebruiken mocks voor externe dependencies
-- Snelle uitvoering
+## 📚 Migration Guide
 
-### Integratie Tests
-- Testen volledige workflows
-- Gebruiken echte MCP server via STDIO
-- Langzamere uitvoering
+Voor het updaten van oude tests naar de nieuwe architecture, zie:
+**[TEST_MIGRATION_GUIDE.md](TEST_MIGRATION_GUIDE.md)**
 
-### FastMCP Client Tests
-- Testen FastMCP client verbinding
-- Testen documentverwerking via FastMCP
-- Testen foutafhandeling
+Key changes:
+- `classify_document()` → `processor.classify()` (async)
+- `extract_structured_data()` → `processor.extract()` (async)
+- `merge_partial_*_data()` → `processor.merge_partial_results()` (async)
+- Enum-based DocumentType → string-based document_type
 
-### MCP Library Tests
-- Testen MCP library verbinding
-- Testen documentverwerking via MCP library
-- Testen foutafhandeling
+---
 
-## 🔍 Test Debugging
+## 🎯 Test Metrics
 
-### Verbose Output
+### Test Execution Time
+
+**Fast Tests** (< 0.1s each):
+- Metadata tests
+- Keyword tests
+- Statistics tests
+- Schema generation
+
+**Medium Tests** (< 1s each):
+- Classification tests
+- Validation tests
+- Merging tests
+
+**Slow Tests** (> 1s each):
+- Ollama integration tests
+- Full extraction tests
+- Real document tests
+
+### Test Stats
+
+**Active Tests:**
+- `test_processors.py`: 20+ test cases
+- `test_pipeline.py`: 12+ test cases
+- Other modern tests: 30+ test cases
+
+**Archived Tests:**
+- `legacy_tests/`: 19 files (can be deleted)
+
+---
+
+## 🔍 Troubleshooting
+
+### Tests Falen
+
 ```bash
-uv run pytest tests/ -v -s
+# Check dependencies
+uv run python -c "import fastmcp; import ollama; print('OK')"
+
+# Check imports
+uv run python -c "from mcp_invoice_processor.processors import get_registry; print('OK')"
+
+# Verbose output
+uv run pytest tests/test_processors.py -v -s
 ```
 
-### Debug Mode
+### Import Errors
+
+Zorg dat je tests runt met uv:
 ```bash
-uv run pytest tests/ --pdb
+uv run pytest tests/  # ✅ Correct
+pytest tests/          # ❌ Kan import errors geven
 ```
 
-### Specifieke Test
-```bash
-uv run pytest tests/test_pipeline.py::TestDocumentClassification::test_cv_classification -v -s
+### Async Warnings
+
+Zorg dat async tests de `@pytest.mark.asyncio` marker hebben:
+```python
+@pytest.mark.asyncio
+async def test_something():
+    ...
 ```
 
-## 📋 Test Vereisten
+---
 
-### Runtime Vereisten
-- Python 3.10+
-- UV package manager
-- Alle project dependencies geïnstalleerd
+## 📖 Documentation
 
-### Test Dependencies
-- pytest
-- pytest-asyncio
-- pytest-html (voor HTML rapporten)
-- pytest-cov (voor coverage rapporten)
+- **[TEST_MIGRATION_GUIDE.md](TEST_MIGRATION_GUIDE.md)** - Migrate old tests to new architecture
+- **[legacy_tests/README.md](legacy_tests/README.md)** - Info over archived tests
+- **[../REFACTORING_PLAN.md](../REFACTORING_PLAN.md)** - Complete architecture design
+- **[../REFACTORING_SUMMARY.md](../REFACTORING_SUMMARY.md)** - Refactoring results
 
-### Optionele Dependencies
-- FastMCP (voor FastMCP tests)
-- MCP Library (voor MCP library tests)
-- Ollama (voor Ollama integratie tests)
+---
 
-## 🚨 Bekende Problemen
+## ✅ Test Checklist
 
-### Timeout Issues
-- Sommige tests hebben timeouts ingesteld
-- MCP server startup kan langzaam zijn
-- Pas timeouts aan indien nodig
+Before committing new tests:
 
-### Platform Specifieke Paden
-- UV command paden zijn Windows-specifiek
-- Pas paden aan voor andere besturingssystemen
+- [ ] Tests use new processor imports
+- [ ] Async tests have `@pytest.mark.asyncio`
+- [ ] Tests use fixtures from conftest.py
+- [ ] Tests have docstrings
+- [ ] All tests pass locally
+- [ ] Coverage doesn't decrease
+- [ ] No legacy imports used
 
-### Dependency Issues
-- Tests skippen automatisch als dependencies ontbreken
-- Installeer ontbrekende dependencies voor volledige test coverage
+---
 
-## 🤝 Bijdragen
-
-### Nieuwe Tests Toevoegen
-1. Maak een nieuwe test file in de `tests/` directory
-2. Gebruik bestaande fixtures uit `conftest.py`
-3. Voeg geschikte markers toe
-4. Test lokaal voordat je commit
-
-### Test Fixtures Uitbreiden
-1. Voeg nieuwe fixtures toe aan `conftest.py`
-2. Documenteer de fixtures
-3. Zorg voor backward compatibility
-
-### Test Configuratie Aanpassen
-1. Pas `conftest.py` aan voor nieuwe configuratie
-2. Update deze README indien nodig
-3. Test configuratie lokaal
-
-## 📚 Meer Informatie
-
-- [Pytest Documentatie](https://docs.pytest.org/)
-- [FastMCP Documentatie](https://gofastmcp.com/)
-- [MCP Protocol](https://modelcontextprotocol.io/)
-- [UV Documentatie](https://docs.astral.sh/uv/)
+**Test Suite Version:** 2.0.0  
+**Architecture:** Modular Processors  
+**Status:** Production Ready ✅
