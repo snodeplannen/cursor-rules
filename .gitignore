@@ -176,3 +176,5 @@ cython_debug/
 .pypirc
 *.7z
 .fake
+report.html
+results.xml
