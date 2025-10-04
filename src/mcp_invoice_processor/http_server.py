@@ -11,15 +11,13 @@ from starlette.responses import JSONResponse, PlainTextResponse
 from fastmcp import FastMCP
 from .monitoring.metrics import metrics_collector
 from .logging_config import setup_logging
+from . import tools
 
 # Onderdruk warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Setup logging
 logger = setup_logging(log_level="INFO")
-
-# Import de hoofdserver om tools te delen
-from .fastmcp_server import mcp as main_mcp
 
 # Maak FastMCP server met HTTP transport ondersteuning en importeer tools
 mcp = FastMCP(
@@ -41,48 +39,12 @@ mcp = FastMCP(
     """
 )
 
-# Import functies voor gebruik in custom routes en tools
-from .fastmcp_server import (
-    health_check as mcp_health_check
-)
-
-# Definieer onze eigen tools die de originele functies aanroepen
-from .processing.pipeline import extract_structured_data, ExtractionMethod
-from .processing.classification import classify_document, DocumentType
-from .processing.models import CVData, InvoiceData
-from .config import settings
-from .monitoring.metrics import metrics_collector
-from fastmcp import Context
-
-@mcp.tool()
-async def process_document_text(text: str, ctx: Context, extraction_method: str = "hybrid"):
-    """Verwerk document tekst en extraheer gestructureerde data."""
-    # Gebruik de originele implementatie
-    return await main_mcp._tools["process_document_text"].func(text, ctx, extraction_method)
-
-@mcp.tool()
-async def process_document_file(file_path: str, ctx: Context, extraction_method: str = "json_schema"):
-    """Verwerk een document bestand en extraheer gestructureerde data."""
-    # Gebruik de originele implementatie
-    return await main_mcp._tools["process_document_file"].func(file_path, ctx, extraction_method)
-
-@mcp.tool()
-async def classify_document_type(text: str, ctx: Context):
-    """Classificeer alleen het document type zonder volledige verwerking."""
-    # Gebruik de originele implementatie
-    return await main_mcp._tools["classify_document_type"].func(text, ctx)
-
-@mcp.tool()
-async def get_metrics(ctx: Context):
-    """Haal huidige metrics op van de document processor."""
-    # Gebruik de originele implementatie
-    return await main_mcp._tools["get_metrics"].func(ctx)
-
-@mcp.tool()
-async def health_check(ctx: Context):
-    """Voer een health check uit van de service."""
-    # Gebruik de originele implementatie
-    return await main_mcp._tools["health_check"].func(ctx)
+# Registreer de gedeelde tools
+mcp.tool()(tools.process_document_text)
+mcp.tool()(tools.process_document_file)
+mcp.tool()(tools.classify_document_type)
+mcp.tool()(tools.get_metrics)
+mcp.tool()(tools.health_check)
 
 @mcp.custom_route("/", methods=["GET"])
 async def root(request: Request) -> JSONResponse:
@@ -112,7 +74,7 @@ async def root(request: Request) -> JSONResponse:
 async def health_endpoint(request: Request) -> JSONResponse:
     """HTTP Health check endpoint."""
     try:
-        # Maak een eenvoudige context implementatie
+        # Maak een eenvoudige context implementatie voor de health check tool
         class SimpleContext:
             def __init__(self):
                 self.messages = []
@@ -125,32 +87,9 @@ async def health_endpoint(request: Request) -> JSONResponse:
                 self.messages.append(f"ERROR: {message}")
                 logger.error(message)
         
-        # Direct health check implementatie
-        import ollama
-        try:
-            # Probeer een eenvoudige request naar Ollama
-            client = ollama.AsyncClient(host=settings.ollama.HOST)
-            models = await client.list()
-            ollama_status = "healthy"
-            available_models = [model['name'] for model in models.get('models', [])]
-        except Exception as e:
-            ollama_status = f"unhealthy: {e}"
-            available_models = []
-        
-        # Get basic metrics
-        metrics = metrics_collector.get_comprehensive_metrics()
-        
-        health_result = {
-            "status": "healthy" if ollama_status == "healthy" else "degraded",
-            "timestamp": metrics["timestamp"],
-            "ollama_status": ollama_status,
-            "available_models": available_models,
-            "uptime": metrics["system"]["uptime"],
-            "total_documents_processed": metrics["processing"]["total_documents"],
-            "total_ollama_requests": metrics["ollama"]["total_requests"]
-        }
-        
-        # Context messages zijn niet nodig voor direct health check
+        # Gebruik de gedeelde health_check tool
+        ctx = SimpleContext()
+        health_result = await tools.health_check(ctx)
         
         if health_result.get("status") == "healthy":
             return JSONResponse(health_result)
