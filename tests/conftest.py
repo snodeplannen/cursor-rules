@@ -261,20 +261,28 @@ def pytest_configure(config: Any) -> None:
 
 @pytest.fixture
 def mock_context() -> Any:
-    """Mock context voor MCP server testing."""
+    """Mock context voor MCP server testing - compatible met v2.0 processors."""
     class MockContext:
         def __init__(self) -> None:
             self.error_calls: list[str] = []
             self.warning_calls: list[str] = []
             self.info_calls: list[str] = []
+            self.debug_calls: list[str] = []
         
-        async def error(self, message: str) -> None:
+        async def error(self, message: str, extra: dict = None) -> None:
             self.error_calls.append(message)
         
-        async def warning(self, message: str) -> None:
+        async def warning(self, message: str, extra: dict = None) -> None:
             self.warning_calls.append(message)
         
-        async def info(self, message: str) -> None:
+        async def info(self, message: str, extra: dict = None) -> None:
             self.info_calls.append(message)
+        
+        async def debug(self, message: str, extra: dict = None) -> None:
+            self.debug_calls.append(message)
+        
+        async def report_progress(self, progress: float, total: float = 100.0) -> None:
+            """Mock progress reporting."""
+            pass
     
     return MockContext()
