@@ -286,3 +286,25 @@ def mock_context() -> Any:
             pass
     
     return MockContext()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def register_processors():
+    """Auto-register processors voor alle tests."""
+    try:
+        from mcp_invoice_processor.processors import register_processor, get_registry
+        from mcp_invoice_processor.processors.invoice import InvoiceProcessor
+        from mcp_invoice_processor.processors.cv import CVProcessor
+        
+        registry = get_registry()
+        
+        # Check of al geregistreerd
+        if not registry.get_processor("invoice"):
+            register_processor(InvoiceProcessor())
+        if not registry.get_processor("cv"):
+            register_processor(CVProcessor())
+        
+        yield
+    except ImportError:
+        # Processors module niet beschikbaar
+        yield
