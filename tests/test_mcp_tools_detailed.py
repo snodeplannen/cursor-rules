@@ -3,6 +3,7 @@
 Gedetailleerde test voor alle MCP tools.
 Dit script test alle MCP tools via de FastMCP server.
 """
+import pytest
 
 import asyncio
 import json
@@ -38,7 +39,7 @@ async def test_all_tools():
     logger.info("🧪 Testen Alle MCP Tools")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         if not hasattr(mcp, 'tools'):
             logger.error("❌ Geen tools gevonden in FastMCP server")
@@ -78,7 +79,7 @@ async def test_all_resources():
     logger.info("🧪 Testen Alle MCP Resources")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         if not hasattr(mcp, 'resources'):
             logger.error("❌ Geen resources gevonden in FastMCP server")
@@ -113,7 +114,7 @@ async def test_all_prompts():
     logger.info("🧪 Testen Alle MCP Prompts")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         if not hasattr(mcp, 'prompts'):
             logger.error("❌ Geen prompts gevonden in FastMCP server")
@@ -150,7 +151,7 @@ async def test_server_capabilities():
     logger.info("🧪 Testen Server Capabilities")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         # Test server eigenschappen
         logger.info("🏗️ Server Eigenschappen:")
@@ -213,7 +214,7 @@ async def test_document_processing_workflow():
     
     try:
         # Test document classificatie
-        from src.mcp_invoice_processor.processing.classification import classify_document
+        from mcp_invoice_processor.processing.classification import classify_document
         
         # Test verschillende document types
         test_cases = [
@@ -227,14 +228,14 @@ async def test_document_processing_workflow():
             logger.info(f"   📄 {expected_type}: geclassificeerd als '{doc_type.value}'")
         
         # Test tekst chunking
-        from src.mcp_invoice_processor.processing.chunking import chunk_text
+        from mcp_invoice_processor.processing.chunking import chunk_text
         
         long_text = "Dit is een lange tekst. " * 100  # 2500 karakters
         chunks = chunk_text(long_text, chunk_size=500)
         logger.info(f"   ✂️ Lange tekst opgedeeld in {len(chunks)} chunks")
         
         # Test metrics
-        from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
+        from mcp_invoice_processor.monitoring.metrics import metrics_collector
         
         metrics = metrics_collector.get_comprehensive_metrics()
         logger.info(f"   📊 Metrics secties: {list(metrics.keys())}")
@@ -251,7 +252,7 @@ async def test_error_handling():
     logger.info("🧪 Testen Error Handling")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         # Test met ongeldige input
         ctx = MockContext()

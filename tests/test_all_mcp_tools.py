@@ -3,6 +3,7 @@
 Test script voor alle MCP tools.
 Dit script test alle beschikbare MCP tools in de FastMCP server.
 """
+import pytest
 
 import asyncio
 import json
@@ -58,7 +59,7 @@ async def test_process_document_text():
     
     try:
         # Import de functie direct uit de module
-        from src.mcp_invoice_processor.fastmcp_server import process_document_text
+        from mcp_invoice_processor.fastmcp_server import process_document_text
         
         # Test CV tekst
         cv_text = """
@@ -99,7 +100,7 @@ async def test_process_document_file():
     
     try:
         # Import de functie direct uit de module
-        from src.mcp_invoice_processor.fastmcp_server import process_document_file
+        from mcp_invoice_processor.fastmcp_server import process_document_file
         
         # Test met een bestaand bestand
         test_file = "test_factuur.txt"
@@ -135,7 +136,7 @@ async def test_classify_document_type():
     
     try:
         # Import de functie direct uit de module
-        from src.mcp_invoice_processor.fastmcp_server import classify_document_type
+        from mcp_invoice_processor.fastmcp_server import classify_document_type
         
         # Test CV classificatie
         cv_text = "Curriculum Vitae\nNaam: Jan Jansen\nWerkervaring: Software Engineer"
@@ -164,7 +165,7 @@ async def test_get_metrics():
     
     try:
         # Import de functie direct uit de module
-        from src.mcp_invoice_processor.fastmcp_server import get_metrics
+        from mcp_invoice_processor.fastmcp_server import get_metrics
         
         ctx = MockFastMCPContext()
         result = await get_metrics(ctx)
@@ -184,7 +185,7 @@ async def test_health_check():
     
     try:
         # Import de functie direct uit de module
-        from src.mcp_invoice_processor.fastmcp_server import health_check
+        from mcp_invoice_processor.fastmcp_server import health_check
         
         ctx = MockFastMCPContext()
         result = await health_check(ctx)
@@ -203,7 +204,7 @@ async def test_resources():
     logger.info("🧪 Test 6: Resources (Documentatie en voorbeelden)")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         # Test document types resource
         if hasattr(mcp, 'resources'):
@@ -232,7 +233,7 @@ async def test_prompts():
     logger.info("🧪 Test 7: Prompts (Document verwerking gidsen)")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         # Test prompts
         if hasattr(mcp, 'prompts'):
@@ -264,7 +265,7 @@ async def test_server_info():
     logger.info("🧪 Test 8: Server Informatie")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp, mcp_settings
+        from mcp_invoice_processor.fastmcp_server import mcp, mcp_settings
         
         logger.info(f"🏗️ Server naam: {mcp_settings.name}")
         logger.info(f"📦 Server versie: {mcp_settings.version}")
@@ -306,7 +307,7 @@ async def test_tools_direct():
     logger.info("🧪 Test 9: Tools Direct Testen")
     
     try:
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         if hasattr(mcp, 'tools'):
             logger.info(f"🛠️ Aantal tools gevonden: {len(mcp.tools)}")

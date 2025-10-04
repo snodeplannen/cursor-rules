@@ -372,8 +372,22 @@ De applicatie gebruikt gestructureerde JSON logging:
 ## 🚀 Deployment
 
 ### Lokale Deployment
+
+#### STDIO Transport (voor Cursor MCP integratie)
 ```bash
-uv run fastmcp run src.mcp_invoice_processor.main:mcp --host 0.0.0.0 --port 8080
+uv run python -m src.mcp_invoice_processor
+```
+
+#### HTTP Transport (voor web API gebruik)
+```bash
+# Optie 1: Direct HTTP server starten
+uv run python -m src.mcp_invoice_processor.http_server
+
+# Optie 2: Met custom host/port
+uv run python -m src.mcp_invoice_processor.http_server 0.0.0.0 8080
+
+# Optie 3: Via FastMCP HTTP transport
+uv run fastmcp run src.mcp_invoice_processor.fastmcp_server:mcp --transport http --host 0.0.0.0 --port 8080
 ```
 
 ### Docker Deployment

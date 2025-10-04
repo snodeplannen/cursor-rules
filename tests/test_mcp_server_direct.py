@@ -2,6 +2,7 @@
 """
 Directe test van de MCP server.
 """
+import pytest
 
 import asyncio
 import logging
@@ -18,7 +19,7 @@ async def test_mcp_server_direct():
     
     try:
         # Import de server
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         logger.info(f"✅ MCP server geïmporteerd: {type(mcp)}")
         logger.info(f"   MCP object: {mcp}")

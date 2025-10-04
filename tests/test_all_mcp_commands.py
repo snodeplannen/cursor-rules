@@ -7,6 +7,7 @@ from mcp_invoice_processor.processing.pipeline import extract_structured_data
 from mcp_invoice_processor.monitoring.metrics import metrics_collector
 from mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
 from typing import Any, Dict, List, Optional, Union
+import pytest
 
 """
 Test script voor alle MCP Invoice Processor commando's.

@@ -2,6 +2,7 @@
 """
 Test script voor JSON schema extractie vs prompt parsing mode.
 """
+import pytest
 
 import asyncio
 import logging
@@ -10,7 +11,7 @@ import sys
 import os
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from mcp_invoice_processor.processing import ExtractionMethod, extract_structured_data
 from mcp_invoice_processor.processing.classification import classify_document

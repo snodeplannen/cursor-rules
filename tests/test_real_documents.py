@@ -5,6 +5,7 @@ import logging
 from mcp_invoice_processor.processing.classification import classify_document
 from mcp_invoice_processor.processing.models import InvoiceData, CVData
 from typing import Any, Dict, List, Optional, Union
+import pytest
 
 #!/usr/bin/env python3
 """

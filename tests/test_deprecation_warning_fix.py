@@ -2,6 +2,7 @@
 """
 Test script om te controleren of de DeprecationWarning is opgelost.
 """
+import pytest
 
 import warnings
 import sys

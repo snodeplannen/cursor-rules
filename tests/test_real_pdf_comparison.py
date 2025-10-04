@@ -3,6 +3,7 @@
 Uitgebreide test met echte PDF factuur (Amazon) + synthetische data.
 Vergelijkt alle extractie methodes op zowel tekst als PDF input.
 """
+import pytest
 
 import asyncio
 import logging
@@ -12,7 +13,7 @@ import json
 from typing import Dict, Any, List
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from mcp_invoice_processor.processing import ExtractionMethod, extract_structured_data
 from mcp_invoice_processor.processing.classification import classify_document
@@ -59,7 +60,7 @@ Referentie: PROJECT-2024-A
 Opmerkingen: Bedankt voor uw opdracht! Volgende levering in april.
 """
 
-PDF_FILE_PATH = "amazon_rugtas-factuur.pdf"
+PDF_FILE_PATH = os.path.join(os.path.dirname(__file__), "..", "amazon_rugtas-factuur.pdf")
 
 def calculate_detailed_completeness(data: Dict[str, Any]) -> Dict[str, float]:
     """Bereken gedetailleerde completeness scores."""
@@ -122,7 +123,7 @@ def print_detailed_result(result: Dict[str, Any], method_name: str, source: str)
     if len(line_items) > 3:
         print(f"     ... en {len(line_items) - 3} meer")
 
-async def test_method_on_source(text: str, source_name: str, method: ExtractionMethod, method_name: str) -> Dict[str, Any]:
+async def _test_method_on_source(text: str, source_name: str, method: ExtractionMethod, method_name: str) -> Dict[str, Any]:
     """Test een specifieke methode op een data source."""
     
     try:
@@ -197,7 +198,7 @@ async def comprehensive_pdf_test():
         
         for method, method_name in methods:
             logger.info(f"🔬 Testing {method_name} op {source_name}...")
-            result = await test_method_on_source(source_text, source_name, method, method_name)
+            result = await _test_method_on_source(source_text, source_name, method, method_name)
             source_results[method.value] = result
         
         all_results[source_name] = source_results
@@ -266,6 +267,24 @@ async def comprehensive_pdf_test():
     print(f"\n🏆 OVERALL WINNAAR: {best_overall[0]} (Avg {best_overall[1][0]:.1f}%, {best_overall[1][1]}/2 succesvol)")
     
     return all_results
+
+@pytest.mark.asyncio
+async def test_comprehensive_pdf_comparison():
+    """Pytest wrapper voor de uitgebreide PDF vergelijking."""
+    results = await comprehensive_pdf_test()
+    
+    # Assertions om te controleren dat de test succesvol was
+    assert results is not None, "Test moet resultaten teruggeven"
+    
+    # Controleer dat beide bronnen getest zijn
+    expected_sources = ["Synthetisch", "Amazon PDF"]
+    for source in expected_sources:
+        assert source in results, f"Bron {source} moet getest zijn"
+    
+    # Controleer dat minstens één methode succesvol was per bron
+    for source, source_results in results.items():
+        successful_methods = [method for method, result in source_results.items() if result]
+        assert len(successful_methods) > 0, f"Minstens één methode moet succesvol zijn voor {source}"
 
 if __name__ == "__main__":
     results = asyncio.run(comprehensive_pdf_test())

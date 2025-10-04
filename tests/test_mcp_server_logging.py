@@ -2,6 +2,7 @@
 """
 Test script om de MCP server logging verbeteringen te testen.
 """
+import pytest
 
 
 import os

@@ -2,6 +2,7 @@
 """
 Test FastMCP server door deze te starten en te testen.
 """
+import pytest
 
 import asyncio
 import logging
@@ -23,7 +24,7 @@ async def test_fastmcp_server_run():
         logger.info("🚀 Starten FastMCP server...")
         
         # Test of de server kan starten
-        from src.mcp_invoice_processor.fastmcp_server import mcp, run_server
+        from mcp_invoice_processor.fastmcp_server import mcp, run_server
         
         logger.info("✅ FastMCP server module geladen")
         logger.info(f"   Server object: {mcp}")
@@ -56,7 +57,7 @@ async def test_fastmcp_server_run():
         
         # Test process_document_text
         try:
-            from src.mcp_invoice_processor.fastmcp_server import process_document_text
+            from mcp_invoice_processor.fastmcp_server import process_document_text
             
             test_text = "Curriculum Vitae\nNaam: Jan Jansen\nEmail: jan@test.com"
             result = await process_document_text(test_text, ctx)
@@ -69,7 +70,7 @@ async def test_fastmcp_server_run():
         
         # Test classify_document_type
         try:
-            from src.mcp_invoice_processor.fastmcp_server import classify_document_type
+            from mcp_invoice_processor.fastmcp_server import classify_document_type
             
             result = await classify_document_type("FACTUUR\nNummer: INV-001", ctx)
             
@@ -81,7 +82,7 @@ async def test_fastmcp_server_run():
         
         # Test get_metrics
         try:
-            from src.mcp_invoice_processor.fastmcp_server import get_metrics
+            from mcp_invoice_processor.fastmcp_server import get_metrics
             
             result = await get_metrics(ctx)
             
@@ -93,7 +94,7 @@ async def test_fastmcp_server_run():
         
         # Test health_check
         try:
-            from src.mcp_invoice_processor.fastmcp_server import health_check
+            from mcp_invoice_processor.fastmcp_server import health_check
             
             result = await health_check(ctx)
             

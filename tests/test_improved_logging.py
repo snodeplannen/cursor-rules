@@ -2,6 +2,7 @@
 """
 Test script om de verbeterde logging configuratie te testen.
 """
+import pytest
 
 import sys
 import os

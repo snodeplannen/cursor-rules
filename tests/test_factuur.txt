@@ -1,0 +1,9 @@
+
+                FACTUUR
+                
+                Factuurnummer: INV-001
+                Datum: 2024-01-15
+                Klant: Test Bedrijf BV
+                Totaal: €150.00
+                BTW: €31.50
+                

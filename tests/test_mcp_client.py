@@ -2,6 +2,7 @@
 Tests voor MCP library integratie in STDIO mode.
 Deze tests controleren of de MCP server correct werkt via de MCP library.
 """
+import pytest
 
 
 def test_mcp_library_availability() -> None:

@@ -4,9 +4,9 @@ Script om de factuurtekst "factuurn 6666" te verwerken.
 """
 
 import asyncio
-from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
-from src.mcp_invoice_processor.processing.classification import classify_document
-from src.mcp_invoice_processor.processing.models import DocumentType
+from mcp_invoice_processor.processing.pipeline import extract_structured_data
+from mcp_invoice_processor.processing.classification import classify_document
+from mcp_invoice_processor.processing.models import DocumentType
 
 async def main():
     """Hoofdfunctie voor factuur tekst verwerking."""

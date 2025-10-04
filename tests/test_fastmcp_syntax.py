@@ -2,6 +2,7 @@
 """
 Test FastMCP syntax en functionaliteit.
 """
+import pytest
 
 import asyncio
 import logging

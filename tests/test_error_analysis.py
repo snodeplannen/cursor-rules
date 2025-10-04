@@ -2,6 +2,7 @@
 """
 Test script om specifieke errors in het systeem te analyseren.
 """
+import pytest
 
 import asyncio
 import logging
@@ -10,7 +11,7 @@ import os
 import json
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 # Setup verbose logging
 logging.basicConfig(

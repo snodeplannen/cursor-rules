@@ -3,6 +3,7 @@
 Eenvoudige test voor MCP tools.
 Dit script test de MCP tools via de FastMCP server.
 """
+import pytest
 
 import asyncio
 import json
@@ -35,7 +36,7 @@ async def test_fastmcp_server():
     
     try:
         # Import de FastMCP server
-        from src.mcp_invoice_processor.fastmcp_server import mcp
+        from mcp_invoice_processor.fastmcp_server import mcp
         
         logger.info(f"✅ FastMCP server geïmporteerd")
         
@@ -85,7 +86,7 @@ async def test_document_processing():
     
     try:
         # Test document classificatie
-        from src.mcp_invoice_processor.processing.classification import classify_document
+        from mcp_invoice_processor.processing.classification import classify_document
         
         # Test CV tekst
         cv_text = "Curriculum Vitae\nNaam: Jan Jansen\nWerkervaring: Software Engineer"
@@ -109,7 +110,7 @@ async def test_metrics():
     logger.info("🧪 Testen Metrics")
     
     try:
-        from src.mcp_invoice_processor.monitoring.metrics import metrics_collector
+        from mcp_invoice_processor.monitoring.metrics import metrics_collector
         
         # Test metrics ophalen
         metrics = metrics_collector.get_comprehensive_metrics()
@@ -134,8 +135,8 @@ async def test_pipeline():
     logger.info("🧪 Testen Pipeline")
     
     try:
-        from src.mcp_invoice_processor.processing.pipeline import extract_structured_data
-        from src.mcp_invoice_processor.processing.classification import DocumentType
+        from mcp_invoice_processor.processing.pipeline import extract_structured_data
+        from mcp_invoice_processor.processing.classification import DocumentType
         
         # Test CV extractie (zonder Ollama)
         cv_text = """
@@ -164,8 +165,8 @@ async def test_pipeline():
         logger.info(f"✅ Document type: {doc_type.value}")
         
         # Test pipeline functies
-        from src.mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
-        from src.mcp_invoice_processor.processing.chunking import chunk_text
+        from mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
+        from mcp_invoice_processor.processing.chunking import chunk_text
         
         # Test chunking
         chunks = chunk_text(cv_text, chunk_size=500)

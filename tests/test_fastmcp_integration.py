@@ -2,6 +2,7 @@
 """
 Test FastMCP server integratie met nieuwe extractie methodes.
 """
+import pytest
 
 import asyncio
 import logging
@@ -9,7 +10,7 @@ import sys
 import os
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

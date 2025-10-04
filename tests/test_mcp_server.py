@@ -2,6 +2,7 @@
 """
 Test script voor MCP server functionaliteit.
 """
+import pytest
 
 import asyncio
 import logging
