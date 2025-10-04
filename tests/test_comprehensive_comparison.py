@@ -57,8 +57,15 @@ class MockContext:
 
 
 @pytest.mark.asyncio
+@pytest.mark.ollama
+@pytest.mark.integration
+@pytest.mark.slow
 async def test_json_vs_prompt_comparison():
-    """Vergelijk JSON schema vs prompt parsing modes."""
+    """Vergelijk JSON schema vs prompt parsing modes.
+    
+    Deze test maakt 2× ECHTE Ollama calls (json_schema + prompt_parsing modes).
+    Vereist Ollama running op localhost:11434.
+    """
     print("\n=== JSON SCHEMA VS PROMPT PARSING (v2.0) ===\n")
     
     processor = InvoiceProcessor()

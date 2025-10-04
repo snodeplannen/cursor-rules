@@ -12,8 +12,14 @@ from mcp_invoice_processor.processing.text_extractor import extract_text_from_pd
 
 
 @pytest.mark.asyncio
+@pytest.mark.ollama
+@pytest.mark.integration
 async def test_all_commands(mock_context) -> None:
-    """Test alle MCP commando's met v2.0."""
+    """Test alle MCP commando's met v2.0.
+    
+    Deze test maakt ECHTE Ollama calls voor document extractie.
+    Vereist Ollama running op localhost:11434.
+    """
     print("=== MCP Invoice Processor - Alle Commando's Test (v2.0) ===\n")
     
     ctx = mock_context

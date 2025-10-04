@@ -19,8 +19,14 @@ class MockContext:
 
 
 @pytest.mark.asyncio
+@pytest.mark.ollama
+@pytest.mark.integration
 async def test_factuur_tekst():
-    """Test factuur tekst verwerking met v2.0 processors."""
+    """Test factuur tekst verwerking met v2.0 processors.
+    
+    Deze test maakt ECHTE Ollama calls (niet gemockt).
+    Vereist Ollama running op localhost:11434.
+    """
     print("=== FACTUUR TEKST VERWERKING (v2.0) ===")
     
     # Test tekst

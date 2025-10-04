@@ -52,8 +52,14 @@ class MockContext:
 
 
 @pytest.mark.asyncio
+@pytest.mark.ollama
+@pytest.mark.integration
 async def test_amazon_invoice() -> None:
-    """Test Amazon rugtas factuur verwerking met nieuwe processor."""
+    """Test Amazon rugtas factuur verwerking met nieuwe processor.
+    
+    Deze test maakt ECHTE Ollama calls (niet gemockt).
+    Vereist Ollama running op localhost:11434.
+    """
     print("=== Amazon Rugtas Factuur Verwerking Test (v2.0) ===")
     
     pdf_file = "amazon_rugtas-factuur.pdf"
