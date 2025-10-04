@@ -130,7 +130,7 @@ class BaseDocumentProcessor(ABC):
             - https://gofastmcp.com/servers/tools
             - https://gofastmcp.com/servers/context
         """
-        from fastmcp import Annotations
+        from fastmcp.utilities.types import Annotations
         
         return {
             "name": self.tool_name,

@@ -8,14 +8,13 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Nieuwe processor imports
-from src.mcp_invoice_processor.processors import get_registry, ProcessorRegistry
-from src.mcp_invoice_processor.processors.invoice import InvoiceProcessor, InvoiceData, InvoiceLineItem
-from src.mcp_invoice_processor.processors.cv import CVProcessor, CVData, WorkExperience, Education
+from mcp_invoice_processor.processors import get_registry, ProcessorRegistry
+from mcp_invoice_processor.processors.invoice import InvoiceProcessor, InvoiceData, InvoiceLineItem
+from mcp_invoice_processor.processors.cv import CVProcessor, CVData, WorkExperience, Education
 
-# Legacy imports voor backward compatibility
-from src.mcp_invoice_processor.processing.models import DocumentType
-from src.mcp_invoice_processor.processing.chunking import chunk_text, ChunkingMethod
-from src.mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
+# Utilities
+from mcp_invoice_processor.processing.chunking import chunk_text, ChunkingMethod
+from mcp_invoice_processor.processing.text_extractor import extract_text_from_pdf
 
 
 class TestDocumentClassification:

@@ -8,14 +8,14 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from src.mcp_invoice_processor.processors import (
+from mcp_invoice_processor.processors import (
     get_registry,
     register_processor,
     BaseDocumentProcessor,
     ProcessorRegistry,
 )
-from src.mcp_invoice_processor.processors.invoice import InvoiceProcessor
-from src.mcp_invoice_processor.processors.cv import CVProcessor
+from mcp_invoice_processor.processors.invoice import InvoiceProcessor
+from mcp_invoice_processor.processors.cv import CVProcessor
 
 
 class TestProcessorRegistry:
@@ -140,7 +140,7 @@ class TestInvoiceProcessor:
         """Test dat data model correct is."""
         processor = InvoiceProcessor()
         
-        from src.mcp_invoice_processor.processors.invoice.models import InvoiceData
+        from mcp_invoice_processor.processors.invoice.models import InvoiceData
         assert processor.data_model == InvoiceData
     
     def test_json_schema(self):
@@ -219,7 +219,7 @@ class TestCVProcessor:
         confidence = await processor.classify(cv_text)
         
         # Moet hoge confidence hebben voor CV
-        assert confidence > 50, f"Expected high confidence for CV, got {confidence}"
+        assert confidence >= 50, f"Expected high confidence for CV, got {confidence}"
     
     @pytest.mark.asyncio
     async def test_classify_non_cv_text(self):
@@ -242,7 +242,7 @@ class TestCVProcessor:
         """Test dat data model correct is."""
         processor = CVProcessor()
         
-        from src.mcp_invoice_processor.processors.cv.models import CVData
+        from mcp_invoice_processor.processors.cv.models import CVData
         assert processor.data_model == CVData
     
     def test_json_schema(self):

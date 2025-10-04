@@ -12,7 +12,8 @@ import asyncio
 import logging
 from typing import Dict, Optional, List, Tuple, Any
 
-from fastmcp import Context, FastMCP, Annotations
+from fastmcp import Context, FastMCP
+from fastmcp.utilities.types import Annotations
 
 from .base import BaseDocumentProcessor
 
