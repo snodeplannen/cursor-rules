@@ -7,7 +7,7 @@ Test alle chunking methoden, auto mode, en edge cases.
 import os
 import pytest
 import logging
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.mcp_invoice_processor.processing.chunking import (
     chunk_text, 
     ChunkingMethod, 
@@ -342,16 +342,21 @@ class TestChunkingIntegration:
         text = "Test tekst voor configuratie. " * 100
         
         # Test met verschillende configuraties
-        configs = [
-            {"chunk_size": 500, "chunk_overlap": 100},
-            {"chunk_size": 1500, "chunk_overlap": 300},
-            {"chunk_size": 2000, "chunk_overlap": 400},
+        test_configs = [
+            (500, 100),
+            (1500, 300),
+            (2000, 400),
         ]
         
-        for config in configs:
-            chunks = chunk_text(text, **config)
-            assert len(chunks) > 0, f"Moet chunks produceren voor config {config}"
-            assert all(len(chunk) <= config["chunk_size"] for chunk in chunks), f"Chunks moeten <= {config['chunk_size']} zijn"
+        for chunk_size, chunk_overlap in test_configs:
+            chunks = chunk_text(
+                text, 
+                method=ChunkingMethod.RECURSIVE,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap
+            )
+            assert len(chunks) > 0, f"Moet chunks produceren voor chunk_size={chunk_size}, overlap={chunk_overlap}"
+            assert all(len(chunk) <= chunk_size for chunk in chunks), f"Chunks moeten <= {chunk_size} zijn"
     
     def test_chunking_with_environment_variables(self):
         """Test chunking met environment variables."""
@@ -364,7 +369,7 @@ class TestChunkingIntegration:
         try:
             # Herlaad configuratie
             from src.mcp_invoice_processor.config import AppSettings
-            new_settings = AppSettings()
+            AppSettings()  # Herlaad configuratie
             
             chunks = chunk_text(text)
             
