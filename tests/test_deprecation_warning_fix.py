@@ -104,7 +104,6 @@ def test_deprecation_warning_fix() -> bool:
         sys.stderr = original_stderr
         
         assert True, "DeprecationWarning test completed successfully"
-        return True
         
     except Exception as e:
         # Herstel stderr

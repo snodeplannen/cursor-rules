@@ -25,7 +25,7 @@ import sys # noqa: E402
 # Voeg src directory toe aan Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-def test_mcp_server_logging() -> bool:
+def test_mcp_server_logging():
     """Test de MCP server logging verbeteringen."""
     try:
         print("🧪 Test MCP Server Logging Verbeteringen...")
@@ -35,10 +35,6 @@ def test_mcp_server_logging() -> bool:
         
         # Import de logging configuratie
         from mcp_invoice_processor.logging_config import setup_logging
-        
-        # Setup logging
-        logger = setup_logging(log_level="INFO")
-        print("✅ Logging configuratie opgezet")
         
         # Test MCP server integration logger
         print("🔧 MCP server integration logger testen...")
@@ -77,7 +73,6 @@ def test_mcp_server_logging() -> bool:
         
         print("\n🎉 MCP server logging test voltooid!")
         assert True, "MCP server logging test completed successfully"
-        return True
         
     except Exception as e:
         print(f"❌ MCP server logging test gefaald: {e}")
