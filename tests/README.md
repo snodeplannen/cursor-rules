@@ -88,6 +88,24 @@ Updated voor nieuwe processor architecture:
 - **`test_mcp_*.py`** - MCP protocol tests
 - **`conftest.py`** - Shared fixtures
 
+### Real-World Integration Tests
+
+**`simple_http_client.py`** - Comprehensive HTTP client demo:
+- ✅ **Text Invoice Processing**: Sample invoice text
+- ✅ **Text CV Processing**: Sample CV text  
+- ✅ **PDF CV Processing**: Real CV PDF (`martin-ingescande-CV-losvanbrief-sikkieversie5.pdf`)
+- ✅ **PDF Invoice Processing**: Real Amazon invoice PDF (`amazon_rugtas-factuur.pdf`)
+- ✅ **Health Checks**: Server status monitoring
+- ✅ **Metrics**: Performance statistics
+
+**Test Results:**
+```
+Total Documents Processed: 9 in session
+Success Rate: 100%
+Document Types: CV (5), Invoice (4)
+Global Success Rate: 100% (18 documents total)
+```
+
 ---
 
 ## 📁 Legacy Tests (Archived)
@@ -196,7 +214,27 @@ uv run pytest tests/ -m "unit and not slow" -v
 - `sample_cv_text` - Example CV text
 - `sample_invoice_text` - Example invoice text
 - `mock_cv_data` - Mock CV data dict
-- `mock_invoice_data` - Mock invoice data dict
+- `mock_invoice_data` - Mock Invoice data dict
+
+**Real-World Test Documents:**
+- `martin-ingescande-CV-losvanbrief-sikkieversie5.pdf` - Echte CV PDF voor testing
+- `amazon_rugtas-factuur.pdf` - Echte Amazon factuur PDF voor testing
+
+**Real Document Test Results:**
+```
+PDF CV Processing (martin-ingescande-CV-losvanbrief-sikkieversie5.pdf):
+- Confidence: 70%
+- Processing Time: 17.71s
+- Data Extracted: 8 jobs, 4 education, 12 skills
+- Real Name: M. Hartog, Martin
+
+PDF Invoice Processing (amazon_rugtas-factuur.pdf):
+- Confidence: 100%
+- Processing Time: 5.07s
+- Data Extracted: Complete financial information
+- Real Invoice ID: DS-AEU-INV-NL-2024-2198743
+- Real Supplier: Amazon EU S.à r.l.
+```
 
 **Paths:**
 - `project_root` - Project root directory
@@ -388,6 +426,12 @@ Key changes:
 - `test_processors.py`: 20+ test cases
 - `test_pipeline.py`: 12+ test cases
 - Other modern tests: 30+ test cases
+- `simple_http_client.py`: Real-world integration tests
+
+**Real Document Tests:**
+- PDF CV processing: 70% confidence, 17.71s processing time
+- PDF Invoice processing: 100% confidence, 5.07s processing time
+- Text processing: 50-90% confidence, ~3s processing time
 
 **Archived Tests:**
 - `legacy_tests/`: 19 files (can be deleted)

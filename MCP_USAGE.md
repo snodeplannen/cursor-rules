@@ -17,8 +17,7 @@ Gebruik de `mcp_config_cursor.json` configuratie:
       "command": "uv",
       "args": [
         "run",
-        "python",
-        "src/mcp_invoice_processor/fastmcp_server.py"
+        "mcp-server"
       ],
       "cwd": "C:\\py_cursor-rules\\cursor_ratsenbergertest"
     }
@@ -71,7 +70,11 @@ De server gebruikt standaard configuratie uit `src/mcp_invoice_processor/config.
 #### HTTP Transport
 - **Voordelen**: Netwerk toegankelijk, kan door meerdere clients worden gebruikt
 - **Gebruik**: Ideaal voor web applicaties en remote clients
-- **Start**: `uv run python src/mcp_invoice_processor/http_server.py`
+- **Start**: `uv run mcp-http-server-async`
+- **Endpoints**: 
+  - MCP Tools: `http://127.0.0.1:8000/mcp/`
+  - Health Check: `http://127.0.0.1:8000/health`
+  - Metrics: `http://127.0.0.1:8000/metrics`
 
 ## 📱 MCP Client Integratie
 
@@ -85,19 +88,25 @@ De server gebruikt standaard configuratie uit `src/mcp_invoice_processor/config.
 
 #### Python Client
 ```python
-import mcp
+from fastmcp import Client
 
-# Verbind met de server
-client = mcp.ClientStdio([
-    "uv", "run", "python", "src/mcp_invoice_processor/fastmcp_server.py"
-])
-
-# Gebruik de process_document_text tool
-result = await client.call_tool(
-    "process_document_text",
-    {
-        "text": "FACTUUR #123\nTotaal: €100",
-        "extraction_method": "hybrid"
+# HTTP Client
+async with Client("http://127.0.0.1:8000/mcp") as client:
+    # Gebruik de process_document_text tool
+    result = await client.call_tool(
+        "process_document_text",
+        {
+            "text": "FACTUUR #123\nTotaal: €100",
+            "extraction_method": "hybrid"
+        }
+    )
+    
+    # PDF verwerking
+    pdf_result = await client.call_tool(
+        "process_document_file",
+        {
+            "file_path": "martin-ingescande-CV-losvanbrief-sikkieversie5.pdf",
+            "extraction_method": "hybrid"
     }
 )
 ```

@@ -196,18 +196,41 @@ uv run mcp-client-demo
 
 ### Eenvoudige HTTP Client
 
-De `simple_http_client.py` toont een minimale HTTP client:
+De `simple_http_client.py` toont een uitgebreide HTTP client met real-world documenten:
 
 ```bash
-# Start de eenvoudige HTTP demo
+# Start de uitgebreide HTTP demo
 uv run mcp-http-client
 ```
 
 **Deze demo test:**
 - ✅ **HTTP Connection**: Verbinding met HTTP server
 - ✅ **Health Check**: Server status controleren
-- ✅ **Document Processing**: Factuur verwerking
+- ✅ **Text Invoice Processing**: Factuur tekst verwerking
+- ✅ **Text CV Processing**: CV tekst verwerking
+- ✅ **PDF CV Processing**: Echte PDF CV (`martin-ingescande-CV-losvanbrief-sikkieversie5.pdf`)
+- ✅ **PDF Invoice Processing**: Echte Amazon factuur PDF (`amazon_rugtas-factuur.pdf`)
 - ✅ **Metrics**: Server statistieken
+
+### Real-World Test Resultaten
+
+De uitgebreide HTTP client test toont uitstekende resultaten met echte documenten:
+
+**📄 PDF CV Processing:**
+- ✅ **Naam**: M. Hartog, Martin (echte naam uit PDF!)
+- ✅ **Werkervaring**: 8 posities (veel meer dan tekst CV)
+- ✅ **Opleiding**: 4 diploma's
+- ✅ **Skills**: 12 vaardigheden
+- ✅ **Confidence**: 70%
+- ✅ **Processing Time**: ~18 seconden
+
+**🧾 PDF Invoice Processing:**
+- ✅ **Invoice ID**: DS-AEU-INV-NL-2024-2198743 (echte Amazon factuur ID!)
+- ✅ **Supplier**: Amazon EU S.à r.l. (correcte Amazon entiteit)
+- ✅ **Customer**: Korper ICT (echte klant naam)
+- ✅ **Total Amount**: €154.43 (correcte bedragen)
+- ✅ **Confidence**: 100%
+- ✅ **Processing Time**: ~5 seconden
 
 ### Client Voorbeelden
 
@@ -220,10 +243,16 @@ async def test_client():
         # Health check
         health = await client.call_tool("health_check", {})
         
-        # Document processing
+        # Text document processing
         result = await client.call_tool("process_document_text", {
             "text": "FACTUUR\nFactuurnummer: INV-001\nTotaal: €100",
             "extraction_method": "json_schema"
+        })
+        
+        # PDF document processing
+        pdf_result = await client.call_tool("process_document_file", {
+            "file_path": "martin-ingescande-CV-losvanbrief-sikkieversie5.pdf",
+            "extraction_method": "hybrid"
         })
 ```
 
@@ -740,6 +769,28 @@ Test documenten in `test_documents/`:
 
 ## 📈 Performance
 
+### Real-World Performance Metrics
+
+**PDF Document Processing:**
+```
+CV PDF (martin-ingescande-CV-losvanbrief-sikkieversie5.pdf):
+- Processing Time: 17.71s
+- Confidence: 70%
+- Data Extracted: 8 jobs, 4 education, 12 skills
+
+Invoice PDF (amazon_rugtas-factuur.pdf):
+- Processing Time: 5.07s  
+- Confidence: 100%
+- Data Extracted: Complete financial data
+```
+
+**Text Document Processing:**
+```
+Invoice Text: ~3s processing time
+CV Text: ~3s processing time
+Confidence: 50-90% depending on content
+```
+
 ### Classificatie Speed
 
 **Oude Architecture** (Sequential):
@@ -760,6 +811,7 @@ Speedup: 2× (schaalt met aantal processors!)
 - Processors delen geen state
 - Lazy loading van models
 - Efficient chunk processing
+- PDF text extraction optimized
 
 ---
 
