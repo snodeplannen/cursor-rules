@@ -37,19 +37,33 @@ class ModelParameterTest:
         try:
             print("🔍 Ophalen beschikbare Ollama modellen...")
             models_response = ollama.list()
-            # Ollama response heeft 'models' key met list van model objects
+            
             models = []
-            for model_info in models_response.get('models', []):
-                if isinstance(model_info, dict) and 'name' in model_info:
-                    models.append(model_info['name'])
-                elif isinstance(model_info, str):
-                    models.append(model_info)
+            
+            # Ollama ListResponse heeft een 'models' attribuut
+            if hasattr(models_response, 'models'):
+                for model_info in models_response.models:
+                    if hasattr(model_info, 'name'):
+                        models.append(model_info.name)
+                    elif isinstance(model_info, dict) and 'name' in model_info:
+                        models.append(model_info['name'])
+                    elif isinstance(model_info, str):
+                        models.append(model_info)
+            
+            # Probeer ook als dict
+            elif isinstance(models_response, dict):
+                if 'models' in models_response:
+                    for model_info in models_response['models']:
+                        if isinstance(model_info, dict) and 'name' in model_info:
+                            models.append(model_info['name'])
+                        elif isinstance(model_info, str):
+                            models.append(model_info)
             
             if not models:
                 print("   Geen modellen gevonden, gebruik default")
                 return [settings.ollama.MODEL]
                 
-            print(f"   Gevonden {len(models)} modellen: {', '.join(models)}")
+            print(f"   Gevonden {len(models)} modellen: {', '.join(models[:5])}{'...' if len(models) > 5 else ''}")
             return models
         except Exception as e:
             print(f"❌ Fout bij ophalen modellen: {e}")
@@ -58,30 +72,70 @@ class ModelParameterTest:
     
     def select_test_models(self, available_models: List[str]) -> List[str]:
         """Selecteer 2 verschillende modellen voor testing."""
-        if len(available_models) < 2:
-            print(f"⚠️ Slechts {len(available_models)} model(len) beschikbaar, gebruik default")
-            return [settings.ollama.MODEL]
-        
-        # Probeer verschillende modellen te kiezen
         selected = []
         
-        # Prioriteit: llama3 varianten
-        llama3_models = [m for m in available_models if 'llama3' in m.lower()]
-        if llama3_models:
-            selected.append(llama3_models[0])
+        # Als er 2+ modellen zijn, gebruik die
+        if len(available_models) >= 2:
+            # Prioriteit: llama3 varianten
+            llama3_models = [m for m in available_models if 'llama3' in m.lower()]
+            if llama3_models:
+                selected.append(llama3_models[0])
+            
+            # Prioriteit: andere modellen
+            other_models = [m for m in available_models if 'llama3' not in m.lower()]
+            if other_models:
+                selected.append(other_models[0])
+            
+            # Als we nog niet genoeg hebben, voeg meer toe
+            if len(selected) < 2:
+                remaining = [m for m in available_models if m not in selected]
+                selected.extend(remaining[:2-len(selected)])
         
-        # Prioriteit: andere modellen
-        other_models = [m for m in available_models if 'llama3' not in m.lower()]
-        if other_models:
-            selected.append(other_models[0])
+        # Als er maar 1 model is, probeer verschillende varianten
+        elif len(available_models) == 1:
+            base_model = available_models[0]
+            selected.append(base_model)
+            
+            # Probeer verschillende varianten van hetzelfde model
+            if 'llama3:8b' in base_model:
+                selected.append('llama3.1:8b')
+            elif 'llama3.1:8b' in base_model:
+                selected.append('llama3:8b')
+            elif 'llama3' in base_model:
+                # Probeer andere sizes
+                if ':8b' in base_model:
+                    selected.append(base_model.replace(':8b', ':7b'))
+                elif ':7b' in base_model:
+                    selected.append(base_model.replace(':7b', ':8b'))
+                else:
+                    selected.append('llama3:8b')
+            else:
+                # Voor andere modellen, probeer llama3 als tweede optie
+                selected.append('llama3:8b')
         
-        # Als we nog niet genoeg hebben, voeg meer toe
-        if len(selected) < 2:
-            remaining = [m for m in available_models if m not in selected]
-            selected.extend(remaining[:2-len(selected)])
+        # Als er geen modellen zijn, gebruik defaults
+        else:
+            selected = ['llama3:8b', 'llama3.1:8b']
         
-        print(f"✅ Geselecteerde test modellen: {', '.join(selected)}")
-        return selected[:2]
+        # Zorg dat we precies 2 unieke modellen hebben
+        unique_selected = []
+        for model in selected:
+            if model not in unique_selected:
+                unique_selected.append(model)
+            if len(unique_selected) == 2:
+                break
+        
+        # Als we nog steeds niet genoeg hebben, voeg fallback toe
+        while len(unique_selected) < 2:
+            if 'llama3:8b' not in unique_selected:
+                unique_selected.append('llama3:8b')
+            elif 'llama3.1:8b' not in unique_selected:
+                unique_selected.append('llama3.1:8b')
+            else:
+                unique_selected.append('llama3:7b')
+        
+        print(f"✅ Geselecteerde test modellen: {', '.join(unique_selected)}")
+        return unique_selected[:2]
     
     def get_test_documents(self) -> Dict[str, str]:
         """Haal test documenten op."""

@@ -2,19 +2,27 @@
 Pydantic models voor Invoice data extractie.
 """
 
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional, Union
 
 
 class InvoiceLineItem(BaseModel):
     """Factuurregel model."""
     description: str = Field(description="Beschrijving van het product of de dienst.")
     quantity: float = Field(description="Aantal of hoeveelheid.")
-    unit_price: float = Field(description="Eenheidsprijs exclusief BTW.")
+    unit_price: Optional[float] = Field(None, description="Eenheidsprijs exclusief BTW.")
     unit: Optional[str] = Field(None, description="Eenheid (stuks, uren, etc.).")
     line_total: float = Field(description="Regeltotaal exclusief BTW.")
     vat_rate: Optional[float] = Field(None, description="BTW-tarief percentage.")
     vat_amount: Optional[float] = Field(None, description="BTW-bedrag voor deze regel.")
+    
+    @field_validator('unit_price', 'vat_rate', mode='before')
+    @classmethod
+    def convert_empty_string_to_none(cls, v):
+        """Converteer lege strings naar None voor numerieke velden."""
+        if v == '' or v is None:
+            return None
+        return v
 
 
 class InvoiceData(BaseModel):
