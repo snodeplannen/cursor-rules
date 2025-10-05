@@ -8,6 +8,33 @@ import warnings
 import sys
 from pathlib import Path
 
+# Ondersteun --help parameter VOOR alle imports
+if len(sys.argv) > 1 and sys.argv[1] in ["--help", "-h"]:
+    print("MCP Document Processor HTTP Server")
+    print("Usage: mcp-http-server-async [--help] [host] [port]")
+    print("")
+    print("This server runs in HTTP transport mode for MCP communication.")
+    print("It provides document processing tools for CV and Invoice extraction.")
+    print("")
+    print("Arguments:")
+    print("  host: Server host (default: 127.0.0.1)")
+    print("  port: Server port (default: 8000)")
+    print("")
+    print("Available tools:")
+    print("  - process_document_text: Process document text")
+    print("  - process_document_file: Process document file")
+    print("  - classify_document_type: Classify document type")
+    print("  - get_metrics: Get server metrics")
+    print("  - health_check: Check server health")
+    print("")
+    print("HTTP endpoints:")
+    print("  - /: Server information")
+    print("  - /health: Health check")
+    print("  - /metrics: JSON metrics")
+    print("  - /metrics/prometheus: Prometheus metrics")
+    print("  - /mcp: MCP protocol endpoint")
+    sys.exit(0)
+
 # Voeg src directory toe aan Python path voor standalone execution
 if __name__ == "__main__":
     src_path = Path(__file__).parent.parent

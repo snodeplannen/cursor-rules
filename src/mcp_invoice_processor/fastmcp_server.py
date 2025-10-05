@@ -403,4 +403,22 @@ def run_server():
 
 
 if __name__ == "__main__":
+    import sys
+    
+    # Ondersteun --help parameter
+    if len(sys.argv) > 1 and sys.argv[1] in ["--help", "-h"]:
+        print("MCP Document Processor Server")
+        print("Usage: mcp-server [--help]")
+        print("")
+        print("This server runs in STDIO transport mode for MCP communication.")
+        print("It provides document processing tools for CV and Invoice extraction.")
+        print("")
+        print("Available tools:")
+        print("  - process_document_text: Process document text")
+        print("  - process_document_file: Process document file")
+        print("  - classify_document_type: Classify document type")
+        print("  - get_metrics: Get server metrics")
+        print("  - health_check: Check server health")
+        sys.exit(0)
+    
     run_server()
