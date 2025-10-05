@@ -122,12 +122,18 @@ class InvoiceProcessor(BaseDocumentProcessor):
     async def extract(
         self,
         text: str,
-        method: str = "hybrid"
+        method: str = "hybrid",
+        model: str | None = None
     ) -> Optional[BaseModel]:
         """
         Extraheer invoice data uit tekst.
         
         Ondersteunt hybrid, json_schema en prompt_parsing modes.
+        
+        Args:
+            text: Document tekst
+            method: Extractie methode ("hybrid", "json_schema", "prompt_parsing")
+            model: Ollama model naam (optioneel, gebruikt settings.ollama.MODEL als niet opgegeven)
         """
         start_time = time.time()
         
@@ -142,7 +148,7 @@ class InvoiceProcessor(BaseDocumentProcessor):
                 self.log_info("Hybrid mode: probeer JSON schema eerst")
                 
                 # Probeer JSON schema
-                json_result = await self._extract_with_method(text, "json_schema")
+                json_result = await self._extract_with_method(text, "json_schema", model)
                 
                 if json_result:
                     # Evalueer kwaliteit
@@ -167,7 +173,7 @@ class InvoiceProcessor(BaseDocumentProcessor):
                 
                 # JSON schema niet goed genoeg, probeer prompt parsing
                 self.log_info("Probeer prompt parsing als fallback")
-                prompt_result = await self._extract_with_method(text, "prompt_parsing")
+                prompt_result = await self._extract_with_method(text, "prompt_parsing", model)
                 
                 if prompt_result:
                     _, completeness, _ = await self.validate_extracted_data(prompt_result)
@@ -199,7 +205,7 @@ class InvoiceProcessor(BaseDocumentProcessor):
                 return None
             
             # Single method mode
-            result = await self._extract_with_method(text, method)
+            result = await self._extract_with_method(text, method, model)
             
             processing_time = time.time() - start_time
             
@@ -222,20 +228,24 @@ class InvoiceProcessor(BaseDocumentProcessor):
     async def _extract_with_method(
         self,
         text: str,
-        method: str
+        method: str,
+        model: str | None = None
     ) -> Optional[InvoiceData]:
         """Helper method voor extractie met specifieke methode."""
         
         try:
             prompt = self.get_extraction_prompt(text, method)
             
-            self.log_debug(f"Ollama aanroepen met {method} methode")
+            # Gebruik opgegeven model of fallback naar settings
+            model_to_use = model or settings.ollama.MODEL
+            
+            self.log_debug(f"Ollama aanroepen met {method} methode, model: {model_to_use}")
             
             # Ollama request
             if method == "json_schema":
                 json_schema = self.get_json_schema()
                 response = ollama.chat(
-                    model=settings.ollama.MODEL,
+                    model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     format=json_schema,
                     options={
@@ -245,7 +255,7 @@ class InvoiceProcessor(BaseDocumentProcessor):
                 )
             else:  # prompt_parsing
                 response = ollama.chat(
-                    model=settings.ollama.MODEL,
+                    model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     options={
                         "temperature": 0.1,

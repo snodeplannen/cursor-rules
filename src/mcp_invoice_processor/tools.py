@@ -44,7 +44,7 @@ def _init_processors():
 _init_processors()
 
 
-async def process_document_text(text: str, extraction_method: str = "hybrid") -> Dict[str, Any]:
+async def process_document_text(text: str, extraction_method: str = "hybrid", model: str | None = None) -> Dict[str, Any]:
     """
     Verwerk document tekst en extraheer gestructureerde data.
     
@@ -57,6 +57,7 @@ async def process_document_text(text: str, extraction_method: str = "hybrid") ->
     Args:
         text: De tekst inhoud van het document
         extraction_method: Extractie methode - "hybrid" (default), "json_schema" of "prompt_parsing"
+        model: Ollama model naam (optioneel, gebruikt settings.ollama.MODEL als niet opgegeven)
     
     Returns:
         Dict met geëxtraheerde document data
@@ -69,9 +70,7 @@ async def process_document_text(text: str, extraction_method: str = "hybrid") ->
             warnings.simplefilter("ignore", DeprecationWarning)
             
             # Log input parameters
-            logger.info(
-                f"process_document_text: {len(text)} karakters, methode: {extraction_method}"
-            )
+            logger.info(f"process_document_text: {len(text)} karakters, methode: {extraction_method}, model: {model or 'default'}")
             logger.debug(f"Tekst preview: {text[:200]}...")
             
             # Classificeer document via registry (parallel over alle processors)
@@ -90,13 +89,14 @@ async def process_document_text(text: str, extraction_method: str = "hybrid") ->
                 return {
                     "error": "Kon document type niet bepalen",
                     "document_type": "unknown",
-                    "processing_time": processing_time
+                    "processing_time": processing_time,
+                    "model_used": model or settings.ollama.MODEL
                 }
             
             logger.info(f"Document type: {doc_type} ({confidence:.1f}% confidence)")
             
             # Extraheer data via processor
-            result = await processor.extract(text, extraction_method)
+            result = await processor.extract(text, extraction_method, model)
             
             processing_time = time.time() - start_time
             
@@ -122,6 +122,7 @@ async def process_document_text(text: str, extraction_method: str = "hybrid") ->
                 result_dict["confidence"] = confidence
                 result_dict["processing_time"] = processing_time
                 result_dict["processor"] = processor.tool_name
+                result_dict["model_used"] = model or settings.ollama.MODEL
                 
                 return result_dict
             else:
@@ -140,7 +141,8 @@ async def process_document_text(text: str, extraction_method: str = "hybrid") ->
                 return {
                     "error": "Extractie mislukt",
                     "document_type": doc_type,
-                    "processing_time": processing_time
+                    "processing_time": processing_time,
+                    "model_used": model or settings.ollama.MODEL
                 }
             
     except Exception as e:
@@ -157,17 +159,19 @@ async def process_document_text(text: str, extraction_method: str = "hybrid") ->
         
         return {
             "error": str(e),
-            "processing_time": processing_time
+            "processing_time": processing_time,
+            "model_used": model or settings.ollama.MODEL
         }
 
 
-async def process_document_file(file_path: str, extraction_method: str = "hybrid") -> Dict[str, Any]:
+async def process_document_file(file_path: str, extraction_method: str = "hybrid", model: str | None = None) -> Dict[str, Any]:
     """
     Verwerk een document bestand en extraheer gestructureerde data.
     
     Args:
         file_path: Pad naar het document bestand
         extraction_method: Extractie methode - "hybrid" (default), "json_schema" of "prompt_parsing"
+        model: Ollama model naam (optioneel, gebruikt settings.ollama.MODEL als niet opgegeven)
     
     Returns:
         Dict met geëxtraheerde document data
@@ -193,16 +197,16 @@ async def process_document_file(file_path: str, extraction_method: str = "hybrid
                     text_content = extract_text_from_pdf(f.read())
             else:
                 logger.error(f"Niet ondersteund bestandstype: {file_path_obj.suffix}")
-                return {"error": f"Niet ondersteund bestandstype: {file_path_obj.suffix}"}
+                return {"error": f"Niet ondersteund bestandstype: {file_path_obj.suffix}", "model_used": model or settings.ollama.MODEL}
             
             logger.info(f"Tekst gelezen: {len(text_content)} karakters")
             
             # Verwerk de tekst
-            return await process_document_text(text_content, extraction_method)
+            return await process_document_text(text_content, extraction_method, model)
         
     except Exception as e:
         logger.error(f"Fout bij bestand verwerking: {e}", exc_info=True)
-        return {"error": str(e)}
+        return {"error": str(e), "model_used": model or settings.ollama.MODEL}
 
 
 async def classify_document_type(text: str) -> Dict[str, Any]:

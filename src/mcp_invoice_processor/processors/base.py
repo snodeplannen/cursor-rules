@@ -235,7 +235,8 @@ class BaseDocumentProcessor(ABC):
     async def extract(
         self,
         text: str,
-        method: str = "hybrid"
+        method: str = "hybrid",
+        model: str | None = None
     ) -> Optional[BaseModel]:
         """
         Extraheer gestructureerde data uit tekst met realtime status updates.
@@ -249,13 +250,14 @@ class BaseDocumentProcessor(ABC):
         Args:
             text: Document tekst om te verwerken
             method: Extractie methode ("json_schema", "prompt_parsing", "hybrid")
+            model: Ollama model naam (optioneel, gebruikt settings.ollama.MODEL als niet opgegeven)
             
         Returns:
             Optional[BaseModel]: Geëxtraheerde en gevalideerde data, of None bij fout
             
         Example:
             >>> processor = InvoiceProcessor()
-            >>> data = await processor.extract(text, method="hybrid")
+            >>> data = await processor.extract(text, method="hybrid", model="llama3:8b")
             >>> if data:
             ...     print(f"Extracted: {data.model_dump()}")
         """
@@ -264,7 +266,8 @@ class BaseDocumentProcessor(ABC):
     async def extract_with_status_stream(
         self,
         text: str,
-        method: str = "hybrid"
+        method: str = "hybrid",
+        model: str | None = None
     ) -> AsyncIterator[Tuple[ProcessingStatus, Optional[BaseModel]]]:
         """
         Extraheer data met realtime status streaming.
@@ -274,6 +277,7 @@ class BaseDocumentProcessor(ABC):
         Args:
             text: Document tekst
             method: Extractie methode
+            model: Ollama model naam (optioneel)
             
         Yields:
             Tuple[ProcessingStatus, Optional[BaseModel]]: (status, data)
@@ -281,7 +285,7 @@ class BaseDocumentProcessor(ABC):
             - Bij completion: (status, extracted_data)
             
         Example:
-            >>> async for status, data in processor.extract_with_status_stream(text):
+            >>> async for status, data in processor.extract_with_status_stream(text, model="llama3:8b"):
             ...     print(f"{status.stage}: {status.progress}%")
             ...     if data:
             ...         print(f"Completed: {data}")
@@ -303,7 +307,7 @@ class BaseDocumentProcessor(ABC):
             yield (status, None)
             
             # Voer extractie uit
-            data = await self.extract(text, method)
+            data = await self.extract(text, method, model)
             
             if data:
                 # Stage 3: Validatie
