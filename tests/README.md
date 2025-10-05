@@ -1,15 +1,17 @@
 # Tests voor MCP Document Processor
 
-Test suite voor de modulaire processor architecture (v2.0).
+Test suite voor de volledig generieke processor architecture (v2.1).
 
 ## 🎯 Test Philosophy
 
-Tests volgen de nieuwe processor architecture:
+Tests volgen de nieuwe volledig generieke processor architecture:
 - ✅ **Unit Tests**: Test processors in isolation
 - ✅ **Async Tests**: Alle processor operations zijn async
 - ✅ **Mock Context**: FastMCP Context kan gemockt worden
 - ✅ **Statistics**: Test metrics tracking
 - ✅ **Parallel**: Test async parallel classification
+- ✅ **Dynamische Tools**: Test automatische tool generatie
+- ✅ **Generieke Server**: Test volledig generieke FastMCP server
 
 ---
 
@@ -26,24 +28,27 @@ Complete test coverage voor de processor architecture:
 - Parallel async classification
 - Global statistics aggregation
 - Tool metadata generation
+- **Dynamische tool registratie**
 
 **InvoiceProcessor Tests:**
 - Metadata properties (document_type, display_name, tool_name)
-- Classification keywords (29 keywords)
+- Classification keywords (31 keywords)
 - Classification confidence scoring
 - Data model and JSON schema
 - Extraction prompt generation
 - Validation and completeness
 - Custom metrics generation
+- **Tool examples en metadata**
 
 **CVProcessor Tests:**
 - Metadata properties
-- Classification keywords (17 keywords)
+- Classification keywords (18 keywords)
 - Classification confidence scoring
 - Data model and JSON schema
 - Extraction prompt generation
 - Validation and completeness
 - Custom metrics generation
+- **Tool examples en metadata**
 
 **Statistics Tests:**
 - Per-processor statistics tracking
@@ -86,6 +91,8 @@ Updated voor nieuwe processor architecture:
 - **`test_monitoring.py`** - Metrics collection tests
 - **`test_fastmcp_*.py`** - FastMCP integration tests
 - **`test_mcp_*.py`** - MCP protocol tests
+- **`test_dynamic_*.py`** - Dynamische tool generatie tests
+- **`test_processor_prompts.py`** - Processor-specifieke prompts tests
 - **`conftest.py`** - Shared fixtures
 
 ### Real-World Integration Tests
@@ -495,6 +502,6 @@ Before committing new tests:
 
 ---
 
-**Test Suite Version:** 2.0.0  
-**Architecture:** Modular Processors  
+**Test Suite Version:** 2.1.0  
+**Architecture:** Volledig Generieke Modular Processors  
 **Status:** Production Ready ✅

@@ -1,31 +1,42 @@
-# MCP Document Processor - Tools Documentatie v2.0
+# MCP Document Processor - Tools Documentatie v2.1
 
 ## 📋 Overzicht
 
-Moderne modulaire document processor met AI-powered extractie via FastMCP en Ollama.
+Volledig generieke modulaire document processor met AI-powered extractie via FastMCP en Ollama.
 
-**Versie**: 1.0.0  
-**Architecture**: Modular Processor System  
+**Versie**: 2.1.0  
+**Architecture**: Volledig Generieke Modular Processor System  
 **Transport**: STDIO (Cursor) / HTTP (API)  
 **AI Model**: Ollama LLM (default: llama3.2)
 
 ---
 
-## 🎯 Processor Architecture
+## 🎯 Volledig Generieke Architecture
+
+### Dynamische Tool Generatie
+
+De FastMCP server is nu volledig generiek en genereert automatisch tools op basis van beschikbare processors:
+
+- ✅ **Geen Hardcoded Tools**: Alle tools worden dynamisch gegenereerd
+- ✅ **Processor-Driven**: Elke processor definieert zijn eigen tool metadata
+- ✅ **Automatische Registratie**: Tools worden automatisch geregistreerd bij server start
+- ✅ **Dynamische Documentatie**: Alle prompts en voorbeelden komen van processors
 
 ### Modulaire Processors
 
-Elk documenttype heeft een zelfstandige processor:
+Elk documenttype heeft een zelfstandige processor met volledige zelfbeschrijving:
 
 **InvoiceProcessor** (`processors/invoice/`)
-- 📋 29 classificatie keywords
+- 📋 31 classificatie keywords
 - 💰 Extractie van bedragen, BTW, line items
 - 🔄 Hybrid mode (json_schema + prompt_parsing)
+- 🎯 Eigen tool metadata en voorbeelden
 
 **CVProcessor** (`processors/cv/`)
-- 👤 17 classificatie keywords  
+- 👤 18 classificatie keywords  
 - 📝 Extractie van ervaring, opleiding, vaardigheden
 - 🔄 Hybrid mode voor beste resultaten
+- 🎯 Eigen tool metadata en voorbeelden
 
 ### ProcessorRegistry
 
@@ -33,21 +44,106 @@ Centraal beheer met:
 - ⚡ **Parallel classificatie** (alle processors tegelijk!)
 - 📊 Global statistics aggregatie
 - 🔌 Automatische resource registratie
+- 🎯 **Dynamische tool registratie** op basis van processors
 
 ---
 
 ## 🔧 MCP Tools
 
-### 1. `process_document_text` ⭐
+### Dynamisch Gegenereerde Tools
+
+De FastMCP server genereert automatisch tools op basis van beschikbare processors:
+
+#### Algemene Tools (Altijd Beschikbaar)
+
+**1. `process_document_text` ⭐**
 
 Verwerk document tekst met automatische type detectie.
 
-**Nieuwe Features v1.0:**
+**Nieuwe Features v2.1:**
+- ✅ Volledig generieke implementatie
+- ✅ Dynamische processor detectie
 - ✅ Async parallel classificatie
 - ✅ Realtime progress updates
 - ✅ Confidence scores
 - ✅ Processor-specific extraction
 - ✅ Per-processor statistics
+
+**Parameters:**
+```json
+{
+  "text": "string",           // Document tekst
+  "extraction_method": "string", // "hybrid", "json_schema", "prompt_parsing"
+  "model": "string"           // Optional: Ollama model naam
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "document_type": "invoice",
+  "confidence": 95.5,
+  "processor": "process_invoice",
+  "processing_time": 2.34,
+  "invoice_id": "INV-001",
+  "total_amount": 1234.56,
+  ...
+}
+```
+
+**2. `process_document_file`**
+
+Verwerk document bestand (TXT, PDF).
+
+**Parameters:**
+```json
+{
+  "file_path": "string",      // Pad naar document
+  "extraction_method": "string", // Extractie methode
+  "model": "string"           // Optional: Ollama model naam
+}
+```
+
+**3. `classify_document_type`**
+
+Classificeer document zonder volledige verwerking.
+
+**Returns:**
+```json
+{
+  "document_type": "invoice",
+  "confidence": 87.3,
+  "confidence_level": "high",
+  "processor": "process_invoice",
+  "display_name": "Factuur"
+}
+```
+
+**4. `get_metrics`**
+
+Comprehensive metrics van alle processors.
+
+**5. `health_check`**
+
+System en Ollama status check.
+
+#### Processor-Specifieke Tools (Dynamisch Gegenereerd)
+
+**`process_invoice`** (gegenereerd door InvoiceProcessor)
+- 🧾 Invoice-specifieke verwerking
+- 💰 Extractie van factuurnummers, bedragen, BTW
+- 📊 Line items en product details
+
+**`process_cv`** (gegenereerd door CVProcessor)  
+- 👤 CV-specifieke verwerking
+- 📝 Extractie van ervaring, opleiding, vaardigheden
+- 🎯 Persoonlijke gegevens
+
+**`process_[type]`** (automatisch voor nieuwe documenttypes)
+- 🔌 Dynamisch gegenereerd op basis van processor registratie
+- 🎯 Volledige tool metadata van processor
+- 📚 Automatische documentatie en voorbeelden
 
 **Parameters:**
 - `text` (str, required): Document tekst

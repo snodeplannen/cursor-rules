@@ -1,8 +1,8 @@
-# MCP Document Processor - Gebruikshandleiding
+# MCP Document Processor - Gebruikshandleiding v2.1
 
 ## 📋 Overzicht
 
-Deze handleiding legt uit hoe je de MCP Document Processor kunt gebruiken met verschillende MCP clients en configuraties.
+Deze handleiding legt uit hoe je de volledig generieke MCP Document Processor kunt gebruiken met verschillende MCP clients en configuraties.
 
 ## 🚀 Snelle Start
 
@@ -13,7 +13,7 @@ Gebruik de `mcp_config_cursor.json` configuratie:
 ```json
 {
   "mcpServers": {
-    "mcp-invoice-processor": {
+    "mcp-document-processor": {
       "command": "uv",
       "args": [
         "run",
@@ -35,7 +35,7 @@ Gebruik de HTTP server voor web integratie:
 
 ```bash
 # Start HTTP server
-uv run python src/mcp_invoice_processor/http_server.py
+uv run mcp-http-server
 
 # Of met custom host en poort
 uv run python src/mcp_invoice_processor/http_server.py 0.0.0.0 8080

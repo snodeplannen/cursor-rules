@@ -1,10 +1,13 @@
 # MCP Document Processor
 
-Een moderne, modulaire FastMCP server voor intelligente document verwerking met AI-powered extractie.
+Een moderne, volledig generieke FastMCP server voor intelligente document verwerking met AI-powered extractie.
 
-## 🚀 Nieuwe Modulaire Architecture (v2.0)
+## 🚀 Volledig Generieke Architecture (v2.1)
 
 **Volledig gerefactored** naar een plugin-gebaseerde processor architecture met:
+- ✅ **Volledig Generiek**: FastMCP server bevat geen hardcoded document types
+- ✅ **Dynamische Tools**: Tools worden automatisch gegenereerd op basis van processors
+- ✅ **Dynamische Documentatie**: Alle prompts en voorbeelden komen van processors
 - ✅ **Async Everywhere**: Volledige async/await support
 - ✅ **FastMCP Best Practices**: Context, Resources, Annotations, Progress
 - ✅ **Modulair**: Elk documenttype is een zelfstandige processor
@@ -19,7 +22,8 @@ Een moderne, modulaire FastMCP server voor intelligente document verwerking met 
 ### Document Processing
 - **📋 Invoice/Factuur Processing**: Automatische extractie van factuurnummers, bedragen, BTW, line items
 - **👤 CV/Resume Processing**: Extractie van persoonlijke gegevens, werkervaring, opleiding, vaardigheden
-- **🔌 Extensible**: Eenvoudig nieuwe documenttypes toevoegen
+- **🔌 Volledig Uitbreidbaar**: Nieuwe documenttypes vereisen geen server wijzigingen
+- **🎯 Dynamische Tools**: Processor-specifieke MCP tools worden automatisch gegenereerd
 
 ### AI & Extraction
 - **🤖 Ollama Integration**: Lokale LLM voor data extractie
@@ -69,6 +73,8 @@ Elk processor implementeert:
 - **Merging**: Voor gechunkte documenten
 - **Validatie**: Quality checks + completeness scoring
 - **Statistics**: Custom metrics per type
+- **Tool Metadata**: FastMCP annotations en beschrijvingen
+- **Tool Examples**: Voorbeelden en documentatie voor dynamische generatie
 
 ### ProcessorRegistry
 
@@ -77,6 +83,7 @@ Centraal management voor:
 - **Parallel async classificatie** (alle processors tegelijk!)
 - Global statistics aggregatie
 - MCP Resources automatische registratie
+- **Dynamische tool registratie** op basis van processors
 
 ---
 
@@ -329,80 +336,41 @@ if processor:
 
 ## 🔧 MCP Tools
 
-### `process_document_text`
-Verwerk document tekst met automatische type detectie.
+### Dynamisch Gegenereerde Tools
 
-**Parameters:**
+De FastMCP server genereert automatisch tools op basis van beschikbare processors:
+
+#### Algemene Tools
+- **`process_document_text`**: Verwerk document tekst met automatische type detectie
+- **`process_document_file`**: Verwerk document bestand (TXT, PDF)
+- **`classify_document_type`**: Classificeer document zonder volledige verwerking
+- **`get_metrics`**: Comprehensive metrics van alle processors
+- **`health_check`**: System en Ollama status check
+
+#### Processor-Specifieke Tools (Dynamisch)
+- **`process_invoice`**: Invoice-specifieke verwerking (gegenereerd door InvoiceProcessor)
+- **`process_cv`**: CV-specifieke verwerking (gegenereerd door CVProcessor)
+- **`process_[type]`**: Automatisch gegenereerd voor elk nieuw documenttype
+
+### Tool Parameters
+
+**Algemene Parameters:**
 - `text` (str): Document tekst
-- `ctx` (Context): FastMCP context voor logging/progress
 - `extraction_method` (str): "hybrid", "json_schema", of "prompt_parsing"
+- `model` (str, optional): Ollama model naam voor extractie
 
-**Returns:**
-```json
-{
-  "document_type": "invoice",
-  "confidence": 95.5,
-  "processor": "process_invoice",
-  "processing_time": 2.34,
-  "invoice_id": "INV-001",
-  "total_amount": 1234.56,
-  ...
-}
-```
-
-### `process_document_file`
-Verwerk document bestand (TXT, PDF).
-
-**Parameters:**
-- `file_path` (str): Pad naar document
-- `ctx` (Context): FastMCP context
-- `extraction_method` (str): Extractie methode
-
-### `classify_document_type`
-Classificeer document zonder volledige verwerking.
-
-**Returns:**
-```json
-{
-  "document_type": "invoice",
-  "confidence": 87.3,
-  "confidence_level": "high",
-  "processor": "process_invoice",
-  "display_name": "Factuur"
-}
-```
-
-### `get_metrics`
-Comprehensive metrics van alle processors.
-
-**Returns:**
-```json
-{
-  "processors": {
-    "invoice": {
-      "total_processed": 42,
-      "success_rate": 95.2,
-      "avg_processing_time": 2.1,
-      "avg_confidence": 88.5
-    },
-    "cv": { ... }
-  },
-  "global": {
-    "total_documents_processed": 87,
-    "global_success_rate": 94.3
-  }
-}
-```
-
-### `health_check`
-System en Ollama status check.
+**File Processing:**
+- `file_path` (str): Pad naar document bestand
 
 ---
 
 ## 📊 MCP Resources
 
-Processors exposen automatisch resources:
+### Dynamisch Gegenereerde Resources
 
+Processors exposen automatisch resources en de server genereert dynamische documentatie:
+
+#### Processor Resources
 ```
 stats://invoice      → Invoice processor statistics
 stats://cv           → CV processor statistics
@@ -415,10 +383,18 @@ keywords://invoice   → Invoice classification keywords
 keywords://cv        → CV classification keywords
 ```
 
+#### Dynamische Documentatie
+```
+mcp://document-types → Dynamisch gegenereerde voorbeelden van alle document types
+```
+
 **Gebruik via MCP client:**
 ```python
 # LLM kan statistics opvragen
 stats = await read_resource("stats://invoice")
+
+# LLM kan documentatie opvragen
+docs = await read_resource("mcp://document-types")
 ```
 
 ---
@@ -454,7 +430,7 @@ uv run pytest tests/ --cov=src --cov-report=html --ignore=tests/legacy_tests
 
 ## 🔌 Nieuw Documenttype Toevoegen
 
-Simpel 3-stappen proces:
+Simpel 3-stappen proces - **geen server wijzigingen nodig!**
 
 ### 1. Maak Processor Module
 
@@ -475,14 +451,38 @@ class ReceiptProcessor(BaseDocumentProcessor):
         return "receipt"
     
     @property
+    def display_name(self) -> str:
+        return "Kassabon"
+    
+    @property
+    def tool_name(self) -> str:
+        return "process_receipt"
+    
+    @property
+    def tool_description(self) -> str:
+        return "Verwerk kassabon documenten en extraheer gestructureerde data"
+    
+    @property
+    def tool_examples(self) -> Dict[str, Any]:
+        return {
+            "emoji": "🧾",
+            "example_text": "Kassabon\nDatum: 2024-01-15\nTotaal: €25.50",
+            "extracted_fields": ["Datum", "Totaal bedrag", "Winkel"],
+            "usage_example": "result = await process_receipt(text, 'hybrid')",
+            "keywords": ["bon", "kassabon", "receipt", "pinbetaling"],
+            "supported_methods": ["hybrid", "json_schema", "prompt_parsing"],
+            "supported_formats": [".txt", ".pdf"]
+        }
+    
+    @property
     def classification_keywords(self) -> Set[str]:
         return {"bon", "kassabon", "receipt", "pinbetaling", ...}
     
-    async def classify(self, text, ctx) -> float:
+    async def classify(self, text) -> float:
         # Implementeer classificatie
         ...
     
-    async def extract(self, text, ctx, method) -> Optional[ReceiptData]:
+    async def extract(self, text, method) -> Optional[ReceiptData]:
         # Implementeer extractie
         ...
     
@@ -492,16 +492,20 @@ class ReceiptProcessor(BaseDocumentProcessor):
 ### 3. Registreer
 
 ```python
-from processors.receipt import ReceiptProcessor
-from processors import register_processor
+# processors/__init__.py
+from .receipt import ReceiptProcessor
 
-register_processor(ReceiptProcessor())
+def _init_processors():
+    # ... bestaande registraties
+    registry.register(ReceiptProcessor())
 ```
 
-**Klaar!** De processor is nu beschikbaar via:
-- Automatische classificatie in registry
-- MCP tools
-- MCP resources (`stats://receipt`, `schema://receipt`, etc.)
+**Klaar!** De processor is nu automatisch beschikbaar via:
+- ✅ **Dynamische MCP Tool**: `process_receipt` wordt automatisch geregistreerd
+- ✅ **Automatische Classificatie**: In registry classificatie
+- ✅ **Dynamische Documentatie**: Voorbeelden verschijnen in `mcp://document-types`
+- ✅ **MCP Resources**: `stats://receipt`, `schema://receipt`, etc.
+- ✅ **Geen server wijzigingen**: FastMCP server blijft volledig generiek
 
 ---
 
@@ -869,6 +873,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🎯 Version
 
-**Current Version**: 2.0.0  
-**Architecture**: Modular Processor System  
+**Current Version**: 2.1.0  
+**Architecture**: Volledig Generieke Modular Processor System  
 **Status**: Production Ready ✅
