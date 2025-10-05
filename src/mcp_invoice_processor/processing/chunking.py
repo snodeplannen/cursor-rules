@@ -3,7 +3,7 @@ Tekst chunking module voor grote documenten.
 """
 import logging
 from enum import Enum
-from typing import Optional, Union
+from typing import Union
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import ollama
 from ..config import settings
@@ -19,7 +19,7 @@ class ChunkingMethod(Enum):
     # Toekomstige methoden zoals FIXED of SEMANTIC kunnen hier worden toegevoegd
 
 
-def get_ollama_model_context_size(model_name: str = None) -> int:
+def get_ollama_model_context_size(model_name: str | None = None) -> int:
     """
     Haal de maximale context size op van het Ollama model.
     
@@ -110,7 +110,7 @@ def get_ollama_model_context_size(model_name: str = None) -> int:
         return 8192
 
 
-def calculate_auto_chunk_size(model_name: str = None, chunk_overlap: int = None) -> int:
+def calculate_auto_chunk_size(model_name: str | None = None, chunk_overlap: int | None = None) -> int:
     """
     Bereken optimale chunk size gebaseerd op Ollama model context.
     
@@ -165,7 +165,7 @@ def chunk_text(
     text: str,
     method: ChunkingMethod = ChunkingMethod.RECURSIVE,
     chunk_size: Union[int, str, None] = None,
-    chunk_overlap: int = None
+    chunk_overlap: int | None = None
 ) -> list[str]:
     """
     Verdeelt tekst in chunks met de gespecificeerde methode.
@@ -193,20 +193,24 @@ def chunk_text(
     elif chunk_size == "auto":
         chunk_size = calculate_auto_chunk_size(chunk_overlap=chunk_overlap)
     
-    # Valideer chunk_size
-    if chunk_size < settings.chunking.MIN_CHUNK_SIZE:
-        raise ValueError(f"chunk_size ({chunk_size}) moet minimaal {settings.chunking.MIN_CHUNK_SIZE} zijn")
-    if chunk_size > settings.chunking.MAX_CHUNK_SIZE:
-        raise ValueError(f"chunk_size ({chunk_size}) mag maximaal {settings.chunking.MAX_CHUNK_SIZE} zijn")
-    
-    # Valideer chunk_overlap
-    if chunk_overlap >= chunk_size:
-        raise ValueError("chunk_overlap moet kleiner zijn dan chunk_size")
+    # Valideer chunk_size (alleen als het een int is)
+    if isinstance(chunk_size, int):
+        if chunk_size < settings.chunking.MIN_CHUNK_SIZE:
+            raise ValueError(f"chunk_size ({chunk_size}) moet minimaal {settings.chunking.MIN_CHUNK_SIZE} zijn")
+        if chunk_size > settings.chunking.MAX_CHUNK_SIZE:
+            raise ValueError(f"chunk_size ({chunk_size}) mag maximaal {settings.chunking.MAX_CHUNK_SIZE} zijn")
+        
+        # Valideer chunk_overlap
+        if chunk_overlap >= chunk_size:
+            raise ValueError("chunk_overlap moet kleiner zijn dan chunk_size")
     
     # Auto mode: gebruik berekende chunk size
     if method == ChunkingMethod.AUTO:
         auto_chunk_size = calculate_auto_chunk_size(chunk_overlap=chunk_overlap)
-        chunk_size = min(chunk_size, auto_chunk_size)  # Gebruik kleinste van beide
+        if isinstance(chunk_size, int):
+            chunk_size = min(chunk_size, auto_chunk_size)  # Gebruik kleinste van beide
+        else:
+            chunk_size = auto_chunk_size
         logger.info(f"Auto mode: gebruik chunk size {chunk_size} met overlap {chunk_overlap}")
     
     if method in [ChunkingMethod.RECURSIVE, ChunkingMethod.AUTO]:
