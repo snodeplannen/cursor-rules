@@ -57,6 +57,48 @@ class InvoiceProcessor(BaseDocumentProcessor):
             "Ondersteunt PDF en text bestanden met automatische detectie."
         )
     
+    @property
+    def tool_examples(self) -> Dict[str, Any]:
+        """Voorbeelden en documentatie voor invoice processing."""
+        return {
+            "emoji": "🧾",
+            "example_text": """
+Factuur #12345
+Datum: 2024-01-15
+Van: Test Bedrijf BV
+Naar: Klant Bedrijf NV
+
+Beschrijving: Web development services
+Aantal: 40 uur
+Prijs per uur: €75.00
+Subtotaal: €3,000.00
+BTW (21%): €630.00
+Totaal: €3,630.00
+
+Betaling binnen 30 dagen.
+            """.strip(),
+            "extracted_fields": [
+                "Factuurnummer (invoice_number)",
+                "Datum (invoice_date)",
+                "Leverancier naam (supplier_name)",
+                "Klant naam (customer_name)",
+                "Subtotaal (subtotal)",
+                "BTW bedrag (vat_amount)",
+                "Totaal bedrag (total_amount)",
+                "Valuta (currency)",
+                "Regel items (line_items)",
+                "Betalingsvoorwaarden (payment_terms)"
+            ],
+            "usage_example": """
+result = await process_invoice(text, "hybrid")
+print(f"Factuurnummer: {result['invoice_number']}")
+print(f"Totaal: €{result['total_amount']}")
+            """.strip(),
+            "keywords": list(self.classification_keywords),
+            "supported_methods": ["hybrid", "json_schema", "prompt_parsing"],
+            "supported_formats": [".txt", ".pdf"]
+        }
+    
     # ==================== CLASSIFICATIE ====================
     
     @property

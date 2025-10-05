@@ -57,6 +57,59 @@ class CVProcessor(BaseDocumentProcessor):
             "Ondersteunt PDF en text bestanden met automatische detectie."
         )
     
+    @property
+    def tool_examples(self) -> Dict[str, Any]:
+        """Voorbeelden en documentatie voor CV processing."""
+        return {
+            "emoji": "👤",
+            "example_text": """
+Curriculum Vitae
+
+Naam: Jan de Vries
+Email: jan.devries@email.com
+Telefoon: +31 6 12345678
+Adres: Hoofdstraat 123, 1000 AB Amsterdam
+
+Werkervaring:
+- Senior Software Developer bij TechCorp (2020-2024)
+  * Ontwikkeling van web applicaties met React en Node.js
+  * Team lead van 5 developers
+- Junior Developer bij StartupXYZ (2018-2020)
+  * Frontend ontwikkeling met Vue.js
+  * Backend API ontwikkeling met Python/Django
+
+Opleiding:
+- HBO Informatica, Hogeschool Amsterdam (2014-2018)
+- VWO, Gymnasium Amsterdam (2008-2014)
+
+Vaardigheden:
+- Programmeertalen: Python, JavaScript, Java, C#
+- Frameworks: React, Node.js, Django, Spring Boot
+- Tools: Docker, Kubernetes, AWS, Git
+- Talen: Nederlands (moedertaal), Engels (vloeiend)
+            """.strip(),
+            "extracted_fields": [
+                "Volledige naam (full_name)",
+                "Email adres (email)",
+                "Telefoonnummer (phone)",
+                "Adres (address)",
+                "Werkervaring (work_experience)",
+                "Opleiding (education)",
+                "Vaardigheden (skills)",
+                "Talen (languages)",
+                "Certificaten (certifications)"
+            ],
+            "usage_example": """
+result = await process_cv(text, "hybrid")
+print(f"Naam: {result['full_name']}")
+print(f"Email: {result['email']}")
+print(f"Werkervaring: {len(result['work_experience'])} posities")
+            """.strip(),
+            "keywords": list(self.classification_keywords),
+            "supported_methods": ["hybrid", "json_schema", "prompt_parsing"],
+            "supported_formats": [".txt", ".pdf"]
+        }
+    
     # ==================== CLASSIFICATIE ====================
     
     @property

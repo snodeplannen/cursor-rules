@@ -116,6 +116,30 @@ class BaseDocumentProcessor(ABC):
         pass
     
     @property
+    def tool_examples(self) -> Dict[str, Any]:
+        """
+        Voorbeelden en documentatie voor dit documenttype.
+        
+        Bevat:
+        - Voorbeeld document tekst
+        - Geëxtraheerde velden beschrijving
+        - Gebruik voorbeelden
+        - Emoji voor visuele identificatie
+        
+        Returns:
+            Dict: Voorbeelden en documentatie data
+        """
+        return {
+            "emoji": "📄",
+            "example_text": "Geen voorbeeld beschikbaar",
+            "extracted_fields": [],
+            "usage_example": f"result = await {self.tool_name}(text, 'hybrid')",
+            "keywords": list(self.classification_keywords),
+            "supported_methods": ["hybrid", "json_schema", "prompt_parsing"],
+            "supported_formats": [".txt", ".pdf"]
+        }
+    
+    @property
     def tool_metadata(self) -> Dict[str, Any]:
         """
         Volledige MCP tool metadata volgens FastMCP best practices.

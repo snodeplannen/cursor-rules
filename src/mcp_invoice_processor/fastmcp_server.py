@@ -179,34 +179,50 @@ register_processor_tools()
 # Resources voor documentatie en voorbeelden
 @mcp.resource("mcp://document-types")
 async def document_types_examples() -> str:
-    """Voorbeelden van ondersteunde document types."""
-    return """
-    # 📋 Ondersteunde Document Types
+    """Dynamisch gegenereerde voorbeelden van ondersteunde document types."""
+    # Zorg dat processors zijn geïnitialiseerd
+    _init_processors()
     
-    ## 👤 CV/Resume
-    - **Trefwoorden**: ervaring, opleiding, vaardigheden, curriculum vitae, werkervaring
-    - **Geëxtraheerde velden**: naam, email, telefoon, werkervaring, opleiding, vaardigheden
-    - **Voorbeeld gebruik**: 
-      ```
-      result = await process_document_text(cv_text, "hybrid")
-      print(f"Naam: {result['full_name']}")
-      ```
+    registry = get_registry()
+    processors = registry.get_all_processors()
     
-    ## 🧾 Factuur/Invoice  
-    - **Trefwoorden**: factuur, totaal, bedrag, btw, klant, leverancier
-    - **Geëxtraheerde velden**: factuurnummer, bedragen, datum, bedrijfsinformatie
-    - **Voorbeeld gebruik**:
-      ```
-      result = await process_document_text(invoice_text, "json_schema")
-      print(f"Totaal: €{result['total_amount']}")
-      ```
+    # Genereer dynamische documentatie
+    docs = ["# 📋 Ondersteunde Document Types\n"]
     
-    ## 🚀 Gebruik
-    1. **Tekst verwerking**: `process_document_text(text, method)`
-    2. **Bestand verwerking**: `process_document_file(path, method)`  
-    3. **Alleen classificatie**: `classify_document_type(text)`
-    4. **Status check**: `health_check()` - controleer Ollama connectie
-    """
+    for processor in processors:
+        examples = processor.tool_examples
+        
+        docs.append(f"## {examples['emoji']} {processor.display_name}")
+        docs.append(f"- **Tool naam**: `{processor.tool_name}`")
+        docs.append(f"- **Trefwoorden**: {', '.join(examples['keywords'][:10])}{'...' if len(examples['keywords']) > 10 else ''}")
+        docs.append(f"- **Geëxtraheerde velden**:")
+        
+        for field in examples['extracted_fields']:
+            docs.append(f"  - {field}")
+        
+        docs.append(f"- **Ondersteunde methoden**: {', '.join(examples['supported_methods'])}")
+        docs.append(f"- **Ondersteunde formaten**: {', '.join(examples['supported_formats'])}")
+        
+        docs.append(f"- **Voorbeeld document**:")
+        docs.append("  ```")
+        docs.append(f"  {examples['example_text']}")
+        docs.append("  ```")
+        
+        docs.append(f"- **Voorbeeld gebruik**:")
+        docs.append("  ```python")
+        docs.append(f"  {examples['usage_example']}")
+        docs.append("  ```")
+        
+        docs.append("")  # Lege regel tussen processors
+    
+    docs.append("## 🔧 Algemene Tools")
+    docs.append("- `process_document_text` - Automatische document type detectie")
+    docs.append("- `process_document_file` - Verwerk bestanden (PDF, TXT)")
+    docs.append("- `classify_document_type` - Alleen classificatie zonder extractie")
+    docs.append("- `get_metrics` - Systeem statistieken")
+    docs.append("- `health_check` - Service health status")
+    
+    return "\n".join(docs)
 
 @mcp.resource("mcp://extraction-methods")
 async def extraction_methods_guide() -> str:
