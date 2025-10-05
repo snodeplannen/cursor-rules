@@ -89,6 +89,35 @@ class TestChunking:
         chunks = chunk_text(long_text, method=ChunkingMethod.SMART)
         assert len(chunks) > 0
         assert all(len(chunk) <= 1000 for chunk in chunks)
+    
+    def test_custom_chunk_size(self) -> None:
+        """Test custom chunk size."""
+        long_text = "Dit is een lange tekst. " * 100
+        
+        # Test custom chunk size
+        chunks = chunk_text(long_text, chunk_size=2000, chunk_overlap=400)
+        assert len(chunks) > 0
+        assert all(len(chunk) <= 2000 for chunk in chunks)
+        
+        # Test kleinere chunks
+        chunks_small = chunk_text(long_text, chunk_size=500, chunk_overlap=100)
+        assert len(chunks_small) > len(chunks)  # Meer chunks bij kleinere size
+    
+    def test_chunk_size_validation(self) -> None:
+        """Test chunk size validatie."""
+        long_text = "Test tekst"
+        
+        # Test te kleine chunk size
+        with pytest.raises(ValueError, match="moet minimaal 100 zijn"):
+            chunk_text(long_text, chunk_size=50)
+        
+        # Test te grote chunk size
+        with pytest.raises(ValueError, match="mag maximaal 4000 zijn"):
+            chunk_text(long_text, chunk_size=5000)
+        
+        # Test overlap te groot
+        with pytest.raises(ValueError, match="chunk_overlap moet kleiner zijn dan chunk_size"):
+            chunk_text(long_text, chunk_size=1000, chunk_overlap=1000)
 
 
 class TestMerging:
