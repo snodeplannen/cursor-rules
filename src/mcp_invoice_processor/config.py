@@ -12,6 +12,8 @@ class ChunkingSettings(BaseSettings):
     DEFAULT_CHUNK_OVERLAP: int = 200
     MAX_CHUNK_SIZE: int = 4000
     MIN_CHUNK_SIZE: int = 100
+    AUTO_MODE_ENABLED: bool = True
+    AUTO_MODE_SAFETY_FACTOR: float = 0.8  # Gebruik 80% van max context voor veiligheid
 
 
 class OllamaSettings(BaseSettings):
