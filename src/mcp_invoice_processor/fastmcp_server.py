@@ -116,6 +116,51 @@ mcp.tool()(tools.classify_document_type)
 mcp.tool()(tools.get_metrics)
 mcp.tool()(tools.health_check)
 
+# Registreer processor-specifieke tools
+from .processors import get_registry
+
+# Maak specifieke tools voor elke processor
+registry = get_registry()
+processors = registry.get_all_processors()
+
+# Invoice processor tool
+if any(p.document_type == "invoice" for p in processors):
+    @mcp.tool()
+    async def process_invoice(text: str, extraction_method: str = "hybrid", model: str | None = None) -> Dict[str, Any]:
+        """
+        Factuur document processor.
+        
+        Verwerk facturen en extraheer gestructureerde data zoals factuurnummer, bedrijfsinformatie, bedragen, BTW, etc.
+        
+        Args:
+            text: Factuur tekst om te verwerken
+            extraction_method: Extractie methode ("hybrid", "json_schema", "prompt_parsing")
+            model: Ollama model naam (optioneel)
+        
+        Returns:
+            Dict met geëxtraheerde factuur data
+        """
+        return await tools.process_document_text(text, extraction_method, model)
+
+# CV processor tool
+if any(p.document_type == "cv" for p in processors):
+    @mcp.tool()
+    async def process_cv(text: str, extraction_method: str = "hybrid", model: str | None = None) -> Dict[str, Any]:
+        """
+        Curriculum Vitae document processor.
+        
+        Verwerk CV's en extraheer gestructureerde data zoals persoonlijke gegevens, werkervaring, opleiding, vaardigheden, etc.
+        
+        Args:
+            text: CV tekst om te verwerken
+            extraction_method: Extractie methode ("hybrid", "json_schema", "prompt_parsing")
+            model: Ollama model naam (optioneel)
+        
+        Returns:
+            Dict met geëxtraheerde CV data
+        """
+        return await tools.process_document_text(text, extraction_method, model)
+
 
 # Resources voor documentatie en voorbeelden
 @mcp.resource("mcp://document-types")

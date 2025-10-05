@@ -123,6 +123,7 @@ async def process_document_text(text: str, extraction_method: str = "hybrid", mo
                 result_dict["processing_time"] = processing_time
                 result_dict["processor"] = processor.tool_name
                 result_dict["model_used"] = model or settings.ollama.MODEL
+                result_dict["success"] = True
                 
                 return result_dict
             else:
@@ -142,7 +143,8 @@ async def process_document_text(text: str, extraction_method: str = "hybrid", mo
                     "error": "Extractie mislukt",
                     "document_type": doc_type,
                     "processing_time": processing_time,
-                    "model_used": model or settings.ollama.MODEL
+                    "model_used": model or settings.ollama.MODEL,
+                    "success": False
                 }
             
     except Exception as e:
@@ -160,7 +162,8 @@ async def process_document_text(text: str, extraction_method: str = "hybrid", mo
         return {
             "error": str(e),
             "processing_time": processing_time,
-            "model_used": model or settings.ollama.MODEL
+            "model_used": model or settings.ollama.MODEL,
+            "success": False
         }
 
 
@@ -197,7 +200,7 @@ async def process_document_file(file_path: str, extraction_method: str = "hybrid
                     text_content = extract_text_from_pdf(f.read())
             else:
                 logger.error(f"Niet ondersteund bestandstype: {file_path_obj.suffix}")
-                return {"error": f"Niet ondersteund bestandstype: {file_path_obj.suffix}", "model_used": model or settings.ollama.MODEL}
+                return {"error": f"Niet ondersteund bestandstype: {file_path_obj.suffix}", "model_used": model or settings.ollama.MODEL, "success": False}
             
             logger.info(f"Tekst gelezen: {len(text_content)} karakters")
             
@@ -206,7 +209,7 @@ async def process_document_file(file_path: str, extraction_method: str = "hybrid
         
     except Exception as e:
         logger.error(f"Fout bij bestand verwerking: {e}", exc_info=True)
-        return {"error": str(e), "model_used": model or settings.ollama.MODEL}
+        return {"error": str(e), "model_used": model or settings.ollama.MODEL, "success": False}
 
 
 async def classify_document_type(text: str) -> Dict[str, Any]:
