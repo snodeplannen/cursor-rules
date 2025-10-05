@@ -55,7 +55,7 @@ mcp = FastMCP(
     Deze MCP server biedt geavanceerde document verwerking met AI-powered extractie.
     
     🎯 Hoofdfunctionaliteit:
-    - Automatische document classificatie (CV, Factuur, etc.)
+    - Automatische document classificatie via processor registry
     - Gestructureerde data extractie met Ollama LLM
     - Uitgebreide metrics en monitoring
     - Multi-format ondersteuning (TXT, PDF)
@@ -66,6 +66,7 @@ mcp = FastMCP(
     - classify_document_type(text): Classificeer document type
     - get_metrics(): Haal server metrics op
     - health_check(): Controleer server status
+    - Processor-specifieke tools: Dynamisch gegenereerd op basis van beschikbare processors
     
     📊 Extractie Methodes:
     - "hybrid": Combinatie van JSON schema en prompt parsing (aanbevolen)
@@ -195,7 +196,7 @@ async def document_types_examples() -> str:
         docs.append(f"## {examples['emoji']} {processor.display_name}")
         docs.append(f"- **Tool naam**: `{processor.tool_name}`")
         docs.append(f"- **Trefwoorden**: {', '.join(examples['keywords'][:10])}{'...' if len(examples['keywords']) > 10 else ''}")
-        docs.append(f"- **Geëxtraheerde velden**:")
+        docs.append("- **Geëxtraheerde velden**:")
         
         for field in examples['extracted_fields']:
             docs.append(f"  - {field}")
@@ -203,12 +204,12 @@ async def document_types_examples() -> str:
         docs.append(f"- **Ondersteunde methoden**: {', '.join(examples['supported_methods'])}")
         docs.append(f"- **Ondersteunde formaten**: {', '.join(examples['supported_formats'])}")
         
-        docs.append(f"- **Voorbeeld document**:")
+        docs.append("- **Voorbeeld document**:")
         docs.append("  ```")
         docs.append(f"  {examples['example_text']}")
         docs.append("  ```")
         
-        docs.append(f"- **Voorbeeld gebruik**:")
+        docs.append("- **Voorbeeld gebruik**:")
         docs.append("  ```python")
         docs.append(f"  {examples['usage_example']}")
         docs.append("  ```")
@@ -283,88 +284,99 @@ async def server_configuration() -> str:
 # Prompts voor document verwerking instructies
 @mcp.prompt("document-processing-guide")
 async def document_processing_guide(document_type: str = "any") -> str:
-    """Gids voor document verwerking met specifieke instructies per type."""
+    """Dynamisch gegenereerde gids voor document verwerking."""
     
-    if document_type.lower() == "cv":
-        return """
-        # 👤 CV Verwerking Gids
+    # Zorg dat processors zijn geïnitialiseerd
+    _init_processors()
+    
+    registry = get_registry()
+    processors = registry.get_all_processors()
+    
+    # Als specifiek document type gevraagd wordt
+    if document_type.lower() != "any":
+        for processor in processors:
+            if processor.document_type.lower() == document_type.lower():
+                examples = processor.tool_examples
+                
+                guide = f"""
+# {examples['emoji']} {processor.display_name} Verwerking Gids
+
+## 🎯 Optimale {processor.display_name} Verwerking:
+1. **Structuur**: Zorg voor duidelijke secties en consistente formatting
+2. **Inhoud**: Include alle relevante informatie voor dit documenttype
+3. **Taal**: Ondersteunt Nederlands en Engels
+4. **Formaat**: Gebruik consistente datum- en nummerformaten
+
+## 🔧 Aanbevolen Methoden:
+- **Hybrid**: Voor de meeste {processor.document_type} documenten (combineert structuur met flexibiliteit)
+- **JSON Schema**: Voor gestructureerde documenten met vaste formaten
+- **Prompt Parsing**: Voor complexe of ongestructureerde documenten
+
+## 💡 Voorbeeld Gebruik:
+```python
+{examples['usage_example']}
+```
+
+## 📋 Geëxtraheerde Velden:
+"""
+                for field in examples['extracted_fields']:
+                    guide += f"- {field}\n"
+                
+                guide += f"""
+## 🔍 Trefwoorden voor Detectie:
+{', '.join(examples['keywords'][:15])}{'...' if len(examples['keywords']) > 15 else ''}
+
+## 📄 Voorbeeld Document:
+```
+{examples['example_text']}
+```
+"""
+                return guide
         
-        ## 🎯 Optimale CV Verwerking:
-        1. **Structuur**: Zorg voor duidelijke secties (Persoonlijke gegevens, Werkervaring, Opleiding)
-        2. **Datums**: Gebruik consistente datumformaten (DD-MM-YYYY of MM/YYYY)
-        3. **Vaardigheden**: Lijst vaardigheden duidelijk op, gescheiden door komma's
-        4. **Contact**: Include contactinformatie bovenaan het document
-        5. **Taal**: Ondersteunt Nederlands en Engels
-        
-        ## 🔧 Aanbevolen Methode:
-        - **Hybrid**: Voor de meeste CV's (combineert structuur met flexibiliteit)
-        - **Prompt Parsing**: Voor creatieve of ongestructureerde CV's
-        
-        ## 💡 Voorbeeld Gebruik:
-        ```python
-        result = await process_document_text(cv_text, "hybrid")
-        print(f"👤 Naam: {result['full_name']}")
-        print(f"📧 Email: {result['email']}")
-        print(f"💼 Ervaring: {len(result['work_experience'])} posities")
-        ```
-        """
-    elif document_type.lower() == "invoice":
-        return """
-        # 🧾 Factuur Verwerking Gids
-        
-        ## 🎯 Optimale Factuur Verwerking:
-        1. **Factuurnummer**: Zorg voor duidelijk zichtbaar factuurnummer
-        2. **Datums**: Include factuurdatum en vervaldatum
-        3. **Bedragen**: Lijst alle regels met bedragen en BTW
-        4. **BTW**: Toon BTW berekening en percentage
-        5. **Bedrijfsinfo**: Include leverancier en klant informatie
-        6. **Totaal**: Duidelijk eindtotaal inclusief BTW
-        
-        ## 🔧 Aanbevolen Methode:
-        - **JSON Schema**: Voor gestructureerde facturen (aanbevolen)
-        - **Hybrid**: Voor complexere factuurformaten
-        
-        ## 💡 Voorbeeld Gebruik:
-        ```python
-        result = await process_document_text(invoice_text, "json_schema")
-        print(f"🧾 Nummer: {result['invoice_number']}")
-        print(f"💰 Totaal: €{result['total_amount']}")
-        print(f"📅 Datum: {result['invoice_date']}")
-        ```
-        """
-    else:
-        return """
-        # 📄 Algemene Document Verwerking Gids
-        
-        ## 🎯 Ondersteunde Document Types:
-        - **👤 CV/Resume**: Persoonlijke en professionele informatie
-        - **🧾 Factuur/Invoice**: Financiële transactie documenten
-        - **📄 Algemeen**: Automatische classificatie voor onbekende types
-        
-        ## 🔄 Verwerkingsstappen:
-        1. **📊 Classificatie**: Automatische detectie van document type
-        2. **📝 Extractie**: Tekst extractie (PDF → tekst indien nodig)
-        3. **🤖 AI Verwerking**: Gestructureerde data extractie met Ollama
-        4. **✅ Validatie**: Data validatie en opschoning
-        5. **📤 Output**: Gestructureerde JSON output
-        
-        ## 🚀 Snelstart:
-        ```python
-        # Voor tekst
-        result = await process_document_text(text, "hybrid")
-        
-        # Voor bestanden  
-        result = await process_document_file("document.pdf", "hybrid")
-        
-        # Alleen classificatie
-        doc_type = await classify_document_type(text)
-        ```
-        
-        ## 💡 Tips:
-        - Start altijd met `health_check()` om Ollama connectie te verifiëren
-        - Gebruik `get_metrics()` voor performance monitoring
-        - Probeer verschillende extractie methodes voor optimale resultaten
-        """
+        # Document type niet gevonden
+        return f"❌ Document type '{document_type}' niet gevonden. Beschikbare types: {', '.join([p.document_type for p in processors])}"
+    
+    # Algemene gids voor alle document types
+    guide = """
+# 📋 Document Verwerking Gids
+
+## 🎯 Algemene Richtlijnen:
+1. **Structuur**: Zorg voor duidelijke secties en consistente formatting
+2. **Inhoud**: Include alle relevante informatie voor het documenttype
+3. **Taal**: Ondersteunt Nederlands en Engels
+4. **Formaat**: Gebruik consistente datum- en nummerformaten
+
+## 🔧 Extractie Methoden:
+- **Hybrid**: Aanbevolen voor de meeste documenten (combineert precisie met flexibiliteit)
+- **JSON Schema**: Voor gestructureerde documenten met vaste formaten
+- **Prompt Parsing**: Voor complexe of ongestructureerde documenten
+
+## 📊 Beschikbare Document Types:
+"""
+    
+    for processor in processors:
+        examples = processor.tool_examples
+        guide += f"\n### {examples['emoji']} {processor.display_name}\n"
+        guide += f"- **Tool**: `{processor.tool_name}`\n"
+        guide += f"- **Trefwoorden**: {', '.join(examples['keywords'][:8])}{'...' if len(examples['keywords']) > 8 else ''}\n"
+        guide += f"- **Velden**: {len(examples['extracted_fields'])} geëxtraheerde velden\n"
+    
+    guide += """
+## 💡 Algemene Tools:
+- `process_document_text` - Automatische document type detectie
+- `process_document_file` - Verwerk bestanden (PDF, TXT)
+- `classify_document_type` - Alleen classificatie zonder extractie
+- `get_metrics` - Systeem statistieken
+- `health_check` - Service health status
+
+## 🚀 Gebruik Tips:
+1. Gebruik `hybrid` methode voor beste resultaten
+2. Voor grote documenten wordt automatisch chunking toegepast
+3. Alle tools ondersteunen optionele model parameter voor Ollama model selectie
+4. Document type wordt automatisch gedetecteerd op basis van keywords
+"""
+    
+    return guide
 
 @mcp.prompt("troubleshooting-guide") 
 async def troubleshooting_guide(issue_type: str = "general") -> str:
@@ -442,7 +454,7 @@ def run_server():
     """Start de FastMCP server."""
     try:
         # Configureer MCP server logging
-        logger.info("🚀 Starting MCP Invoice Processor Server...")
+        logger.info("🚀 Starting MCP Document Processor Server...")
         logger.info(f"📊 Ollama host: {settings.ollama.HOST}")
         logger.info(f"🤖 Ollama model: {settings.ollama.MODEL}")
         
@@ -486,7 +498,7 @@ if __name__ == "__main__":
         print("Usage: mcp-server [--help]")
         print("")
         print("This server runs in STDIO transport mode for MCP communication.")
-        print("It provides document processing tools for CV and Invoice extraction.")
+        print("It provides document processing tools with dynamic processor support.")
         print("")
         print("Available tools:")
         print("  - process_document_text: Process document text")
@@ -494,6 +506,7 @@ if __name__ == "__main__":
         print("  - classify_document_type: Classify document type")
         print("  - get_metrics: Get server metrics")
         print("  - health_check: Check server health")
+        print("  - Processor-specific tools: Dynamically generated based on available processors")
         sys.exit(0)
     
     run_server()
