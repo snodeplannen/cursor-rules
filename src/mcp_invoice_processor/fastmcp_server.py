@@ -131,7 +131,7 @@ def register_processor_tools():
     
     for processor in processors:
         # Maak een dynamische tool functie voor deze processor
-        async def create_processor_tool(proc):
+        def create_processor_tool(proc):
             async def processor_tool(text: str, extraction_method: str = "hybrid", model: str | None = None) -> dict[str, any]:
                 """
                 {proc.display_name} document processor.
@@ -166,8 +166,7 @@ def register_processor_tools():
         metadata = processor.tool_metadata
         mcp.tool(
             name=metadata["name"],
-            description=metadata["description"],
-            annotations=metadata["annotations"]
+            description=metadata["description"]
         )(tool_func)
         
         logger.info(f"✅ Geregistreerd: {processor.tool_name} - {processor.display_name}")

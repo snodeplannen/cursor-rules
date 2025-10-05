@@ -101,7 +101,7 @@ async def test_document_processing() -> None:
         
         for test_name, test_text in test_texts:
             try:
-                doc_type, confidence, processor = await registry.classify_document(test_text, None)
+                doc_type, confidence, processor = await registry.classify_document(test_text)
                 logger.info(f"{test_name}: {doc_type} ({confidence:.1f}% confidence)")
                 
                 # Valideer classificatie resultaat

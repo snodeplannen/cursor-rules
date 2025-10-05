@@ -91,7 +91,7 @@ async def test_amazon_invoice() -> None:
         registry = get_registry()
         ctx = MockContext()
         
-        doc_type, confidence, processor = await registry.classify_document(text, ctx)
+        doc_type, confidence, processor = await registry.classify_document(text)
         print(f"   Gedetecteerd type: {doc_type}")
         print(f"   Confidence: {confidence:.1f}%")
         print(f"   Processor: {processor.tool_name if processor else 'None'}")
@@ -100,7 +100,7 @@ async def test_amazon_invoice() -> None:
         print("\n4. Gestructureerde Data Extractie (v2.0):")
         
         if processor:
-            result = await processor.extract(text, ctx, method="hybrid")
+            result = await processor.extract(text, method="hybrid")
             
             if result:
                 print("   ✅ Extractie succesvol!")
@@ -121,7 +121,7 @@ async def test_amazon_invoice() -> None:
                         print(f"     ... en {len(result.line_items) - 5} meer items")
                 
                 # Validatie
-                is_valid, completeness, issues = await processor.validate_extracted_data(result, ctx)
+                is_valid, completeness, issues = await processor.validate_extracted_data(result)
                 print("\n   Validatie:")
                 print(f"   - Valid: {is_valid}")
                 print(f"   - Completeness: {completeness:.1f}%")
@@ -129,7 +129,7 @@ async def test_amazon_invoice() -> None:
                     print(f"   - Issues: {', '.join(issues)}")
                 
                 # Custom metrics
-                metrics = await processor.get_custom_metrics(result, ctx)
+                metrics = await processor.get_custom_metrics(result)
                 print("\n   Metrics:")
                 for key, value in metrics.items():
                     print(f"   - {key}: {value}")

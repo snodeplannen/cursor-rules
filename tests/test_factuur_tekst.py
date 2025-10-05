@@ -58,7 +58,7 @@ async def test_factuur_tekst():
         registry = get_registry()
         ctx = MockContext()
         
-        doc_type, confidence, processor = await registry.classify_document(test_text, ctx)
+        doc_type, confidence, processor = await registry.classify_document(test_text)
         print(f"✅ Document type: {doc_type}")
         print(f"✅ Confidence: {confidence:.1f}%")
         print(f"✅ Processor: {processor.tool_name if processor else 'None'}")
@@ -66,7 +66,7 @@ async def test_factuur_tekst():
         # 2. AI-gebaseerde data extractie
         if processor:
             print("\n🤖 Starten AI-gebaseerde data extractie...")
-            result = await processor.extract(test_text, ctx, method="hybrid")
+            result = await processor.extract(test_text, method="hybrid")
             
             if result:
                 # Type narrowing voor mypy
@@ -97,7 +97,7 @@ async def test_factuur_tekst():
                     print(f"  BTW bedrag: €{item.vat_amount}")
                 
                 # Validatie
-                is_valid, completeness, issues = await processor.validate_extracted_data(result, ctx)
+                is_valid, completeness, issues = await processor.validate_extracted_data(result)
                 print("\n=== VALIDATIE ===")
                 print(f"✅ Valid: {is_valid}")
                 print(f"📊 Completeness: {completeness:.1f}%")
