@@ -257,8 +257,8 @@ class CVProcessor(BaseDocumentProcessor):
                     messages=[{"role": "user", "content": prompt}],
                     options={
                         "temperature": 0.1,
-                        "num_predict": 2048,
-                        "stop": ["```", "```json", "```\n", "\n\n\n"]
+                        "num_predict": 2048
+                        # Geen stop parameters voor prompt_parsing - laat LLM zelf bepalen wanneer te stoppen
                     }
                 )
             
