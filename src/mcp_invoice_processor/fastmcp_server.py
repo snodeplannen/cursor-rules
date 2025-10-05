@@ -132,7 +132,7 @@ def register_processor_tools():
     for processor in processors:
         # Maak een dynamische tool functie voor deze processor
         async def create_processor_tool(proc):
-            async def processor_tool(text: str, extraction_method: str = "hybrid", model: str | None = None) -> Dict[str, Any]:
+            async def processor_tool(text: str, extraction_method: str = "hybrid", model: str | None = None) -> dict[str, any]:
                 """
                 {proc.display_name} document processor.
                 
