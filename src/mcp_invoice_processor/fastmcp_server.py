@@ -116,50 +116,64 @@ mcp.tool()(tools.classify_document_type)
 mcp.tool()(tools.get_metrics)
 mcp.tool()(tools.health_check)
 
-# Registreer processor-specifieke tools
+# Registreer processor-specifieke tools dynamisch
 from .processors import get_registry
+from .tools import _init_processors  # Zorg dat processors zijn geregistreerd
 
-# Maak specifieke tools voor elke processor
-registry = get_registry()
-processors = registry.get_all_processors()
+def register_processor_tools():
+    """Registreer dynamisch tools voor alle beschikbare processors."""
+    # Zorg dat processors zijn geïnitialiseerd
+    _init_processors()
+    
+    registry = get_registry()
+    processors = registry.get_all_processors()
+    
+    for processor in processors:
+        # Maak een dynamische tool functie voor deze processor
+        async def create_processor_tool(proc):
+            async def processor_tool(text: str, extraction_method: str = "hybrid", model: str | None = None) -> Dict[str, Any]:
+                """
+                {proc.display_name} document processor.
+                
+                {proc.tool_description}
+                
+                Args:
+                    text: Document tekst om te verwerken
+                    extraction_method: Extractie methode ("hybrid", "json_schema", "prompt_parsing")
+                    model: Ollama model naam (optioneel)
+                
+                Returns:
+                    Dict met geëxtraheerde {proc.document_type} data
+                """
+                return await tools.process_document_text(text, extraction_method, model)
+            
+            # Update functie metadata voor FastMCP
+            processor_tool.__name__ = proc.tool_name
+            processor_tool.__doc__ = processor_tool.__doc__.format(
+                proc=proc,
+                proc_display_name=proc.display_name,
+                proc_tool_description=proc.tool_description,
+                proc_document_type=proc.document_type
+            )
+            
+            return processor_tool
+        
+        # Registreer de tool met metadata
+        tool_func = create_processor_tool(processor)
+        
+        # Gebruik processor metadata voor FastMCP registratie
+        metadata = processor.tool_metadata
+        mcp.tool(
+            name=metadata["name"],
+            description=metadata["description"],
+            annotations=metadata["annotations"]
+        )(tool_func)
+        
+        logger.info(f"✅ Geregistreerd: {processor.tool_name} - {processor.display_name}")
+        logger.debug(f"   Metadata: {metadata}")
 
-# Invoice processor tool
-if any(p.document_type == "invoice" for p in processors):
-    @mcp.tool()
-    async def process_invoice(text: str, extraction_method: str = "hybrid", model: str | None = None) -> Dict[str, Any]:
-        """
-        Factuur document processor.
-        
-        Verwerk facturen en extraheer gestructureerde data zoals factuurnummer, bedrijfsinformatie, bedragen, BTW, etc.
-        
-        Args:
-            text: Factuur tekst om te verwerken
-            extraction_method: Extractie methode ("hybrid", "json_schema", "prompt_parsing")
-            model: Ollama model naam (optioneel)
-        
-        Returns:
-            Dict met geëxtraheerde factuur data
-        """
-        return await tools.process_document_text(text, extraction_method, model)
-
-# CV processor tool
-if any(p.document_type == "cv" for p in processors):
-    @mcp.tool()
-    async def process_cv(text: str, extraction_method: str = "hybrid", model: str | None = None) -> Dict[str, Any]:
-        """
-        Curriculum Vitae document processor.
-        
-        Verwerk CV's en extraheer gestructureerde data zoals persoonlijke gegevens, werkervaring, opleiding, vaardigheden, etc.
-        
-        Args:
-            text: CV tekst om te verwerken
-            extraction_method: Extractie methode ("hybrid", "json_schema", "prompt_parsing")
-            model: Ollama model naam (optioneel)
-        
-        Returns:
-            Dict met geëxtraheerde CV data
-        """
-        return await tools.process_document_text(text, extraction_method, model)
+# Registreer alle processor tools
+register_processor_tools()
 
 
 # Resources voor documentatie en voorbeelden
